@@ -28,34 +28,26 @@ export function AppSidebar() {
   const [currentActivePath, setCurrentActivePath] = useState<string | null>(null);
   const { state: sidebarState } = useSidebar();
   
-  // isSidebarCollapsed will be `false` on initial server & client render due to defaultOpen={true} in SidebarProvider
-  // It's updated via useEffect based on sidebarState.
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    setHydrated(true); // Component has hydrated on the client
+    setHydrated(true); 
   }, []);
 
   useEffect(() => {
-    // This effect runs only on the client, after initial hydration
     setCurrentActivePath(pathname);
-  }, [pathname]);
+  }, [pathname, hydrated]); // Ensure pathname logic runs after hydration too
 
   useEffect(() => {
-    // This effect runs only on the client, after initial hydration and when sidebarState changes
     setIsSidebarCollapsed(sidebarState === 'collapsed');
-  }, [sidebarState]);
+  }, [sidebarState, hydrated]); // Ensure sidebar state logic runs after hydration
 
-  // Determine logo text:
-  // - For SSR and initial client render (before hydration), always "OmniDeck".
-  // - Post-hydration, it becomes dynamic based on isSidebarCollapsed.
   const logoText = hydrated ? (isSidebarCollapsed ? "OD" : "OmniDeck") : "OmniDeck";
 
   return (
     <Sidebar collapsible="icon" variant="sidebar" className="border-r">
       <SidebarHeader className="p-4 flex justify-center group-data-[collapsible=icon]:py-4 group-data-[collapsible=icon]:px-2">
-        {/* Link classes are static. Text content is "OmniDeck" for SSR and initial CSR. */}
         <Link href="/dashboard" className="flex items-center gap-2 text-2xl font-bold text-sidebar-foreground">
           {logoText}
         </Link>
@@ -64,7 +56,8 @@ export function AppSidebar() {
         <SidebarMenu>
           {navItems.map((item) => {
             // currentActivePath is null on server & initial client, so isActive is false
-            const isActive = currentActivePath
+            // It updates after hydration via useEffect
+            const isActive = hydrated && currentActivePath
               ? currentActivePath === item.href ||
                 (item.href === "/dashboard" && currentActivePath === "/") ||
                 (item.href !== "/dashboard" && currentActivePath.startsWith(item.href))
