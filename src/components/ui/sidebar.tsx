@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -277,10 +278,7 @@ const SidebarTrigger = React.forwardRef<
         toggleSidebar()
       }}
       {...props}
-    >
-      <PanelLeft />
-      <span className="sr-only">Toggle Sidebar</span>
-    </Button>
+    >{/* Ensure no leading/trailing whitespace for children */}<PanelLeft /><span className="sr-only">Toggle Sidebar</span></Button>
   )
 })
 SidebarTrigger.displayName = "SidebarTrigger"
@@ -761,3 +759,5 @@ export {
   SidebarTrigger,
   useSidebar,
 }
+
+    
