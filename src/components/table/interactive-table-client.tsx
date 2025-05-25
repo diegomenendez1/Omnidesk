@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Card, CardContent } from '@/components/ui/card'; // Added Card and CardContent
+import { Card, CardContent } from '@/components/ui/card';
 import { DataValidationReport } from './data-validation-report';
 import type { ValidateDataConsistencyOutput } from '@/types';
 import { ScanSearch, Edit3, Trash2, PlusCircle, Save, XCircle } from 'lucide-react';
@@ -128,9 +128,9 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-semibold">Tasks Overview</h2>
-        <div className="flex gap-2">
+      <div className="flex justify-between items-center flex-wrap gap-x-4 gap-y-2">
+        <h2 className="text-2xl font-semibold truncate min-w-0">Tasks Overview</h2>
+        <div className="flex gap-2 flex-shrink-0">
           <Button onClick={handleAddNew} variant="outline">
             <PlusCircle className="mr-2 h-4 w-4" /> Add New Task
           </Button>
@@ -267,3 +267,5 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     </div>
   );
 }
+
+    
