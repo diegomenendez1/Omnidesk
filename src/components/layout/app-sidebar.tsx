@@ -26,11 +26,10 @@ const navItems = [
 interface AppLogoProps {
   collapsed: boolean;
 }
-const AppLogo = ({ collapsed }: AppLogoProps) => (
-  <span className="text-2xl font-bold text-sidebar-foreground">
-    {collapsed ? 'OD' : 'OmniDeck'}
-  </span>
-);
+// AppLogo now returns a raw string
+const AppLogo = ({ collapsed }: AppLogoProps) => {
+  return collapsed ? 'OD' : 'OmniDeck';
+};
 
 export function AppSidebar() {
   const pathname = usePathname();
@@ -46,7 +45,10 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon" variant="sidebar" className="border-r">
       <SidebarHeader className="p-4 flex justify-center group-data-[collapsible=icon]:py-4 group-data-[collapsible=icon]:px-2">
-        <Link href="/dashboard" className="flex items-center gap-2">
+        <Link
+          href="/dashboard"
+          className="text-2xl font-bold text-sidebar-foreground flex items-center gap-2" // Combined classes
+        >
           <AppLogo collapsed={isSidebarCollapsed} />
         </Link>
       </SidebarHeader>
@@ -92,3 +94,4 @@ export function AppSidebar() {
     </Sidebar>
   );
 }
+
