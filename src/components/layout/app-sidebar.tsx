@@ -12,28 +12,23 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarFooter,
+  useSidebar, // Import useSidebar
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useState, useEffect } from 'react';
-import { useSidebar } from "@/components/ui/sidebar"; // Import useSidebar
 
-// Nav items remain the same
+// Nav items
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/table", label: "Interactive Table", icon: Table2 },
 ];
 
-// AppLogo component refactored to accept a 'collapsed' prop
 interface AppLogoProps {
   collapsed: boolean;
 }
 const AppLogo = ({ collapsed }: AppLogoProps) => (
   <span className="text-2xl font-bold text-sidebar-foreground">
-    {collapsed ? (
-      <span key="od-logo">OD</span>
-    ) : (
-      <span key="omnideck-logo">OmniDeck</span>
-    )}
+    {collapsed ? "OD" : "OmniDeck"}
   </span>
 );
 
@@ -43,6 +38,7 @@ export function AppSidebar() {
   const { state: sidebarState } = useSidebar(); // Get sidebar state (expanded/collapsed)
 
   useEffect(() => {
+    // This effect runs only on the client, after initial hydration
     setCurrentActivePath(pathname);
   }, [pathname]);
 
@@ -58,11 +54,12 @@ export function AppSidebar() {
       <SidebarContent className="p-2">
         <SidebarMenu>
           {navItems.map((item) => {
+            // Defer isActive calculation until currentActivePath is set on client
             const isActive = currentActivePath
               ? currentActivePath === item.href ||
-                (item.href === "/dashboard" && currentActivePath === "/") ||
+                (item.href === "/dashboard" && currentActivePath === "/") || // Handle root path for dashboard
                 (item.href !== "/dashboard" && currentActivePath.startsWith(item.href))
-              : false;
+              : false; // Default to false for server render and initial client render
 
             return (
               <SidebarMenuItem key={item.href}>
