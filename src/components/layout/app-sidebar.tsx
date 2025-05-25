@@ -23,10 +23,10 @@ const navItems = [
 
 // Logo component to ensure clean rendering as a child of Link
 const AppLogo = () => (
-  <>
-    <span className="text-2xl font-bold text-sidebar-foreground group-data-[collapsible=icon]:hidden">OmniDeck</span>
-    <span className="text-2xl font-bold text-sidebar-foreground hidden group-data-[collapsible=icon]:block">OD</span>
-  </>
+  <span className="text-2xl font-bold text-sidebar-foreground">
+    <span className="group-data-[collapsible=icon]:hidden">OmniDeck</span>
+    <span className="hidden group-data-[collapsible=icon]:block">OD</span>
+  </span>
 );
 
 export function AppSidebar() {
@@ -91,4 +91,3 @@ export function AppSidebar() {
     </Sidebar>
   );
 }
-

@@ -19,7 +19,7 @@ import { useState, useEffect } from 'react';
 
 function getPageTitle(pathname: string | null): string {
   if (!pathname) return "OmniDeck"; // Default if pathname is not yet available
-  if (pathname.startsWith("/dashboard")) return "Dashboard";
+  if (pathname === "/" || pathname.startsWith("/dashboard")) return "Dashboard";
   if (pathname.startsWith("/table")) return "Interactive Table";
   return "OmniDeck";
 }
