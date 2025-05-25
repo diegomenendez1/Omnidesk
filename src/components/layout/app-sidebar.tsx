@@ -26,15 +26,23 @@ const navItems = [
 interface AppLogoProps {
   collapsed: boolean;
 }
-// AppLogo now returns a raw string
+
+// AppLogo now renders a span with consistent styling, text changes based on 'collapsed' prop.
+// This structure should match what the client hydration expects.
 const AppLogo = ({ collapsed }: AppLogoProps) => {
-  return collapsed ? 'OD' : 'OmniDeck';
+  const text = collapsed ? 'OD' : 'OmniDeck';
+  return (
+    <span className="text-2xl font-bold text-sidebar-foreground">
+      {text}
+    </span>
+  );
 };
 
 export function AppSidebar() {
   const pathname = usePathname();
   const [currentActivePath, setCurrentActivePath] = useState<string | null>(null);
   const { state: sidebarState } = useSidebar(); 
+  // isSidebarCollapsed will be `false` on initial server & client render due to defaultOpen={true} in SidebarProvider
   const isSidebarCollapsed = sidebarState === 'collapsed';
 
   useEffect(() => {
@@ -47,7 +55,8 @@ export function AppSidebar() {
       <SidebarHeader className="p-4 flex justify-center group-data-[collapsible=icon]:py-4 group-data-[collapsible=icon]:px-2">
         <Link
           href="/dashboard"
-          className="text-2xl font-bold text-sidebar-foreground flex items-center gap-2" // Combined classes
+          // Classes for the <a> tag. Removed conditional group-data classes to ensure consistency.
+          className="flex items-center gap-2" 
         >
           <AppLogo collapsed={isSidebarCollapsed} />
         </Link>
@@ -94,4 +103,3 @@ export function AppSidebar() {
     </Sidebar>
   );
 }
-
