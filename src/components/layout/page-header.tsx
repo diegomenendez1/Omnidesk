@@ -1,3 +1,4 @@
+
 "use client";
 
 import { usePathname } from "next/navigation";
@@ -14,8 +15,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useState, useEffect } from 'react';
 
-function getPageTitle(pathname: string): string {
+function getPageTitle(pathname: string | null): string {
+  if (!pathname) return "OmniDeck"; // Default if pathname is not yet available
   if (pathname.startsWith("/dashboard")) return "Dashboard";
   if (pathname.startsWith("/table")) return "Interactive Table";
   return "OmniDeck";
@@ -23,7 +26,12 @@ function getPageTitle(pathname: string): string {
 
 export function PageHeader() {
   const pathname = usePathname();
-  const title = getPageTitle(pathname);
+  const [title, setTitle] = useState<string>("OmniDeck"); // Initialize with default
+
+  useEffect(() => {
+    // This effect runs only on the client, after initial hydration
+    setTitle(getPageTitle(pathname));
+  }, [pathname]);
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-6 shadow-sm">
