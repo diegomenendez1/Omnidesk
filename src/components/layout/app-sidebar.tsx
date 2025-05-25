@@ -15,48 +15,54 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useState, useEffect } from 'react';
+import { useSidebar } from "@/components/ui/sidebar"; // Import useSidebar
 
+// Nav items remain the same
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/table", label: "Interactive Table", icon: Table2 },
 ];
 
-// Logo component to ensure clean rendering as a child of Link
-const AppLogo = () => (
+// AppLogo component refactored to accept a 'collapsed' prop
+interface AppLogoProps {
+  collapsed: boolean;
+}
+const AppLogo = ({ collapsed }: AppLogoProps) => (
   <span className="text-2xl font-bold text-sidebar-foreground">
-    <span className="group-data-[collapsible=icon]:hidden">OmniDeck</span>
-    <span className="hidden group-data-[collapsible=icon]:block">OD</span>
+    {collapsed ? (
+      <span key="od-logo">OD</span>
+    ) : (
+      <span key="omnideck-logo">OmniDeck</span>
+    )}
   </span>
 );
 
 export function AppSidebar() {
   const pathname = usePathname();
-  // Initialize currentActivePath to null. Server will render with this,
-  // and client will initially render with this before useEffect updates it.
   const [currentActivePath, setCurrentActivePath] = useState<string | null>(null);
+  const { state: sidebarState } = useSidebar(); // Get sidebar state (expanded/collapsed)
 
   useEffect(() => {
-    // This effect runs only on the client, after initial hydration
     setCurrentActivePath(pathname);
-  }, [pathname]); // Re-run if pathname changes (client-side navigation)
+  }, [pathname]);
+
+  const isSidebarCollapsed = sidebarState === 'collapsed';
 
   return (
     <Sidebar collapsible="icon" variant="sidebar" className="border-r">
       <SidebarHeader className="p-4 flex justify-center group-data-[collapsible=icon]:py-4 group-data-[collapsible=icon]:px-2">
         <Link href="/dashboard" className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
-          <AppLogo />
+          <AppLogo collapsed={isSidebarCollapsed} />
         </Link>
       </SidebarHeader>
       <SidebarContent className="p-2">
         <SidebarMenu>
           {navItems.map((item) => {
-            // isActive will be false on server and initial client render because currentActivePath is null.
-            // It will be updated correctly on the client after useEffect sets currentActivePath.
             const isActive = currentActivePath
               ? currentActivePath === item.href ||
-                (item.href === "/dashboard" && currentActivePath === "/") || 
+                (item.href === "/dashboard" && currentActivePath === "/") ||
                 (item.href !== "/dashboard" && currentActivePath.startsWith(item.href))
-              : false; 
+              : false;
 
             return (
               <SidebarMenuItem key={item.href}>
