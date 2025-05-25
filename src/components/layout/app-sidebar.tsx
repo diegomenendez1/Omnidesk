@@ -12,7 +12,7 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarFooter,
-  useSidebar, // Import useSidebar
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useState, useEffect } from 'react';
@@ -28,38 +28,36 @@ interface AppLogoProps {
 }
 const AppLogo = ({ collapsed }: AppLogoProps) => (
   <span className="text-2xl font-bold text-sidebar-foreground">
-    {collapsed ? "OD" : "OmniDeck"}
+    {collapsed ? 'OD' : 'OmniDeck'}
   </span>
 );
 
 export function AppSidebar() {
   const pathname = usePathname();
   const [currentActivePath, setCurrentActivePath] = useState<string | null>(null);
-  const { state: sidebarState } = useSidebar(); // Get sidebar state (expanded/collapsed)
+  const { state: sidebarState } = useSidebar(); 
+  const isSidebarCollapsed = sidebarState === 'collapsed';
 
   useEffect(() => {
     // This effect runs only on the client, after initial hydration
     setCurrentActivePath(pathname);
   }, [pathname]);
 
-  const isSidebarCollapsed = sidebarState === 'collapsed';
-
   return (
     <Sidebar collapsible="icon" variant="sidebar" className="border-r">
       <SidebarHeader className="p-4 flex justify-center group-data-[collapsible=icon]:py-4 group-data-[collapsible=icon]:px-2">
-        <Link href="/dashboard" className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
+        <Link href="/dashboard" className="flex items-center gap-2">
           <AppLogo collapsed={isSidebarCollapsed} />
         </Link>
       </SidebarHeader>
       <SidebarContent className="p-2">
         <SidebarMenu>
           {navItems.map((item) => {
-            // Defer isActive calculation until currentActivePath is set on client
             const isActive = currentActivePath
               ? currentActivePath === item.href ||
-                (item.href === "/dashboard" && currentActivePath === "/") || // Handle root path for dashboard
+                (item.href === "/dashboard" && currentActivePath === "/") || 
                 (item.href !== "/dashboard" && currentActivePath.startsWith(item.href))
-              : false; // Default to false for server render and initial client render
+              : false; 
 
             return (
               <SidebarMenuItem key={item.href}>
