@@ -37,12 +37,12 @@ body {
     /* Sidebar specific theme */
     --sidebar-background: 231 40% 28%; /* Darker shade of primary/deep blue */
     --sidebar-foreground: 0 0% 95%; /* Light text for dark sidebar */
-    --sidebar-primary: 260 38% 65%; /* Lighter Violet for active/highlighted items */
+    --sidebar-primary: 231 48% 60%; /* Lighter Blue for active/highlighted items */
     --sidebar-primary-foreground: 0 0% 98%;
     --sidebar-accent: 231 40% 38%; /* Hover color for sidebar items - slightly lighter than bg */
     --sidebar-accent-foreground: 0 0% 98%;
     --sidebar-border: 231 40% 23%; /* Border color for sidebar elements */
-    --sidebar-ring: 260 38% 55%; /* Accent violet for ring */
+    --sidebar-ring: 231 48% 55%; /* Primary blue for ring, matching general theme accent */
   }
 
   .dark {
@@ -75,12 +75,12 @@ body {
 
     --sidebar-background: 231 20% 12%; /* Very dark blue/gray */
     --sidebar-foreground: 0 0% 95%;
-    --sidebar-primary: 260 38% 65%;
+    --sidebar-primary: 231 48% 60%; /* Lighter Blue for active/highlighted items in dark mode */
     --sidebar-primary-foreground: 0 0% 98%;
     --sidebar-accent: 231 20% 20%;
     --sidebar-accent-foreground: 0 0% 98%;
     --sidebar-border: 231 20% 10%;
-    --sidebar-ring: 260 38% 55%;
+    --sidebar-ring: 231 48% 55%;
   }
 }
 

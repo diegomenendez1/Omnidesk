@@ -18,7 +18,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 function getPageTitle(pathname: string): string {
   if (pathname.startsWith("/dashboard")) return "Dashboard";
   if (pathname.startsWith("/table")) return "Interactive Table";
-  return "TeamSight";
+  return "OmniDeck";
 }
 
 export function PageHeader() {
@@ -50,7 +50,7 @@ export function PageHeader() {
             <Button variant="ghost" size="icon" className="rounded-full">
               <Avatar className="h-9 w-9">
                 <AvatarImage src="https://placehold.co/100x100.png" alt="User Avatar" data-ai-hint="user avatar" />
-                <AvatarFallback>TS</AvatarFallback>
+                <AvatarFallback>OD</AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>

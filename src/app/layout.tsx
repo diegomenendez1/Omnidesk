@@ -18,8 +18,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'TeamSight - Your Team Workspace',
-  description: 'Efficiently manage your team projects and data with TeamSight.',
+  title: 'OmniDeck - Your Team Workspace',
+  description: 'Efficiently manage your team projects and data with OmniDeck.',
 };
 
 export default function RootLayout({
