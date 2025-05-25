@@ -12,14 +12,14 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
-export const SystemColumnDefinitionSchema = z.object({
+const SystemColumnDefinitionSchema = z.object({
   name: z.string().describe('The internal name of the system column (e.g., "dueDate").'),
   description: z.string().describe('A user-friendly description of what this system column represents (e.g., "Due date for the task in YYYY-MM-DD format").'),
   required: z.boolean().optional().describe('Whether this system column is required for creating a valid record.')
 });
 export type SystemColumnDefinition = z.infer<typeof SystemColumnDefinitionSchema>;
 
-export const SuggestCsvMappingInputSchema = z.object({
+const SuggestCsvMappingInputSchema = z.object({
   csvHeaders: z.array(z.string()).describe('An array of header names extracted from the uploaded CSV file.'),
   systemColumns: z.array(SystemColumnDefinitionSchema).describe('An array of available system columns to map to, including their names and descriptions.'),
 });
@@ -30,9 +30,9 @@ const SuggestedMappingSchema = z.object({
   systemColumn: z.string().nullable().describe('The name of the system column it is suggested to map to. Null if no suitable mapping is found or if it should be ignored.'),
   confidence: z.number().optional().describe('A confidence score (0-1) for the suggestion, if available.'),
 });
-export type SuggestedMapping = z.infer<typeof SuggestedMappingSchema>;
+type SuggestedMapping = z.infer<typeof SuggestedMappingSchema>;
 
-export const SuggestCsvMappingOutputSchema = z.object({
+const SuggestCsvMappingOutputSchema = z.object({
   suggestedMappings: z.array(SuggestedMappingSchema).describe('An array of suggested mappings for each CSV column.'),
   unmappedCsvColumns: z.array(z.string()).optional().describe('CSV columns for which no mapping suggestion could be made.'),
 });
@@ -92,24 +92,27 @@ const suggestCsvMappingsFlow = ai.defineFlow(
     }
     // Ensure all CSV headers are present in the output, even if unmapped by the AI
     const finalMappings: SuggestedMapping[] = [];
-    const mappedByAI = new Set(output.suggestedMappings.map(m => m.csvColumn));
+    // const mappedByAI = new Set(output.suggestedMappings.map(m => m.csvColumn)); // Not strictly needed with the loop below
 
     for (const csvHeader of input.csvHeaders) {
         const aiMapping = output.suggestedMappings.find(m => m.csvColumn === csvHeader);
         if (aiMapping) {
             finalMappings.push(aiMapping);
         } else {
+            // If AI didn't provide a mapping for a header, add it as unmapped
             finalMappings.push({ csvColumn: csvHeader, systemColumn: null, confidence: 0 });
         }
     }
     output.suggestedMappings = finalMappings;
     
     // Ensure unmappedCsvColumns is populated correctly
-    const unmapped = input.csvHeaders.filter(header => 
-        !output.suggestedMappings.find(m => m.csvColumn === header && m.systemColumn !== null)
-    );
+    // An unmapped column is one for which systemColumn is null in the final mappings
+    const unmapped = finalMappings
+        .filter(m => m.systemColumn === null)
+        .map(m => m.csvColumn);
     output.unmappedCsvColumns = unmapped;
 
     return output;
   }
 );
+
