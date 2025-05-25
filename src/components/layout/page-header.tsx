@@ -18,24 +18,32 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useState, useEffect } from 'react';
 
 function getPageTitle(pathname: string | null): string {
-  if (!pathname) return "OmniDeck"; 
+  if (!pathname) return "OmniDeck";
   if (pathname === "/" || pathname.startsWith("/dashboard")) return "Dashboard";
   if (pathname.startsWith("/table")) return "Interactive Table";
+  if (pathname.startsWith("/upload-data")) return "Cargar Datos";
   return "OmniDeck";
 }
 
 export function PageHeader() {
   const pathname = usePathname();
-  const [title, setTitle] = useState<string>("OmniDeck"); 
+  const [title, setTitle] = useState<string>("OmniDeck");
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    setTitle(getPageTitle(pathname));
-  }, [pathname]);
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (hydrated) {
+      setTitle(getPageTitle(pathname));
+    }
+  }, [pathname, hydrated]);
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-6 shadow-sm min-w-0"> {/* Added min-w-0 */}
       <div className="flex items-center gap-2 flex-shrink min-w-0"> {/* Added flex-shrink and min-w-0 */}
-        <SidebarTrigger className="md:hidden" />
+        <SidebarTrigger /> {/* Eliminada la clase md:hidden */}
         <h1 className="text-xl font-semibold text-foreground truncate"> {/* Added truncate */}
           {title}
         </h1>
