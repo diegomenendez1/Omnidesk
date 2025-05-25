@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useTransition, type ChangeEvent, useEffect } from 'react';
@@ -8,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Card, CardContent } from '@/components/ui/card'; // Added Card and CardContent
 import { DataValidationReport } from './data-validation-report';
 import type { ValidateDataConsistencyOutput } from '@/types';
 import { ScanSearch, Edit3, Trash2, PlusCircle, Save, XCircle } from 'lucide-react';
