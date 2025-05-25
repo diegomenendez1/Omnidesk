@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google'; // Using Inter as a clean sans-serif font
+// import { Inter } from 'next/font/google'; // Using Inter as a clean sans-serif font
 import './globals.css';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/app-sidebar';
@@ -28,10 +28,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+    <html lang="en" suppressHydrationWarning className="h-full">
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased h-full`}>
         <SidebarProvider defaultOpen={true}>
-          <div className="flex h-screen overflow-hidden">
+          <div className="flex h-full overflow-hidden">
             <AppSidebar />
             <MainContentArea>
               {children}
