@@ -17,8 +17,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 
 const navItems = [
-  { href: "/table", label: "Interactive Table", icon: Table2 },
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/table", label: "Interactive Table", icon: Table2 },
 ];
 
 export function AppSidebar() {
