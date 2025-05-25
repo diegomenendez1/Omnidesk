@@ -33,17 +33,16 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon" variant="sidebar" className="border-r">
       <SidebarHeader className="p-4 flex justify-center group-data-[collapsible=icon]:py-4 group-data-[collapsible=icon]:px-2">
-        <Link href="/dashboard" className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center"><span className="text-2xl font-bold text-sidebar-foreground group-data-[collapsible=icon]:hidden">OmniDeck</span><span className="text-2xl font-bold text-sidebar-foreground group-data-[collapsible=icon]:block hidden">OD</span></Link>
+        <Link href="/dashboard" className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center"><span className="text-2xl font-bold text-sidebar-foreground"><span className="group-data-[collapsible=icon]:hidden">OmniDeck</span><span className="hidden group-data-[collapsible=icon]:block">OD</span></span></Link>
       </SidebarHeader>
       <SidebarContent className="p-2">
         <SidebarMenu>
           {navItems.map((item) => {
-            // Determine active state based on currentActivePath, which is null on server/initial client render
             const isActive = currentActivePath
               ? currentActivePath === item.href ||
-                (item.href === "/dashboard" && currentActivePath === "/") ||
+                (item.href === "/dashboard" && currentActivePath === "/") || 
                 (item.href !== "/dashboard" && currentActivePath.startsWith(item.href))
-              : false;
+              : false; 
 
             return (
               <SidebarMenuItem key={item.href}>
