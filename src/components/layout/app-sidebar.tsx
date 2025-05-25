@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Table2 } from "lucide-react";
+import { LayoutDashboard, Table2, UploadCloud } from "lucide-react";
 import {
   Sidebar,
   SidebarHeader,
@@ -17,10 +17,10 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useState, useEffect } from 'react';
 
-// Nav items
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/table", label: "Interactive Table", icon: Table2 },
+  { href: "/upload-data", label: "Cargar Datos", icon: UploadCloud },
 ];
 
 export function AppSidebar() {
@@ -36,13 +36,17 @@ export function AppSidebar() {
   }, []);
 
   useEffect(() => {
-    setCurrentActivePath(pathname);
-  }, [pathname, hydrated]); // Ensure pathname logic runs after hydration too
+    if (hydrated) {
+      setCurrentActivePath(pathname);
+    }
+  }, [pathname, hydrated]);
 
   useEffect(() => {
-    setIsSidebarCollapsed(sidebarState === 'collapsed');
-  }, [sidebarState, hydrated]); // Ensure sidebar state logic runs after hydration
-
+    if (hydrated) {
+      setIsSidebarCollapsed(sidebarState === 'collapsed');
+    }
+  }, [sidebarState, hydrated]);
+  
   const logoText = hydrated ? (isSidebarCollapsed ? "OD" : "OmniDeck") : "OmniDeck";
 
   return (
@@ -55,8 +59,6 @@ export function AppSidebar() {
       <SidebarContent className="p-2">
         <SidebarMenu>
           {navItems.map((item) => {
-            // currentActivePath is null on server & initial client, so isActive is false
-            // It updates after hydration via useEffect
             const isActive = hydrated && currentActivePath
               ? currentActivePath === item.href ||
                 (item.href === "/dashboard" && currentActivePath === "/") ||

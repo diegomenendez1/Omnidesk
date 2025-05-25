@@ -1,3 +1,4 @@
+
 export interface Task {
   id: string;
   name: string;
@@ -8,6 +9,8 @@ export interface Task {
   estimatedHours: number | string | null; // Allow string for potential inconsistencies
   actualHours: number | null;
   description?: string;
+  // Allow any other string keys for dynamic properties from CSV
+  [key: string]: any;
 }
 
 // For AI Validation
@@ -19,4 +22,11 @@ export interface DataInconsistency {
 export interface ValidateDataConsistencyOutput {
   inconsistencies: DataInconsistency[];
   summary: string;
+}
+
+// For CSV Upload Mapping
+export interface SystemColumnInfo {
+  name: keyof Task | string; // Allow string for flexibility if needed, but ideally keyof Task
+  description: string;
+  required?: boolean;
 }
