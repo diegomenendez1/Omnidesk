@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -27,16 +28,11 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" variant="sidebar" className="border-r">
       <SidebarHeader className="p-4 flex justify-center group-data-[collapsible=icon]:py-4 group-data-[collapsible=icon]:px-2">
         <Link href="/dashboard" className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
-          {/* <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-8 w-8 text-primary">
-            <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
-            <path d="M2 17l10 5 10-5"></path>
-            <path d="M2 12l10 5 10-5"></path>
-          </svg> */}
           <span className="text-2xl font-bold text-sidebar-foreground group-data-[collapsible=icon]:hidden">OmniDeck</span>
            <span className="text-2xl font-bold text-sidebar-foreground group-data-[collapsible=icon]:block hidden">OD</span> {/* Short version for collapsed */}
         </Link>
       </SidebarHeader>
-      {/* Removed Separator that was here */}
+      {/* Separator removed for cleaner look */}
       <SidebarContent className="p-2">
         <SidebarMenu>
           {navItems.map((item) => (
@@ -56,7 +52,7 @@ export function AppSidebar() {
           ))}
         </SidebarMenu>
       </SidebarContent>
-      <Separator className="group-data-[collapsible=icon]:hidden" />
+      <Separator className="group-data-[collapsible=icon]:hidden bg-sidebar-border" /> {/* Added bg-sidebar-border for visibility */}
       <SidebarFooter className="p-4 mt-auto group-data-[collapsible=icon]:p-2">
         <div className="flex items-center gap-3 group-data-[collapsible=icon]:justify-center">
           <Avatar className="h-9 w-9">

@@ -8,79 +8,89 @@ body {
 
 @layer base {
   :root {
-    --background: 220 20% 95%; /* Light Gray #F0F2F5 -> hsl(220, 20%, 95%) approx #EEF0F5 */
-    --foreground: 231 15% 18%; /* Dark Gray/Blue for text */
-    --card: 0 0% 100%;
-    --card-foreground: 231 15% 18%;
+    --background: 210 20% 98%; /* Very light, almost white with a hint of cool gray */
+    --foreground: 220 10% 20%; /* Dark desaturated blue/gray for text */
+    --card: 0 0% 100%; /* Pure white for cards */
+    --card-foreground: 220 10% 20%;
     --popover: 0 0% 100%;
-    --popover-foreground: 231 15% 18%;
-    --primary: 231 48% 48%; /* Deep Blue #3F51B5 */
-    --primary-foreground: 0 0% 98%;
-    --secondary: 225 50% 90%; /* Light Blue-Gray */
-    --secondary-foreground: 231 48% 30%; /* Darker Blue */
-    --muted: 220 20% 90%; /* Lighter Gray */
-    --muted-foreground: 220 10% 45%;
-    --accent: 260 38% 55%; /* Violet #7E57C2 */
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 84.2% 60.2%;
+    --popover-foreground: 220 10% 20%;
+    --primary: 217 91% 60%; /* A vibrant, professional blue */
+    --primary-foreground: 0 0% 100%; /* White text on primary */
+    --secondary: 210 25% 94%; /* Light cool gray for secondary elements */
+    --secondary-foreground: 217 30% 40%; /* Darker muted blue for secondary text */
+    --muted: 210 25% 96%; /* Even lighter gray for muted backgrounds */
+    --muted-foreground: 210 10% 45%; /* Medium gray for muted text */
+    --accent: 170 70% 45%; /* A modern teal for accent */
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 51%; /* A clear red for destructive actions */
     --destructive-foreground: 0 0% 98%;
-    --border: 220 15% 85%;
-    --input: 220 15% 85%;
-    --ring: 231 48% 48%; /* Primary for ring */
-    --chart-1: 231 48% 48%; /* Primary */
-    --chart-2: 260 38% 55%; /* Accent */
-    --chart-3: 197 37% 44%; /* A teal/blue */
-    --chart-4: 43 74% 66%; /* An orange */
-    --chart-5: 27 87% 67%; /* A red-orange */
-    --radius: 0.5rem;
+    --success: 140 65% 45%; /* Green for success states */
+    --success-foreground: 0 0% 100%;
+    --warning: 40 85% 50%; /* Orange/yellow for warning states */
+    --warning-foreground: 220 10% 20%;
+    --border: 210 20% 90%; /* Soft border color */
+    --input: 210 20% 90%;
+    --ring: 217 91% 60%; /* Primary color for rings */
+    
+    --chart-1: 217 91% 60%; /* primary */
+    --chart-2: 170 70% 45%; /* accent (teal) */
+    --chart-3: 260 80% 65%; /* a distinct purple */
+    --chart-4: 35 90% 60%;  /* a warm orange */
+    --chart-5: 0 70% 60%;   /* a soft red */
+    
+    --radius: 0.75rem; /* Increased radius for a softer look */
 
     /* Sidebar specific theme */
-    --sidebar-background: 231 40% 28%; /* Darker shade of primary/deep blue */
-    --sidebar-foreground: 0 0% 95%; /* Light text for dark sidebar */
-    --sidebar-primary: 231 48% 60%; /* Lighter Blue for active/highlighted items */
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 231 40% 38%; /* Hover color for sidebar items - slightly lighter than bg */
-    --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 231 40% 23%; /* Border color for sidebar elements */
-    --sidebar-ring: 231 48% 55%; /* Primary blue for ring, matching general theme accent */
+    --sidebar-background: 220 15% 18%; /* Very dark cool gray */
+    --sidebar-foreground: 210 20% 90%; /* Light gray text */
+    --sidebar-primary: 217 80% 65%; /* Active item background - vibrant blue */
+    --sidebar-primary-foreground: 0 0% 100%; /* White text on active item */
+    --sidebar-accent: 220 15% 25%; /* Hover color - slightly lighter than sidebar bg */
+    --sidebar-accent-foreground: 210 20% 95%;
+    --sidebar-border: 220 15% 15%; /* Darker border for sidebar elements */
+    --sidebar-ring: 217 80% 65%;
   }
 
   .dark {
-    /* Define dark theme if needed, for now, focusing on light theme */
-    --background: 231 15% 18%;
-    --foreground: 220 20% 95%;
-    --card: 231 15% 22%;
-    --card-foreground: 220 20% 95%;
-    --popover: 231 15% 18%;
-    --popover-foreground: 220 20% 95%;
-    --primary: 231 48% 55%; /* Slightly lighter Deep Blue for dark mode */
-    --primary-foreground: 0 0% 98%;
-    --secondary: 225 30% 30%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 220 15% 30%;
-    --muted-foreground: 220 10% 65%;
-    --accent: 260 38% 60%; /* Slightly lighter Violet for dark mode */
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 45.6%;
+    --background: 220 15% 18%;
+    --foreground: 210 20% 90%;
+    --card: 220 15% 22%;
+    --card-foreground: 210 20% 90%;
+    --popover: 220 15% 18%;
+    --popover-foreground: 210 20% 90%;
+    --primary: 217 80% 65%; /* Lighter blue for dark mode */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 15% 30%;
+    --secondary-foreground: 210 20% 85%;
+    --muted: 220 15% 28%;
+    --muted-foreground: 210 15% 60%;
+    --accent: 170 60% 55%; /* Teal for dark mode */
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 60% 55%;
     --destructive-foreground: 0 0% 98%;
-    --border: 220 15% 35%;
-    --input: 220 15% 35%;
-    --ring: 231 48% 55%;
+    --success: 140 55% 55%; 
+    --success-foreground: 0 0% 100%;
+    --warning: 40 75% 55%; 
+    --warning-foreground: 220 10% 15%;
+    --border: 220 15% 28%;
+    --input: 220 15% 28%;
+    --ring: 217 80% 65%;
 
-    --chart-1: 231 48% 55%;
-    --chart-2: 260 38% 60%;
-    --chart-3: 197 37% 54%;
-    --chart-4: 43 74% 70%;
-    --chart-5: 27 87% 70%;
+    --chart-1: 217 80% 65%;
+    --chart-2: 170 60% 55%;
+    --chart-3: 260 70% 70%;
+    --chart-4: 35 80% 65%;
+    --chart-5: 0 60% 65%;
 
-    --sidebar-background: 231 20% 12%; /* Very dark blue/gray */
-    --sidebar-foreground: 0 0% 95%;
-    --sidebar-primary: 231 48% 60%; /* Lighter Blue for active/highlighted items in dark mode */
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 231 20% 20%;
-    --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 231 20% 10%;
-    --sidebar-ring: 231 48% 55%;
+    /* Sidebar remains the same in dark mode as it's already dark */
+    --sidebar-background: 220 15% 18%;
+    --sidebar-foreground: 210 20% 90%;
+    --sidebar-primary: 217 80% 65%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 15% 25%;
+    --sidebar-accent-foreground: 210 20% 95%;
+    --sidebar-border: 220 15% 15%;
+    --sidebar-ring: 217 80% 65%;
   }
 }
 

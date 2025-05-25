@@ -14,10 +14,10 @@ export default function DashboardPage() {
   };
 
   const taskOverviewData = [
-    { name: 'To Do', value: 120, fill: "var(--chart-1)" },
-    { name: 'In Progress', value: 75, fill: "var(--chart-2)" },
-    { name: 'Completed', value: 350, fill: "var(--chart-3)" },
-    { name: 'Blocked', value: 30, fill: "var(--chart-4)" },
+    { name: 'To Do', value: 120, fill: "hsl(var(--chart-1))" },
+    { name: 'In Progress', value: 75, fill: "hsl(var(--chart-2))" },
+    { name: 'Completed', value: 350, fill: "hsl(var(--chart-3))" },
+    { name: 'Blocked', value: 30, fill: "hsl(var(--chart-4))" },
   ];
 
   return (
@@ -25,7 +25,7 @@ export default function DashboardPage() {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <MetricCard title="Total Tasks" value="575" icon={<ListChecks className="h-6 w-6 text-primary" />} description="Across all projects" />
         <MetricCard title="Active Projects" value="15" icon={<Briefcase className="h-6 w-6 text-primary" />} description="+2 from last week" />
-        <MetricCard title="Tasks Completed" value="350" icon={<CheckCircle2 className="h-6 w-6 text-green-500" />} description="This month" />
+        <MetricCard title="Tasks Completed" value="350" icon={<CheckCircle2 className="h-6 w-6 text-[hsl(var(--success))]" />} description="This month" />
         <MetricCard title="Team Members" value="12" icon={<Users className="h-6 w-6 text-primary" />} description="Active users" />
       </div>
 
@@ -51,7 +51,7 @@ export default function DashboardPage() {
               width={600} 
               height={300} 
               className="rounded-lg object-cover"
-              data-ai-hint="project abstract"
+              data-ai-hint="modern office"
             />
             <h3 className="text-lg font-semibold">Project Phoenix</h3>
             <p className="text-sm text-muted-foreground">
@@ -76,8 +76,8 @@ export default function DashboardPage() {
               { user: "Bob", action: "updated status of 'API Integration' to In Progress", time: "5 hours ago", avatar: "https://placehold.co/40x40.png?text=B", dataAiHint: "male avatar" },
               { user: "Charlie", action: "added a new task 'User Feedback Collection'", time: "1 day ago", avatar: "https://placehold.co/40x40.png?text=C", dataAiHint: "person avatar" },
             ].map((activity, index) => (
-              <li key={index} className="flex items-center gap-3 p-2 rounded-md hover:bg-muted">
-                <Avatar className="h-8 w-8">
+              <li key={index} className="flex items-center gap-3 p-3 rounded-md hover:bg-muted border border-transparent hover:border-border transition-colors">
+                <Avatar className="h-9 w-9">
                   <AvatarImage src={activity.avatar} data-ai-hint={activity.dataAiHint} />
                   <AvatarFallback>{activity.user.charAt(0)}</AvatarFallback>
                 </Avatar>

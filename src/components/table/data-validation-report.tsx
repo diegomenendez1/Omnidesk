@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { ValidateDataConsistencyOutput } from '@/types';
@@ -20,7 +21,7 @@ export function DataValidationReport({ result }: DataValidationReportProps) {
           {hasInconsistencies ? (
             <AlertCircle className="h-6 w-6 text-destructive" />
           ) : (
-            <CheckCircle2 className="h-6 w-6 text-green-500" />
+            <CheckCircle2 className="h-6 w-6 text-[hsl(var(--success))]" />
           )}
           AI Data Validation Report
         </CardTitle>
@@ -30,6 +31,7 @@ export function DataValidationReport({ result }: DataValidationReportProps) {
         {hasInconsistencies ? (
           <div className="space-y-4">
             <Alert variant="destructive">
+              <AlertCircle className="h-5 w-5" /> {/* Ensure icon is correctly sized */}
               <AlertTitle>Inconsistencies Found</AlertTitle>
               <AlertDescription>
                 The following potential issues were detected in your data. Please review them carefully.
@@ -55,10 +57,10 @@ export function DataValidationReport({ result }: DataValidationReportProps) {
             </div>
           </div>
         ) : (
-          <Alert variant="default" className="border-green-500 bg-green-50">
-             <CheckCircle2 className="h-5 w-5 text-green-600" />
-            <AlertTitle className="text-green-700">No Inconsistencies Found</AlertTitle>
-            <AlertDescription className="text-green-600">
+          <Alert className="border-[hsl(var(--success))] bg-[hsl(var(--success))]/10 text-[hsl(var(--success))]">
+             <CheckCircle2 className="h-5 w-5 text-[hsl(var(--success))]" />
+            <AlertTitle className="text-[hsl(var(--success))]">No Inconsistencies Found</AlertTitle>
+            <AlertDescription className="text-[hsl(var(--success))] opacity-90">
               The AI scan completed successfully and found no inconsistencies in the current dataset.
             </AlertDescription>
           </Alert>
