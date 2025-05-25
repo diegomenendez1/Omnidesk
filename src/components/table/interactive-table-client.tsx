@@ -127,7 +127,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
 
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 w-full">
       <div className="flex justify-between items-center flex-wrap gap-x-4 gap-y-2">
         <h2 className="text-2xl font-semibold truncate min-w-0">Tasks Overview</h2>
         <div className="flex gap-2 flex-shrink-0">
