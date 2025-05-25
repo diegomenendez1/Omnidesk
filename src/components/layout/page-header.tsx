@@ -18,7 +18,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useState, useEffect } from 'react';
 
 function getPageTitle(pathname: string | null): string {
-  if (!pathname) return "OmniDeck"; // Default if pathname is not yet available
+  if (!pathname) return "OmniDeck"; 
   if (pathname === "/" || pathname.startsWith("/dashboard")) return "Dashboard";
   if (pathname.startsWith("/table")) return "Interactive Table";
   return "OmniDeck";
@@ -26,21 +26,22 @@ function getPageTitle(pathname: string | null): string {
 
 export function PageHeader() {
   const pathname = usePathname();
-  const [title, setTitle] = useState<string>("OmniDeck"); // Initialize with default
+  const [title, setTitle] = useState<string>("OmniDeck"); 
 
   useEffect(() => {
-    // This effect runs only on the client, after initial hydration
     setTitle(getPageTitle(pathname));
   }, [pathname]);
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-6 shadow-sm">
-      <div className="flex items-center gap-2">
+    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-6 shadow-sm min-w-0"> {/* Added min-w-0 */}
+      <div className="flex items-center gap-2 flex-shrink min-w-0"> {/* Added flex-shrink and min-w-0 */}
         <SidebarTrigger className="md:hidden" />
-        <h1 className="text-xl font-semibold text-foreground">{title}</h1>
+        <h1 className="text-xl font-semibold text-foreground truncate"> {/* Added truncate */}
+          {title}
+        </h1>
       </div>
       
-      <div className="ml-auto flex items-center gap-4">
+      <div className="ml-auto flex items-center gap-4 flex-shrink-0"> {/* Added flex-shrink-0 */}
         <form className="relative hidden md:block">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
