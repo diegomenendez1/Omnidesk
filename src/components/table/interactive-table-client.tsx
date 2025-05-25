@@ -141,9 +141,9 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
         </div>
       </div>
       
-      <Card>
+      <Card className="w-full">
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto w-full">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -267,5 +267,3 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     </div>
   );
 }
-
-    
