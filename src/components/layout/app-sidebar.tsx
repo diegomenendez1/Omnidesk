@@ -23,25 +23,10 @@ const navItems = [
   { href: "/table", label: "Interactive Table", icon: Table2 },
 ];
 
-interface AppLogoProps {
-  collapsed: boolean;
-}
-
-// AppLogo now renders a span with consistent styling, text changes based on 'collapsed' prop.
-// This structure should match what the client hydration expects.
-const AppLogo = ({ collapsed }: AppLogoProps) => {
-  const text = collapsed ? 'OD' : 'OmniDeck';
-  return (
-    <span className="text-2xl font-bold text-sidebar-foreground">
-      {text}
-    </span>
-  );
-};
-
 export function AppSidebar() {
   const pathname = usePathname();
   const [currentActivePath, setCurrentActivePath] = useState<string | null>(null);
-  const { state: sidebarState } = useSidebar(); 
+  const { state: sidebarState } = useSidebar();
   // isSidebarCollapsed will be `false` on initial server & client render due to defaultOpen={true} in SidebarProvider
   const isSidebarCollapsed = sidebarState === 'collapsed';
 
@@ -55,10 +40,10 @@ export function AppSidebar() {
       <SidebarHeader className="p-4 flex justify-center group-data-[collapsible=icon]:py-4 group-data-[collapsible=icon]:px-2">
         <Link
           href="/dashboard"
-          // Classes for the <a> tag. Removed conditional group-data classes to ensure consistency.
-          className="flex items-center gap-2" 
+          className="flex items-center gap-2"
         >
-          <AppLogo collapsed={isSidebarCollapsed} />
+          <span className="text-2xl font-bold text-sidebar-foreground group-data-[collapsible=icon]:hidden">OmniDeck</span>
+          <span className="text-2xl font-bold text-sidebar-foreground hidden group-data-[collapsible=icon]:block">OD</span>
         </Link>
       </SidebarHeader>
       <SidebarContent className="p-2">
@@ -66,9 +51,9 @@ export function AppSidebar() {
           {navItems.map((item) => {
             const isActive = currentActivePath
               ? currentActivePath === item.href ||
-                (item.href === "/dashboard" && currentActivePath === "/") || 
+                (item.href === "/dashboard" && currentActivePath === "/") ||
                 (item.href !== "/dashboard" && currentActivePath.startsWith(item.href))
-              : false; 
+              : false;
 
             return (
               <SidebarMenuItem key={item.href}>
