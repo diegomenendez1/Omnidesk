@@ -124,7 +124,7 @@ export const translations: Translations = {
       filterBy: "Filter by {columnName}",
       allStatuses: "All Statuses",
       filterAllOption: "All",
-      filterPlaceholder: "Filter {columnName}...",
+      filterActionPlaceholder: "Filter...",
     },
     uploadData: {
       title: "Upload Data from CSV",
@@ -290,7 +290,7 @@ export const translations: Translations = {
       filterBy: "Filtrar por {columnName}",
       allStatuses: "Todos los Estados",
       filterAllOption: "Todos",
-      filterPlaceholder: "Filtrar {columnName}...",
+      filterActionPlaceholder: "Filtrar...",
     },
     uploadData: {
       title: "Cargar Datos desde CSV",
@@ -361,5 +361,7 @@ export const translations: Translations = {
     }
   },
 };
+
+    
 
     

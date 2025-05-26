@@ -12,10 +12,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card, CardContent } from '@/components/ui/card';
 import { DataValidationReport } from './data-validation-report';
 import type { ValidateDataConsistencyOutput } from '@/types';
-import { ScanSearch, ArrowUp, ArrowDown } from 'lucide-react'; // Added ArrowUp, ArrowDown
+import { ScanSearch, ArrowUp, ArrowDown, Filter as FilterIcon } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from '@/lib/utils';
 import { useLanguage } from '@/context/language-context';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 const resolutionStatusOptions: TaskResolutionStatus[] = ["Pendiente", "SFP", "Resuelto"];
 const statusOptions: TaskStatus[] = ["Missing Estimated Dates", "Missing POD", "Pending to Invoice Out of Time"];
@@ -71,7 +72,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [t]); // t is included to re-trigger toast translation if language changes
+  }, [t]);
 
   const handleValidateData = () => {
     startTransition(async () => {
@@ -119,7 +120,6 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     const taskIdentifier = tasks.find(t => t.id === taskId || t.taskReference === taskId);
      if (!editingCellKey || !taskIdentifier || (!editingCellKey.startsWith(taskIdentifier.id || String(Math.random())) && !editingCellKey.startsWith(taskIdentifier.taskReference || String(Math.random())))) return;
 
-
     setTasks(prevTasks =>
       prevTasks.map(task => {
         const currentId = task.id || task.taskReference;
@@ -148,7 +148,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     );
     setEditingCellKey(null);
     setCurrentEditSelectValue('');
-    setIsSelectDropdownOpen(false); // Close dropdown after selection
+    setIsSelectDropdownOpen(false);
     toast({ title: t('interactiveTable.fieldUpdated'), description: t('interactiveTable.changeSavedFor', { field: t(`interactiveTable.tableHeaders.${column}` as any, String(column))}) });
   };
 
@@ -177,7 +177,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   };
 
   const getResolutionStatusDisplay = (statusValue?: TaskResolutionStatus) => {
-    if (!statusValue) return t('interactiveTable.resolutionStatus.pendiente'); // Default if undefined
+    if (!statusValue) return t('interactiveTable.resolutionStatus.pendiente'); 
     const keyMap: Record<TaskResolutionStatus, string> = {
       "Pendiente": "interactiveTable.resolutionStatus.pendiente",
       "SFP": "interactiveTable.resolutionStatus.sfp",
@@ -201,7 +201,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                         ? t('interactiveTable.notAvailable') 
                         : String(val);
       
-      if (stringVal.trim() !== "") {
+      if (stringVal.trim() !== "" && stringVal !== t('interactiveTable.notAvailable')) { // Exclude empty strings and "N/A" from selectable filter options
         values.add(stringVal);
       }
     });
@@ -224,16 +224,10 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     tasks.forEach(task => {
         if (task.netAmount !== null && task.netAmount !== undefined) {
             numericValues.add(String(task.netAmount));
-        } else {
-            numericValues.add(t('interactiveTable.notAvailable'));
         }
     });
-    return Array.from(numericValues).sort((a,b) => {
-        if (a === t('interactiveTable.notAvailable')) return 1;
-        if (b === t('interactiveTable.notAvailable')) return -1;
-        return parseFloat(a) - parseFloat(b);
-    });
-  }, [tasks, t]);
+    return Array.from(numericValues).sort((a,b) => parseFloat(a) - parseFloat(b));
+  }, [tasks]);
   const uniqueTransportModes = useMemo(() => getUniqueValuesForColumn('transportMode'), [tasks, t]);
   const uniqueResolutionAdmins = useMemo(() => getUniqueValuesForColumn('resolutionAdmin'), [tasks, t]);
   const uniqueResolutionTimeDays = useMemo(() => getUniqueValuesForColumn('resolutionTimeDays'), [tasks, t]);
@@ -242,20 +236,21 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   const filteredTasks = useMemo(() => tasks.filter(task => {
     return Object.entries(filters).every(([columnKeyStr, filterValue]) => {
       const columnKey = columnKeyStr as keyof Task;
-      if (filterValue === undefined || filterValue === ALL_FILTER_VALUE) return true;
+      if (filterValue === undefined) return true; // No filter for this column if ALL_FILTER_VALUE was selected
 
       const taskValue = task[columnKey];
       let taskValueString: string;
 
-      if (columnKey === 'netAmount') {
-          taskValueString = (taskValue === null || taskValue === undefined) ? t('interactiveTable.notAvailable') : String(taskValue);
+      if (taskValue === null || taskValue === undefined) {
+        taskValueString = t('interactiveTable.notAvailable');
       } else {
-          taskValueString = (taskValue === null || taskValue === undefined) ? t('interactiveTable.notAvailable') : String(taskValue);
+        taskValueString = String(taskValue);
       }
       
       if (columnKey === 'comments') { 
         return taskValueString.toLowerCase().includes(String(filterValue).toLowerCase());
       }
+      // For Select filters, it's an exact match
       return taskValueString === filterValue;
     });
   }), [tasks, filters, t]);
@@ -266,7 +261,6 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
       if (sortConfig.direction === 'ascending') {
         newDirection = 'descending';
       }
-      // If current is descending, clicking again will reset to ascending
     }
     setSortConfig({ key, direction: newDirection });
   };
@@ -280,7 +274,6 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
         const valA = a[key];
         const valB = b[key];
 
-        // Sort nulls/undefined to the end
         if ((valA === null || typeof valA === 'undefined') && (valB !== null && typeof valB !== 'undefined')) return 1;
         if ((valB === null || typeof valB === 'undefined') && (valA !== null && typeof valA !== 'undefined')) return -1;
         if ((valA === null || typeof valA === 'undefined') && (valB === null || typeof valB === 'undefined')) return 0;
@@ -298,17 +291,49 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     return sortableItems;
   }, [filteredTasks, sortConfig]);
   
-  const filterPlaceholder = (headerKey: string) => t('interactiveTable.filterBy', { columnName: t(headerKey as any) });
   const allOptionLabel = t('interactiveTable.filterAllOption');
+  const filterActionPlaceholder = t('interactiveTable.filterActionPlaceholder');
 
   const renderSortIcon = (columnKey: keyof Task) => {
     if (sortConfig.key === columnKey) {
       return sortConfig.direction === 'ascending' 
-        ? <ArrowUp className="h-3 w-3 text-muted-foreground" /> 
-        : <ArrowDown className="h-3 w-3 text-muted-foreground" />;
+        ? <ArrowUp className="ml-1 h-3 w-3 text-muted-foreground" /> 
+        : <ArrowDown className="ml-1 h-3 w-3 text-muted-foreground" />;
     }
-    return null;
+    return <span className="ml-1 h-3 w-3"></span>; // Placeholder for alignment
   };
+
+  const renderFilterPopover = (columnKey: keyof Task, columnLabelKey: string, uniqueValues: string[], isNumeric: boolean = false) => {
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-7 w-7 opacity-60 hover:opacity-100 data-[state=open]:opacity-100 data-[state=open]:bg-accent">
+            <FilterIcon className="h-4 w-4" />
+            <span className="sr-only">Filter {t(columnLabelKey as any)}</span>
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-60 p-2" align="start">
+          <Select
+            value={filters[columnKey] || ALL_FILTER_VALUE}
+            onValueChange={(value) => handleFilterChange(columnKey, value)}
+          >
+            <SelectTrigger className="h-8">
+              <SelectValue placeholder={filterActionPlaceholder} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_FILTER_VALUE}>{allOptionLabel}</SelectItem>
+              {uniqueValues.map(opt => (
+                <SelectItem key={opt} value={opt}>
+                  {columnKey === 'netAmount' ? formatCurrency(parseFloat(opt)) : opt}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </PopoverContent>
+      </Popover>
+    );
+  };
+
 
   return (
     <div className="space-y-4 w-full">
@@ -328,172 +353,162 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="cursor-pointer hover:bg-muted/80 transition-colors" onClick={() => requestSort('taskReference')}>
-                    <div className="flex items-center gap-1">
-                      {t('interactiveTable.tableHeaders.toRef')}
-                      {renderSortIcon('taskReference')}
+                  <TableHead className="group">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1 cursor-pointer flex-grow py-3 pr-2" onClick={() => requestSort('taskReference')}>
+                        {t('interactiveTable.tableHeaders.toRef')}
+                        {renderSortIcon('taskReference')}
+                      </div>
+                      {renderFilterPopover('taskReference', 'interactiveTable.tableHeaders.toRef', uniqueTaskReferences)}
                     </div>
                   </TableHead>
-                  <TableHead className="cursor-pointer hover:bg-muted/80 transition-colors" onClick={() => requestSort('status')}>
-                     <div className="flex items-center gap-1">
-                      {t('interactiveTable.tableHeaders.toStatus')}
-                      {renderSortIcon('status')}
+
+                  <TableHead className="group">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1 cursor-pointer flex-grow py-3 pr-2" onClick={() => requestSort('status')}>
+                        {t('interactiveTable.tableHeaders.toStatus')}
+                        {renderSortIcon('status')}
+                      </div>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                           <Button variant="ghost" size="icon" className="h-7 w-7 opacity-60 hover:opacity-100 data-[state=open]:opacity-100 data-[state=open]:bg-accent">
+                            <FilterIcon className="h-4 w-4" />
+                            <span className="sr-only">Filter {t('interactiveTable.tableHeaders.toStatus')}</span>
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-60 p-2" align="start">
+                          <Select value={filters.status || ALL_FILTER_VALUE} onValueChange={(value) => handleFilterChange('status', value as TaskStatus)}>
+                            <SelectTrigger className="h-8"><SelectValue placeholder={filterActionPlaceholder} /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value={ALL_FILTER_VALUE}>{t('interactiveTable.allStatuses')}</SelectItem>
+                              {statusOptions.map(opt => (<SelectItem key={opt} value={opt}>{getStatusDisplay(opt)}</SelectItem>))}
+                            </SelectContent>
+                          </Select>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                   </TableHead>
-                  <TableHead className="cursor-pointer hover:bg-muted/80 transition-colors" onClick={() => requestSort('assignee')}>
-                     <div className="flex items-center gap-1">
-                      {t('interactiveTable.tableHeaders.logisticDeveloper')}
-                      {renderSortIcon('assignee')}
+                  
+                  <TableHead className="group">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1 cursor-pointer flex-grow py-3 pr-2" onClick={() => requestSort('assignee')}>
+                        {t('interactiveTable.tableHeaders.logisticDeveloper')}
+                        {renderSortIcon('assignee')}
+                      </div>
+                      {renderFilterPopover('assignee', 'interactiveTable.tableHeaders.logisticDeveloper', uniqueAssignees)}
                     </div>
                   </TableHead>
-                  <TableHead className="cursor-pointer hover:bg-muted/80 transition-colors" onClick={() => requestSort('delayDays')}>
-                     <div className="flex items-center gap-1">
-                      {t('interactiveTable.tableHeaders.delayDays')}
-                      {renderSortIcon('delayDays')}
+
+                  <TableHead className="group">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1 cursor-pointer flex-grow py-3 pr-2" onClick={() => requestSort('delayDays')}>
+                        {t('interactiveTable.tableHeaders.delayDays')}
+                        {renderSortIcon('delayDays')}
+                      </div>
+                      {renderFilterPopover('delayDays', 'interactiveTable.tableHeaders.delayDays', uniqueDelayDays, true)}
                     </div>
                   </TableHead>
-                  <TableHead className="cursor-pointer hover:bg-muted/80 transition-colors" onClick={() => requestSort('customerAccount')}>
-                     <div className="flex items-center gap-1">
-                      {t('interactiveTable.tableHeaders.customerAccount')}
-                      {renderSortIcon('customerAccount')}
+
+                  <TableHead className="group">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1 cursor-pointer flex-grow py-3 pr-2" onClick={() => requestSort('customerAccount')}>
+                        {t('interactiveTable.tableHeaders.customerAccount')}
+                        {renderSortIcon('customerAccount')}
+                      </div>
+                      {renderFilterPopover('customerAccount', 'interactiveTable.tableHeaders.customerAccount', uniqueCustomerAccounts)}
                     </div>
                   </TableHead>
-                  <TableHead className="text-right cursor-pointer hover:bg-muted/80 transition-colors" onClick={() => requestSort('netAmount')}>
-                     <div className="flex items-center justify-end gap-1">
-                      {t('interactiveTable.tableHeaders.amount')}
-                      {renderSortIcon('netAmount')}
+
+                  <TableHead className="group text-right">
+                     <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-end gap-1 cursor-pointer flex-grow py-3 pr-2" onClick={() => requestSort('netAmount')}>
+                        {t('interactiveTable.tableHeaders.amount')}
+                        {renderSortIcon('netAmount')}
+                      </div>
+                      {renderFilterPopover('netAmount', 'interactiveTable.tableHeaders.amount', uniqueNetAmounts, true)}
                     </div>
                   </TableHead>
-                  <TableHead className="cursor-pointer hover:bg-muted/80 transition-colors" onClick={() => requestSort('transportMode')}>
-                     <div className="flex items-center gap-1">
-                      {t('interactiveTable.tableHeaders.transportMode')}
-                      {renderSortIcon('transportMode')}
+
+                  <TableHead className="group">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1 cursor-pointer flex-grow py-3 pr-2" onClick={() => requestSort('transportMode')}>
+                        {t('interactiveTable.tableHeaders.transportMode')}
+                        {renderSortIcon('transportMode')}
+                      </div>
+                      {renderFilterPopover('transportMode', 'interactiveTable.tableHeaders.transportMode', uniqueTransportModes)}
                     </div>
                   </TableHead>
-                  <TableHead className="cursor-pointer hover:bg-muted/80 transition-colors" onClick={() => requestSort('comments')}>
-                     <div className="flex items-center gap-1">
-                      {t('interactiveTable.tableHeaders.comments')}
-                      {renderSortIcon('comments')}
+
+                  <TableHead className="group">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1 cursor-pointer flex-grow py-3 pr-2" onClick={() => requestSort('comments')}>
+                        {t('interactiveTable.tableHeaders.comments')}
+                        {renderSortIcon('comments')}
+                      </div>
+                       <Popover>
+                        <PopoverTrigger asChild>
+                           <Button variant="ghost" size="icon" className="h-7 w-7 opacity-60 hover:opacity-100 data-[state=open]:opacity-100 data-[state=open]:bg-accent">
+                            <FilterIcon className="h-4 w-4" />
+                            <span className="sr-only">Filter {t('interactiveTable.tableHeaders.comments')}</span>
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-72 p-2" align="start">
+                          <Input
+                            placeholder={t('interactiveTable.filterBy', { columnName: t('interactiveTable.tableHeaders.comments') })}
+                            value={String(filters.comments || '')}
+                            onChange={(e) => handleFilterChange('comments', e.target.value)}
+                            className="h-8"
+                          />
+                        </PopoverContent>
+                      </Popover>
                     </div>
                   </TableHead>
-                  <TableHead className="cursor-pointer hover:bg-muted/80 transition-colors" onClick={() => requestSort('resolutionAdmin')}>
-                     <div className="flex items-center gap-1">
-                      {t('interactiveTable.tableHeaders.admin')}
-                      {renderSortIcon('resolutionAdmin')}
+
+                  <TableHead className="group">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1 cursor-pointer flex-grow py-3 pr-2" onClick={() => requestSort('resolutionAdmin')}>
+                        {t('interactiveTable.tableHeaders.admin')}
+                        {renderSortIcon('resolutionAdmin')}
+                      </div>
+                      {renderFilterPopover('resolutionAdmin', 'interactiveTable.tableHeaders.admin', uniqueResolutionAdmins)}
                     </div>
                   </TableHead>
-                  <TableHead className="text-right cursor-pointer hover:bg-muted/80 transition-colors" onClick={() => requestSort('resolutionTimeDays')}>
-                     <div className="flex items-center justify-end gap-1">
-                       {t('interactiveTable.tableHeaders.resolutionTimeDays')}
-                       {renderSortIcon('resolutionTimeDays')}
+
+                  <TableHead className="group text-right">
+                     <div className="flex items-center justify-between">
+                       <div className="flex items-center justify-end gap-1 cursor-pointer flex-grow py-3 pr-2" onClick={() => requestSort('resolutionTimeDays')}>
+                         {t('interactiveTable.tableHeaders.resolutionTimeDays')}
+                         {renderSortIcon('resolutionTimeDays')}
+                      </div>
+                      {renderFilterPopover('resolutionTimeDays', 'interactiveTable.tableHeaders.resolutionTimeDays', uniqueResolutionTimeDays, true)}
                     </div>
                   </TableHead>
-                  <TableHead className="text-left cursor-pointer hover:bg-muted/80 transition-colors" onClick={() => requestSort('resolutionStatus')}>
-                     <div className="flex items-center gap-1">
-                      {t('interactiveTable.tableHeaders.actions')}
-                      {renderSortIcon('resolutionStatus')}
+
+                  <TableHead className="group text-left">
+                     <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1 cursor-pointer flex-grow py-3 pr-2" onClick={() => requestSort('resolutionStatus')}>
+                        {t('interactiveTable.tableHeaders.actions')}
+                        {renderSortIcon('resolutionStatus')}
+                      </div>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                           <Button variant="ghost" size="icon" className="h-7 w-7 opacity-60 hover:opacity-100 data-[state=open]:opacity-100 data-[state=open]:bg-accent">
+                            <FilterIcon className="h-4 w-4" />
+                             <span className="sr-only">Filter {t('interactiveTable.tableHeaders.actions')}</span>
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-60 p-2" align="start">
+                          <Select value={filters.resolutionStatus || ALL_FILTER_VALUE} onValueChange={(value) => handleFilterChange('resolutionStatus', value as TaskResolutionStatus)}>
+                            <SelectTrigger className="h-8"><SelectValue placeholder={filterActionPlaceholder} /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value={ALL_FILTER_VALUE}>{t('interactiveTable.allStatuses')}</SelectItem>
+                              {resolutionStatusOptions.map(opt => (<SelectItem key={opt} value={opt}>{getResolutionStatusDisplay(opt)}</SelectItem>))}
+                            </SelectContent>
+                          </Select>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                   </TableHead>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="p-1">
-                    <Select value={filters.taskReference || ALL_FILTER_VALUE} onValueChange={(value) => handleFilterChange('taskReference', value)}>
-                        <SelectTrigger className="h-8"><SelectValue placeholder={filterPlaceholder('interactiveTable.tableHeaders.toRef')} /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value={ALL_FILTER_VALUE}>{allOptionLabel}</SelectItem>
-                            {uniqueTaskReferences.map(opt => (<SelectItem key={opt} value={opt}>{opt}</SelectItem>))}
-                        </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell className="p-1">
-                    <Select value={filters.status || ALL_FILTER_VALUE} onValueChange={(value) => handleFilterChange('status', value as TaskStatus)}>
-                      <SelectTrigger className="h-8"><SelectValue placeholder={filterPlaceholder('interactiveTable.tableHeaders.toStatus')} /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={ALL_FILTER_VALUE}>{t('interactiveTable.allStatuses')}</SelectItem>
-                        {statusOptions.map(opt => (<SelectItem key={opt} value={opt}>{getStatusDisplay(opt)}</SelectItem>))}
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell className="p-1">
-                     <Select value={filters.assignee || ALL_FILTER_VALUE} onValueChange={(value) => handleFilterChange('assignee', value)}>
-                        <SelectTrigger className="h-8"><SelectValue placeholder={filterPlaceholder('interactiveTable.tableHeaders.logisticDeveloper')} /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value={ALL_FILTER_VALUE}>{allOptionLabel}</SelectItem>
-                            {uniqueAssignees.map(opt => (<SelectItem key={opt} value={opt}>{opt}</SelectItem>))}
-                        </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell className="p-1">
-                     <Select value={String(filters.delayDays ?? ALL_FILTER_VALUE)} onValueChange={(value) => handleFilterChange('delayDays', value)}>
-                        <SelectTrigger className="h-8"><SelectValue placeholder={filterPlaceholder('interactiveTable.tableHeaders.delayDays')} /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value={ALL_FILTER_VALUE}>{allOptionLabel}</SelectItem>
-                            {uniqueDelayDays.map(opt => (<SelectItem key={opt} value={opt}>{opt}</SelectItem>))}
-                        </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell className="p-1">
-                     <Select value={filters.customerAccount || ALL_FILTER_VALUE} onValueChange={(value) => handleFilterChange('customerAccount', value)}>
-                        <SelectTrigger className="h-8"><SelectValue placeholder={filterPlaceholder('interactiveTable.tableHeaders.customerAccount')} /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value={ALL_FILTER_VALUE}>{allOptionLabel}</SelectItem>
-                            {uniqueCustomerAccounts.map(opt => (<SelectItem key={opt} value={opt}>{opt}</SelectItem>))}
-                        </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell className="p-1">
-                     <Select value={String(filters.netAmount ?? ALL_FILTER_VALUE)} onValueChange={(value) => handleFilterChange('netAmount', value)}>
-                        <SelectTrigger className="h-8 w-[120px] text-right"><SelectValue placeholder={filterPlaceholder('interactiveTable.tableHeaders.amount')} /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value={ALL_FILTER_VALUE}>{allOptionLabel}</SelectItem>
-                            {uniqueNetAmounts.map(opt => (<SelectItem key={opt} value={opt}>{opt === t('interactiveTable.notAvailable') ? opt : formatCurrency(parseFloat(opt))}</SelectItem>))}
-                        </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell className="p-1">
-                     <Select value={filters.transportMode || ALL_FILTER_VALUE} onValueChange={(value) => handleFilterChange('transportMode', value)}>
-                        <SelectTrigger className="h-8"><SelectValue placeholder={filterPlaceholder('interactiveTable.tableHeaders.transportMode')} /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value={ALL_FILTER_VALUE}>{allOptionLabel}</SelectItem>
-                            {uniqueTransportModes.map(opt => (<SelectItem key={opt} value={opt}>{opt}</SelectItem>))}
-                        </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell className="p-1">
-                    <Input
-                      placeholder={filterPlaceholder('interactiveTable.tableHeaders.comments')}
-                      value={String(filters.comments || '')}
-                      onChange={(e) => handleFilterChange('comments', e.target.value)}
-                      className="h-8"
-                    />
-                  </TableCell>
-                  <TableCell className="p-1">
-                    <Select value={filters.resolutionAdmin || ALL_FILTER_VALUE} onValueChange={(value) => handleFilterChange('resolutionAdmin', value)}>
-                        <SelectTrigger className="h-8"><SelectValue placeholder={filterPlaceholder('interactiveTable.tableHeaders.admin')} /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value={ALL_FILTER_VALUE}>{allOptionLabel}</SelectItem>
-                            {uniqueResolutionAdmins.map(opt => (<SelectItem key={opt} value={opt}>{opt}</SelectItem>))}
-                        </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell className="p-1">
-                    <Select value={String(filters.resolutionTimeDays ?? ALL_FILTER_VALUE)} onValueChange={(value) => handleFilterChange('resolutionTimeDays', value)}>
-                        <SelectTrigger className="h-8 w-[120px] text-right"><SelectValue placeholder={filterPlaceholder('interactiveTable.tableHeaders.resolutionTimeDays')} /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value={ALL_FILTER_VALUE}>{allOptionLabel}</SelectItem>
-                            {uniqueResolutionTimeDays.map(opt => (<SelectItem key={opt} value={opt}>{opt}</SelectItem>))}
-                        </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell className="p-1 text-left">
-                    <Select value={filters.resolutionStatus || ALL_FILTER_VALUE} onValueChange={(value) => handleFilterChange('resolutionStatus', value as TaskResolutionStatus)}>
-                      <SelectTrigger className="h-8"><SelectValue placeholder={filterPlaceholder('interactiveTable.tableHeaders.actions')} /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={ALL_FILTER_VALUE}>{t('interactiveTable.allStatuses')}</SelectItem>
-                        {resolutionStatusOptions.map(opt => (<SelectItem key={opt} value={opt}>{getResolutionStatusDisplay(opt)}</SelectItem>))}
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -565,7 +580,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                               if (!openState && editingCellKey === `${taskId}-resolutionStatus`) { setEditingCellKey(null); }
                             }}
                           >
-                            <SelectTrigger className="w-full text-sm" autoFocus>
+                            <SelectTrigger className="w-full text-sm h-8" autoFocus>
                               <SelectValue placeholder={t('interactiveTable.selectStatus')} />
                             </SelectTrigger>
                             <SelectContent>
@@ -578,7 +593,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                           <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                             task.resolutionStatus === "Resuelto" ? "bg-green-100 text-green-700 dark:bg-green-700/20 dark:text-green-300" :
                             task.resolutionStatus === "SFP" ? "bg-blue-100 text-blue-700 dark:bg-blue-700/20 dark:text-blue-300" :
-                            "bg-gray-100 text-gray-700 dark:bg-gray-700/20 dark:text-gray-300" // Pendiente or other
+                            "bg-gray-100 text-gray-700 dark:bg-gray-700/20 dark:text-gray-300"
                           }`}>
                             {getResolutionStatusDisplay(task.resolutionStatus)}
                           </span>
@@ -599,4 +614,6 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     </div>
   );
 }
+    
+
     
