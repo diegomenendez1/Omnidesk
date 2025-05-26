@@ -76,8 +76,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
 
   const handleAddNew = () => {
     setEditingTask({
-      id: `temp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      name: "", 
+      // id is optional and will be generated if not provided or handled by backend
       status: "To Do",
       assignee: "",
       taskReference: "",
@@ -89,6 +88,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
       resolutionAdmin: "",
       resolutionStatus: "Pendiente",
       resolutionTimeDays: null,
+      id: `temp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}` // Example temporary ID
     });
     setIsNewTask(true);
     setIsModalOpen(true);
@@ -104,8 +104,12 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     if (!editingTask) return;
 
     if (isNewTask) {
-      setTasks(prevTasks => [...prevTasks, editingTask]);
-      toast({ title: "Task Added", description: `Task ${editingTask.id || 'new task'} created successfully.`});
+      const newTask = { ...editingTask };
+      if (!newTask.id) { // Ensure new tasks have an ID if not set
+        newTask.id = `temp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      }
+      setTasks(prevTasks => [...prevTasks, newTask]);
+      toast({ title: "Task Added", description: `Task ${newTask.id || 'new task'} created successfully.`});
     } else {
       setTasks(prevTasks => prevTasks.map(task => task.id === editingTask.id ? editingTask : task));
       toast({ title: "Task Updated", description: `Task ${editingTask.id} updated successfully.`});
@@ -153,6 +157,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
               <TableHeader>
                 <TableRow>
                   <TableHead>TO Ref.</TableHead>
+                  <TableHead>TO Status</TableHead>
                   <TableHead>Desarrollador Logístico</TableHead>
                   <TableHead>Dias de atraso</TableHead>
                   <TableHead>Customer Acc.</TableHead>
@@ -161,7 +166,6 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                   <TableHead>Comentarios</TableHead>
                   <TableHead>Administrador</TableHead>
                   <TableHead>Estado Resolución</TableHead>
-                  <TableHead>TO Status</TableHead>
                   <TableHead>Tiempo Resolución (días)</TableHead>
                   <TableHead className="text-center sticky right-0 bg-card">Actions</TableHead>
                 </TableRow>
@@ -170,6 +174,17 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                 {tasks.map((task, rowIndex) => (
                   <TableRow key={task.id || task.taskReference || `task-${rowIndex}`}>
                     <TableCell>{task.taskReference || 'N/A'}</TableCell>
+                    <TableCell>
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        task.status === "Done" ? "bg-green-100 text-green-700 dark:bg-green-700/20 dark:text-green-300" :
+                        task.status === "In Progress" ? "bg-blue-100 text-blue-700 dark:bg-blue-700/20 dark:text-blue-300" :
+                        task.status === "To Do" ? "bg-gray-100 text-gray-700 dark:bg-gray-700/20 dark:text-gray-300" :
+                        task.status === "Blocked" ? "bg-red-100 text-red-700 dark:bg-red-700/20 dark:text-red-300" : 
+                        "bg-yellow-100 text-yellow-700 dark:bg-yellow-700/20 dark:text-yellow-300" // For "Review" or any other status
+                      }`}>
+                        {task.status}
+                      </span>
+                    </TableCell>
                     <TableCell>{task.assignee || 'N/A'}</TableCell>
                     <TableCell>{task.delayDays === null || task.delayDays === undefined ? 'N/A' : String(task.delayDays)}</TableCell>
                     <TableCell>{task.customerAccount || 'N/A'}</TableCell>
@@ -188,17 +203,6 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                           {task.resolutionStatus}
                         </span>
                       ) : 'N/A'}
-                    </TableCell>
-                    <TableCell>
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        task.status === "Done" ? "bg-green-100 text-green-700 dark:bg-green-700/20 dark:text-green-300" :
-                        task.status === "In Progress" ? "bg-blue-100 text-blue-700 dark:bg-blue-700/20 dark:text-blue-300" :
-                        task.status === "To Do" ? "bg-gray-100 text-gray-700 dark:bg-gray-700/20 dark:text-gray-300" :
-                        task.status === "Blocked" ? "bg-red-100 text-red-700 dark:bg-red-700/20 dark:text-red-300" : 
-                        "bg-yellow-100 text-yellow-700 dark:bg-yellow-700/20 dark:text-yellow-300"
-                      }`}>
-                        {task.status}
-                      </span>
                     </TableCell>
                     <TableCell className="text-right">{task.resolutionTimeDays === null || task.resolutionTimeDays === undefined ? 'N/A' : String(task.resolutionTimeDays)}</TableCell>
                     <TableCell className="text-center sticky right-0 bg-card">
@@ -227,7 +231,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
             <DialogHeader>
               <DialogTitle>{isNewTask ? "Add New Task" : "Edit Task"}</DialogTitle>
               <DialogDescription>
-                {isNewTask ? "Fill in the details for the new task." : `Modify the details for task ${editingTask.id || editingTask.taskReference || 'selected task'}.`}
+                {isNewTask ? "Fill in the details for the new task." : `Modify the details for task ${editingTask.taskReference || editingTask.id || 'selected task'}.`}
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto pr-2">
