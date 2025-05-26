@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card, CardContent } from '@/components/ui/card';
 import { DataValidationReport } from './data-validation-report';
 import type { ValidateDataConsistencyOutput } from '@/types';
-import { ScanSearch, Edit3, Trash2, PlusCircle, Save, XCircle } from 'lucide-react';
+import { ScanSearch, PlusCircle, Save, XCircle } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
@@ -76,6 +76,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
 
   const handleAddNew = () => {
     setEditingTask({
+      // id: `temp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, // ID will be set on save if not provided
       status: "To Do",
       assignee: "",
       taskReference: "",
@@ -87,7 +88,6 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
       resolutionAdmin: "",
       resolutionStatus: "Pendiente",
       resolutionTimeDays: null,
-      id: `temp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
     });
     setIsNewTask(true);
     setIsModalOpen(true);
@@ -105,7 +105,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     if (isNewTask) {
       const newTask = { ...editingTask };
       if (!newTask.id) { 
-        newTask.id = `temp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+        newTask.id = `TEMP-CSV-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
       }
       setTasks(prevTasks => [...prevTasks, newTask]);
       toast({ title: "Task Added", description: `Task ${newTask.id || 'new task'} created successfully.`});
@@ -133,15 +133,6 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     if (!editingTask) return;
     setEditingTask(prev => prev ? { ...prev, [name]: value } : null);
   };
-
-  // Functions to allow editing directly in table for specific fields if needed in future
-  // const handleCellChange = (taskId: string, field: keyof Task, value: any) => {
-  //   setTasks(currentTasks =>
-  //     currentTasks.map(task =>
-  //       task.id === taskId ? { ...task, [field]: value } : task
-  //     )
-  //   );
-  // };
 
   return (
     <div className="space-y-4 w-full">
@@ -174,12 +165,12 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                   <TableHead>Comentarios</TableHead>
                   <TableHead>Administrador</TableHead>
                   <TableHead>Tiempo Resolución (días)</TableHead>
-                  <TableHead className="text-left sticky right-0 bg-card px-4">Estado Resolución</TableHead>
+                  <TableHead className="text-left sticky right-0 bg-card px-4">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {tasks.map((task, rowIndex) => (
-                  <TableRow key={task.id || task.taskReference || `task-${rowIndex}`}>
+                  <TableRow key={task.id || task.taskReference || `task-${rowIndex}`} onClick={() => handleEdit(task)} className="cursor-pointer hover:bg-muted/50">
                     <TableCell>{task.taskReference || 'N/A'}</TableCell>
                     <TableCell>
                       <span className={`px-2 py-1 text-xs rounded-full ${
