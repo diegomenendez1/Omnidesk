@@ -19,7 +19,7 @@ interface InteractiveTableClientProps {
   initialData: Task[];
 }
 
-const resolutionStatusOptions: Task["resolutionStatus"][] = ["Pendiente", "En Progreso", "Resuelto", "Bloqueado"];
+const resolutionStatusOptions: Task["resolutionStatus"][] = ["Pendiente", "SFP", "Resuelto"];
 const statusOptions: Task["status"][] = ["Missing Estimated Dates", "Missing POD", "Pending to Invoice Out of Time"];
 
 
@@ -92,10 +92,10 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
 
     if (column === 'comments' || column === 'resolutionAdmin') {
       setCurrentEditText(String(value || ""));
-      setIsSelectDropdownOpen(false); // Close select if it was open for another cell
+      setIsSelectDropdownOpen(false); 
     } else if (column === 'resolutionStatus') {
       setCurrentEditSelectValue(String(value || "Pendiente"));
-      setIsSelectDropdownOpen(true); // Open the dropdown for resolutionStatus
+      setIsSelectDropdownOpen(true); 
     }
   };
 
@@ -124,7 +124,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     );
     setEditingCellKey(null); 
     setCurrentEditSelectValue("");
-    setIsSelectDropdownOpen(false); // Close dropdown after selection
+    setIsSelectDropdownOpen(false);
     toast({title: "Campo actualizado", description: `Se guardó el cambio para ${String(column)}.`});
   };
 
@@ -139,7 +139,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
       setEditingCellKey(null);
       setCurrentEditText("");
       setCurrentEditSelectValue("");
-      setIsSelectDropdownOpen(false); // Close dropdown if escape is pressed
+      setIsSelectDropdownOpen(false);
     }
   };
 
@@ -177,7 +177,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
               </TableHeader>
               <TableBody>
                 {tasks.map((task) => {
-                  const taskId = task.id || `task-${Math.random().toString(36).substring(2, 9)}`;
+                  const taskId = task.id || `task-${task.taskReference || Math.random().toString(36).substring(2, 9)}`;
                   return (
                     <TableRow key={taskId}>
                       <TableCell>{task.taskReference || 'N/A'}</TableCell>
@@ -241,12 +241,12 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                         {editingCellKey === `${taskId}-resolutionStatus` ? (
                           <Select
                             value={currentEditSelectValue}
-                            onValueChange={(value) => handleInlineSelectChange(taskId, 'resolutionStatus', value)}
+                            onValueChange={(value) => handleInlineSelectChange(taskId, 'resolutionStatus', value as Task['resolutionStatus'])}
                             open={isSelectDropdownOpen}
                             onOpenChange={(openState) => {
                               setIsSelectDropdownOpen(openState);
-                              if (!openState) { // If dropdown is closing
-                                setEditingCellKey(null); // Revert to display mode
+                              if (!openState && editingCellKey === `${taskId}-resolutionStatus`) { 
+                                setEditingCellKey(null); 
                               }
                             }}
                           >
@@ -260,9 +260,8 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                         ) : (
                           <span className={`px-2 py-1 text-xs rounded-full ${
                             task.resolutionStatus === "Resuelto" ? "bg-green-100 text-green-700 dark:bg-green-700/20 dark:text-green-300" :
-                            task.resolutionStatus === "En Progreso" ? "bg-blue-100 text-blue-700 dark:bg-blue-700/20 dark:text-blue-300" :
-                            task.resolutionStatus === "Pendiente" ? "bg-gray-100 text-gray-700 dark:bg-gray-700/20 dark:text-gray-300" :
-                            task.resolutionStatus === "Bloqueado" ? "bg-red-100 text-red-700 dark:bg-red-700/20 dark:text-red-300" : ""
+                            task.resolutionStatus === "SFP" ? "bg-blue-100 text-blue-700 dark:bg-blue-700/20 dark:text-blue-300" :
+                            task.resolutionStatus === "Pendiente" ? "bg-gray-100 text-gray-700 dark:bg-gray-700/20 dark:text-gray-300" : ""
                           }`}>
                             {task.resolutionStatus || "Pendiente"}
                           </span>

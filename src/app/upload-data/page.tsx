@@ -18,6 +18,7 @@ import { useRouter } from 'next/navigation';
 type UploadStep = "upload" | "map" | "confirm" | "done";
 
 const validStatuses: Task["status"][] = ["Missing Estimated Dates", "Missing POD", "Pending to Invoice Out of Time"];
+const validResolutionStatuses: Task["resolutionStatus"][] = ["Pendiente", "SFP", "Resuelto"];
 
 // Define system columns based on Task interface for mapping
 const systemColumns: SystemColumn[] = [
@@ -38,17 +39,22 @@ const systemColumns: SystemColumn[] = [
 // Keys should be lowercase for case-insensitive matching
 const PREFERRED_CSV_TO_SYSTEM_MAP: Record<string, string> = {
   "transport order ref.": "taskReference",
+  "to ref.": "taskReference",
   "days pending for first invoice": "delayDays",
+  "dias de atraso": "delayDays",
   "invoice on-time status": "status",
+  "to status": "status",
   "customer account": "customerAccount",
+  "customer acc.": "customerAccount",
   "total net amount main currency": "netAmount",
+  "monto $": "netAmount",
   "operations executive": "assignee",
-  "transport mode": "transportMode"
-  // Add other common CSV headers from the user if known, e.g.,
-  // "comentario": "comments",
-  // "admin resolucion": "resolutionAdmin",
-  // "estado resolucion": "resolutionStatus",
-  // "tiempo resolucion": "resolutionTimeDays"
+  "desarrollador logístico": "assignee",
+  "transport mode": "transportMode",
+  "comentarios": "comments",
+  "administrador": "resolutionAdmin",
+  "estado de resolución": "resolutionStatus",
+  "tiempo resolución (días)": "resolutionTimeDays"
 };
 
 
@@ -184,13 +190,13 @@ export default function UploadDataPage() {
             taskObject.assignee = value || "";
           } else if (systemColName === 'taskReference') {
             taskObject.taskReference = value || "";
-            if (!idCandidate) idCandidate = value;
+            if (!idCandidate && value) idCandidate = `csv-${value}-${rowIndex}`;
           } else if (systemColName === 'delayDays' || systemColName === 'netAmount' || systemColName === 'resolutionTimeDays') {
             taskObject[systemColName as 'delayDays' | 'netAmount' | 'resolutionTimeDays'] = value && !isNaN(parseFloat(value)) ? parseFloat(value) : null;
           } else if (systemColName === 'customerAccount' || systemColName === 'transportMode' || systemColName === 'comments' || systemColName === 'resolutionAdmin') {
              taskObject[systemColName as 'customerAccount' | 'transportMode' | 'comments' | 'resolutionAdmin'] = value || "";
           } else if (systemColName === 'resolutionStatus') {
-            taskObject.resolutionStatus = value as Task['resolutionStatus'] || "Pendiente";
+            taskObject.resolutionStatus = validResolutionStatuses.includes(value as Task['resolutionStatus']) ? value as Task['resolutionStatus'] : "Pendiente";
           }
            else if (systemColumns.some(sc => sc.name === systemColName)) {
             (taskObject as any)[systemColName] = value || null;
@@ -205,7 +211,7 @@ export default function UploadDataPage() {
         taskObject.id = `TEMP-CSV-${Date.now()}-${rowIndex}-${Math.random().toString(36).substring(2, 7)}`;
       }
 
-      if (!taskObject.status) taskObject.status = "Missing Estimated Dates"; // Default status
+      if (!taskObject.status) taskObject.status = "Missing Estimated Dates"; 
       if (!taskObject.resolutionStatus && systemColumns.some(sc => sc.name === 'resolutionStatus')) {
         taskObject.resolutionStatus = "Pendiente";
       }
@@ -226,7 +232,7 @@ export default function UploadDataPage() {
         description: "No se pudieron guardar los datos para la tabla interactiva. La vista previa sigue disponible en esta página.",
         variant: "destructive",
       });
-      setStep("done"); // Permanecer en la página de carga para mostrar la vista previa
+      setStep("done"); 
     }
   };
 
@@ -311,5 +317,4 @@ export default function UploadDataPage() {
   );
 }
     
-
     

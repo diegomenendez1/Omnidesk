@@ -15,7 +15,7 @@ export interface Task {
   // Nuevos campos para seguimiento de administradores
   comments?: string; // Comentarios del administrador
   resolutionAdmin?: string; // Administrador asignado a la resolución
-  resolutionStatus?: 'Pendiente' | 'En Progreso' | 'Resuelto' | 'Bloqueado'; // Estado de la resolución
+  resolutionStatus?: 'Pendiente' | 'SFP' | 'Resuelto'; // Estado de la resolución
   resolutionTimeDays?: number | null; // Días que tomó la resolución
 
   [key: string]: any;
@@ -38,4 +38,3 @@ export interface SystemColumnInfo {
   description: string;
   required?: boolean;
 }
-
