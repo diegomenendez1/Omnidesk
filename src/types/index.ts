@@ -3,12 +3,7 @@ export interface Task {
   id?: string; // Made optional
   name?: string; // Made optional
   status: "To Do" | "In Progress" | "Blocked" | "Done" | "Review";
-  // priority: "Low" | "Medium" | "High" | "Very High"; // Removed
-  dueDate: string | null; 
   assignee: string;
-  estimatedHours: number | string | null; 
-  actualHours: number | null;
-  description?: string;
 
   // Campos para mapeo de CSV
   taskReference?: string;
@@ -22,7 +17,7 @@ export interface Task {
 
 // For AI Validation
 export interface DataInconsistency {
-  cell: string; 
+  cell: string;
   description: string;
 }
 
@@ -33,8 +28,7 @@ export interface ValidateDataConsistencyOutput {
 
 // For CSV Upload Mapping
 export interface SystemColumnInfo {
-  name: keyof Task | string; 
+  name: keyof Task | string;
   description: string;
   required?: boolean;
 }
-

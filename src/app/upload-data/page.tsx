@@ -18,23 +18,13 @@ type UploadStep = "upload" | "map" | "confirm" | "done";
 
 // Define system columns based on Task interface for mapping
 const systemColumns: SystemColumn[] = [
-  // { name: 'id', description: 'ID Interno de Tarea (ej. TASK-001)', required: true },
-  // { name: 'name', description: 'Nombre de la Tarea', required: true },
   { name: 'status', description: 'TO Status (Estado de la Orden/Tarea)', required: true },
-  // { name: 'priority', description: 'Prioridad (Baja, Media, Alta, Muy Alta)', required: true },
   { name: 'assignee', description: 'Desarrollador Logístico (Ejecutivo de Operaciones)', required: false },
   { name: 'taskReference', description: 'TO Ref. (Referencia Orden de Transporte)', required: false },
   { name: 'delayDays', description: 'Dias de atraso (Días Pendientes para Factura)', required: false },
   { name: 'customerAccount', description: 'Customer Account (Cuenta de Cliente)', required: false },
   { name: 'netAmount', description: 'Monto $ (Importe Neto Total Moneda Principal)', required: false },
   { name: 'transportMode', description: 'Transport Mode (Modo de Transporte)', required: false },
-  // Columns removed as per user request: dueDate, estimatedHours, actualHours, description from this specific list
-  // If they need to be mappable, they should be added back here.
-  // For now, focusing on the explicitly mentioned columns.
-  { name: 'dueDate', description: 'Fecha de Vencimiento (YYYY-MM-DD)', required: false },
-  { name: 'estimatedHours', description: 'Horas Estimadas', required: false },
-  { name: 'actualHours', description: 'Horas Reales', required: false },
-  { name: 'description', description: 'Descripción detallada de la tarea', required: false },
 ];
 
 
@@ -44,7 +34,7 @@ export default function UploadDataPage() {
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [csvPreviewRows, setCsvPreviewRows] = useState<string[][]>([]);
   const [rawCsvRows, setRawCsvRows] = useState<string[][]>([]);
-  
+
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
@@ -110,12 +100,12 @@ export default function UploadDataPage() {
     rawCsvRows.forEach((row, rowIndex) => {
       const taskObject: Partial<Task> = {};
       let idCandidate: string | undefined = undefined;
-      
+
       csvHeaders.forEach((header, colIndex) => {
         const systemColName = userMappings[header];
         if (systemColName) {
           const value = row[colIndex]?.trim();
-          
+
           if (systemColName === 'id') {
              taskObject.id = value || `TEMP-CSV-${Date.now()}-${rowIndex}`;
              idCandidate = taskObject.id;
@@ -128,12 +118,10 @@ export default function UploadDataPage() {
           } else if (systemColName === 'taskReference') {
             taskObject.taskReference = value || "";
             if (!idCandidate) idCandidate = value; // Use taskReference as ID if no ID column is mapped
-          } else if (systemColName === 'delayDays' || systemColName === 'netAmount' || systemColName === 'estimatedHours' || systemColName === 'actualHours') {
-            taskObject[systemColName as 'delayDays' | 'netAmount' | 'estimatedHours' | 'actualHours'] = value && !isNaN(parseFloat(value)) ? parseFloat(value) : null;
-          } else if (systemColName === 'customerAccount' || systemColName === 'transportMode' || systemColName === 'description' ) {
-             taskObject[systemColName as 'customerAccount' | 'transportMode' | 'description'] = value || "";
-          } else if (systemColName === 'dueDate') {
-             taskObject.dueDate = value || null;
+          } else if (systemColName === 'delayDays' || systemColName === 'netAmount') {
+            taskObject[systemColName as 'delayDays' | 'netAmount'] = value && !isNaN(parseFloat(value)) ? parseFloat(value) : null;
+          } else if (systemColName === 'customerAccount' || systemColName === 'transportMode' ) {
+             taskObject[systemColName as 'customerAccount' | 'transportMode'] = value || "";
           } else {
             // For any other dynamically mapped columns
             (taskObject as any)[systemColName] = value;
@@ -151,10 +139,10 @@ export default function UploadDataPage() {
 
       // Ensure required fields have default values if not properly mapped or empty
       if (!taskObject.status) taskObject.status = "To Do"; // Example: status is required
-      
+
       tasks.push(taskObject as Task);
     });
-    
+
     setProcessedTasks(tasks);
     setStep("done");
     toast({ title: "Datos Procesados", description: `${tasks.length} tareas han sido procesadas del archivo CSV.` });
@@ -177,7 +165,7 @@ export default function UploadDataPage() {
             <div className="space-y-4">
               <h3 className="text-xl font-semibold">Mapeo de Columnas</h3>
               <p className="text-sm text-muted-foreground">
-                Hemos intentado adivinar cómo se asignan las columnas de tu archivo CSV ({csvFile.name}) a las columnas del sistema. 
+                Hemos intentado adivinar cómo se asignan las columnas de tu archivo CSV ({csvFile.name}) a las columnas del sistema.
                 Por favor, revisa y ajusta las asignaciones si es necesario.
               </p>
               <ColumnMapper
@@ -196,7 +184,7 @@ export default function UploadDataPage() {
               </div>
             </div>
           )}
-          
+
           {step === "done" && processedTasks.length > 0 && (
              <div className="space-y-4">
               <Alert variant="default" className="bg-green-50 border-green-200 dark:bg-green-900 dark:border-green-700">
