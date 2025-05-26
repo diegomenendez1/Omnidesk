@@ -30,7 +30,7 @@ interface InteractiveTableClientProps {
 }
 
 const statusOptions: Task["status"][] = ["To Do", "In Progress", "Blocked", "Done", "Review"];
-const priorityOptions: Task["priority"][] = ["Low", "Medium", "High", "Very High"];
+// const priorityOptions: Task["priority"][] = ["Low", "Medium", "High", "Very High"]; // Removed
 
 export function InteractiveTableClient({ initialData }: InteractiveTableClientProps) {
   const [tasks, setTasks] = useState<Task[]>(initialData);
@@ -46,7 +46,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     startTransition(async () => {
       try {
         const tableDataString = JSON.stringify(tasks.map((task, index) => ({
-          rowIndex: index + 1, // For easier cell referencing like A1, B2
+          rowIndex: index + 1, 
           ...task
         })));
         const result = await performDataValidation({ tableData: tableDataString });
@@ -75,21 +75,27 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   
   const handleAddNew = () => {
     setEditingTask({
-      id: `TASK-${String(tasks.length + 1).padStart(3, '0')}`, // Simple ID generation
-      name: "",
+      id: `temp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, // Temporary unique ID
+      name: "", // Name is now optional, default to empty
       status: "To Do",
-      priority: "Medium",
-      dueDate: new Date().toISOString().split('T')[0], // Default to today
+      // priority: "Medium", // Priority removed
+      dueDate: new Date().toISOString().split('T')[0], 
       assignee: "",
       estimatedHours: 0,
       actualHours: null,
-      description: ""
+      description: "",
+      taskReference: "",
+      delayDays: null,
+      customerAccount: "",
+      netAmount: null,
+      transportMode: "",
     });
     setIsNewTask(true);
     setIsModalOpen(true);
   };
 
-  const handleDelete = (taskId: string) => {
+  const handleDelete = (taskId: string | undefined) => {
+    if (!taskId) return;
     setTasks(currentTasks => currentTasks.filter(task => task.id !== taskId));
     toast({ title: "Task Deleted", description: `Task ${taskId} has been removed.` });
   };
@@ -99,7 +105,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
 
     if (isNewTask) {
       setTasks(prevTasks => [...prevTasks, editingTask]);
-      toast({ title: "Task Added", description: `Task ${editingTask.id} created successfully.`});
+      toast({ title: "Task Added", description: `Task ${editingTask.id || 'new task'} created successfully.`});
     } else {
       setTasks(prevTasks => prevTasks.map(task => task.id === editingTask.id ? editingTask : task));
       toast({ title: "Task Updated", description: `Task ${editingTask.id} updated successfully.`});
@@ -111,7 +117,13 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     if (!editingTask) return;
     const { name, value } = e.target;
-    setEditingTask(prev => prev ? { ...prev, [name]: name === 'estimatedHours' || name === 'actualHours' ? (value === '' ? null : Number(value)) : value } : null);
+    
+    let processedValue: string | number | null = value;
+    if (name === 'estimatedHours' || name === 'actualHours' || name === 'delayDays' || name === 'netAmount') {
+      processedValue = value === '' ? null : Number(value);
+    }
+
+    setEditingTask(prev => prev ? { ...prev, [name]: processedValue } : null);
   };
 
   const handleSelectChange = (name: keyof Task, value: string) => {
@@ -119,7 +131,6 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     setEditingTask(prev => prev ? { ...prev, [name]: value } : null);
   };
   
-  // Function to get cell reference (e.g., A1, B2)
   const getCellRef = (rowIndex: number, colKey: keyof Task) => {
     const colLetter = String.fromCharCode(65 + Object.keys(tasks[0] || {}).indexOf(colKey));
     return `${colLetter}${rowIndex + 1}`;
@@ -147,22 +158,29 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>ID</TableHead>
-                  <TableHead>Name</TableHead>
+                  {/* <TableHead>ID</TableHead> */}
+                  {/* <TableHead>Name</TableHead> */}
+                  <TableHead>TO Ref.</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Priority</TableHead>
+                  {/* <TableHead>Priority</TableHead> */}
                   <TableHead>Due Date</TableHead>
                   <TableHead>Assignee</TableHead>
+                  <TableHead>Dias de atraso</TableHead>
+                  <TableHead>Customer Acc.</TableHead>
+                  <TableHead>Monto $</TableHead>
+                  <TableHead>Transport Mode</TableHead>
                   <TableHead className="text-right">Est. Hours</TableHead>
                   <TableHead className="text-right">Actual Hours</TableHead>
+                  <TableHead>Description</TableHead>
                   <TableHead className="text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {tasks.map((task, rowIndex) => (
-                  <TableRow key={task.id}>
-                    <TableCell className="font-medium">{task.id}</TableCell>
-                    <TableCell>{task.name}</TableCell>
+                  <TableRow key={task.id || task.taskReference || `task-${rowIndex}`}>
+                    {/* <TableCell className="font-medium">{task.id || 'N/A'}</TableCell> */}
+                    {/* <TableCell>{task.name || 'N/A'}</TableCell> */}
+                    <TableCell>{task.taskReference || 'N/A'}</TableCell>
                     <TableCell>
                       <span className={`px-2 py-1 text-xs rounded-full ${
                         task.status === "Done" ? "bg-green-100 text-green-700" :
@@ -173,11 +191,16 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                         {task.status}
                       </span>
                     </TableCell>
-                    <TableCell>{task.priority}</TableCell>
+                    {/* <TableCell>{task.priority}</TableCell> */}
                     <TableCell>{task.dueDate || 'N/A'}</TableCell>
-                    <TableCell>{task.assignee}</TableCell>
+                    <TableCell>{task.assignee || 'N/A'}</TableCell>
+                    <TableCell>{task.delayDays === null || task.delayDays === undefined ? 'N/A' : String(task.delayDays)}</TableCell>
+                    <TableCell>{task.customerAccount || 'N/A'}</TableCell>
+                    <TableCell className="text-right">{task.netAmount === null || task.netAmount === undefined ? 'N/A' : String(task.netAmount)}</TableCell>
+                    <TableCell>{task.transportMode || 'N/A'}</TableCell>
                     <TableCell className="text-right">{task.estimatedHours === null || task.estimatedHours === undefined ? 'N/A' : String(task.estimatedHours)}</TableCell>
                     <TableCell className="text-right">{task.actualHours === null || task.actualHours === undefined ? 'N/A' : String(task.actualHours)}</TableCell>
+                    <TableCell className="truncate max-w-xs">{task.description || 'N/A'}</TableCell>
                     <TableCell className="text-center">
                       <Button variant="ghost" size="icon" onClick={() => handleEdit(task)} className="hover:text-primary">
                         <Edit3 className="h-4 w-4" />
@@ -204,17 +227,18 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
             <DialogHeader>
               <DialogTitle>{isNewTask ? "Add New Task" : "Edit Task"}</DialogTitle>
               <DialogDescription>
-                {isNewTask ? "Fill in the details for the new task." : `Modify the details for task ${editingTask.id}.`}
+                {isNewTask ? "Fill in the details for the new task." : `Modify the details for task ${editingTask.id || editingTask.taskReference || 'selected task'}.`}
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto pr-2">
-              <div className="grid grid-cols-4 items-center gap-4">
+              {/* Name field removed */}
+              {/* <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="name" className="text-right">Name</Label>
-                <Input id="name" name="name" value={editingTask.name} onChange={handleInputChange} className="col-span-3" />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="description" className="text-right">Description</Label>
-                <Textarea id="description" name="description" value={editingTask.description || ""} onChange={handleInputChange} className="col-span-3" />
+                <Input id="name" name="name" value={editingTask.name || ""} onChange={handleInputChange} className="col-span-3" />
+              </div> */}
+               <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="taskReference" className="text-right">TO Ref.</Label>
+                <Input id="taskReference" name="taskReference" value={editingTask.taskReference || ""} onChange={handleInputChange} className="col-span-3" />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="status" className="text-right">Status</Label>
@@ -227,7 +251,8 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
+              {/* Priority field removed */}
+              {/* <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="priority" className="text-right">Priority</Label>
                  <Select name="priority" value={editingTask.priority} onValueChange={(value) => handleSelectChange("priority", value)}>
                   <SelectTrigger className="col-span-3">
@@ -237,14 +262,30 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                     {priorityOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
                   </SelectContent>
                 </Select>
-              </div>
+              </div> */}
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="dueDate" className="text-right">Due Date</Label>
                 <Input id="dueDate" name="dueDate" type="date" value={editingTask.dueDate || ""} onChange={handleInputChange} className="col-span-3" />
               </div>
                <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="assignee" className="text-right">Assignee</Label>
-                <Input id="assignee" name="assignee" value={editingTask.assignee} onChange={handleInputChange} className="col-span-3" />
+                <Input id="assignee" name="assignee" value={editingTask.assignee || ""} onChange={handleInputChange} className="col-span-3" />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="delayDays" className="text-right">Dias de atraso</Label>
+                <Input id="delayDays" name="delayDays" type="number" value={editingTask.delayDays === null ? "" : String(editingTask.delayDays)} onChange={handleInputChange} className="col-span-3" />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="customerAccount" className="text-right">Customer Acc.</Label>
+                <Input id="customerAccount" name="customerAccount" value={editingTask.customerAccount || ""} onChange={handleInputChange} className="col-span-3" />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="netAmount" className="text-right">Monto $</Label>
+                <Input id="netAmount" name="netAmount" type="number" value={editingTask.netAmount === null ? "" : String(editingTask.netAmount)} onChange={handleInputChange} className="col-span-3" />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="transportMode" className="text-right">Transport Mode</Label>
+                <Input id="transportMode" name="transportMode" value={editingTask.transportMode || ""} onChange={handleInputChange} className="col-span-3" />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="estimatedHours" className="text-right">Est. Hours</Label>
@@ -253,6 +294,10 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="actualHours" className="text-right">Actual Hours</Label>
                 <Input id="actualHours" name="actualHours" type="number" value={editingTask.actualHours === null ? "" : String(editingTask.actualHours)} onChange={handleInputChange} className="col-span-3" />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="description" className="text-right">Description</Label>
+                <Textarea id="description" name="description" value={editingTask.description || ""} onChange={handleInputChange} className="col-span-3" />
               </div>
             </div>
             <DialogFooter>

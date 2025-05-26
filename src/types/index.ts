@@ -1,29 +1,28 @@
 
 export interface Task {
-  id: string;
-  name: string;
+  id?: string; // Made optional
+  name?: string; // Made optional
   status: "To Do" | "In Progress" | "Blocked" | "Done" | "Review";
-  priority: "Low" | "Medium" | "High" | "Very High";
-  dueDate: string | null; // ISO string date format YYYY-MM-DD
+  // priority: "Low" | "Medium" | "High" | "Very High"; // Removed
+  dueDate: string | null; 
   assignee: string;
-  estimatedHours: number | string | null; // Allow string for potential inconsistencies
+  estimatedHours: number | string | null; 
   actualHours: number | null;
   description?: string;
 
-  // Nuevos campos opcionales para mapeo de CSV
+  // Campos para mapeo de CSV
   taskReference?: string;
   delayDays?: number | null;
   customerAccount?: string;
   netAmount?: number | null;
   transportMode?: string;
 
-  // Allow any other string keys for dynamic properties from CSV
   [key: string]: any;
 }
 
 // For AI Validation
 export interface DataInconsistency {
-  cell: string; // e.g., "D2" (column D, row 2)
+  cell: string; 
   description: string;
 }
 
@@ -34,7 +33,8 @@ export interface ValidateDataConsistencyOutput {
 
 // For CSV Upload Mapping
 export interface SystemColumnInfo {
-  name: keyof Task | string; // Allow string for flexibility if needed, but ideally keyof Task
+  name: keyof Task | string; 
   description: string;
   required?: boolean;
 }
+
