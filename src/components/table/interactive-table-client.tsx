@@ -76,7 +76,6 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
 
   const handleAddNew = () => {
     setEditingTask({
-      // id is optional and will be generated if not provided or handled by backend
       status: "To Do",
       assignee: "",
       taskReference: "",
@@ -88,7 +87,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
       resolutionAdmin: "",
       resolutionStatus: "Pendiente",
       resolutionTimeDays: null,
-      id: `temp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}` // Example temporary ID
+      id: `temp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
     });
     setIsNewTask(true);
     setIsModalOpen(true);
@@ -105,7 +104,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
 
     if (isNewTask) {
       const newTask = { ...editingTask };
-      if (!newTask.id) { // Ensure new tasks have an ID if not set
+      if (!newTask.id) { 
         newTask.id = `temp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
       }
       setTasks(prevTasks => [...prevTasks, newTask]);
@@ -134,6 +133,15 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     if (!editingTask) return;
     setEditingTask(prev => prev ? { ...prev, [name]: value } : null);
   };
+
+  // Functions to allow editing directly in table for specific fields if needed in future
+  // const handleCellChange = (taskId: string, field: keyof Task, value: any) => {
+  //   setTasks(currentTasks =>
+  //     currentTasks.map(task =>
+  //       task.id === taskId ? { ...task, [field]: value } : task
+  //     )
+  //   );
+  // };
 
   return (
     <div className="space-y-4 w-full">
@@ -165,9 +173,8 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                   <TableHead>Transport Mode</TableHead>
                   <TableHead>Comentarios</TableHead>
                   <TableHead>Administrador</TableHead>
-                  <TableHead>Estado Resolución</TableHead>
                   <TableHead>Tiempo Resolución (días)</TableHead>
-                  <TableHead className="text-center sticky right-0 bg-card">Actions</TableHead>
+                  <TableHead className="text-left sticky right-0 bg-card px-4">Estado Resolución</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -192,7 +199,8 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                     <TableCell>{task.transportMode || 'N/A'}</TableCell>
                     <TableCell className="max-w-xs truncate">{task.comments || 'N/A'}</TableCell>
                     <TableCell>{task.resolutionAdmin || 'N/A'}</TableCell>
-                    <TableCell>
+                    <TableCell className="text-right">{task.resolutionTimeDays === null || task.resolutionTimeDays === undefined ? 'N/A' : String(task.resolutionTimeDays)}</TableCell>
+                    <TableCell className="sticky right-0 bg-card px-4">
                       {task.resolutionStatus ? (
                         <span className={`px-2 py-1 text-xs rounded-full ${
                           task.resolutionStatus === "Resuelto" ? "bg-green-100 text-green-700 dark:bg-green-700/20 dark:text-green-300" :
@@ -203,15 +211,6 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                           {task.resolutionStatus}
                         </span>
                       ) : 'N/A'}
-                    </TableCell>
-                    <TableCell className="text-right">{task.resolutionTimeDays === null || task.resolutionTimeDays === undefined ? 'N/A' : String(task.resolutionTimeDays)}</TableCell>
-                    <TableCell className="text-center sticky right-0 bg-card">
-                      <Button variant="ghost" size="icon" onClick={() => handleEdit(task)} className="hover:text-primary">
-                        <Edit3 className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(task.id)} className="hover:text-destructive">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -292,7 +291,10 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                   </SelectContent>
                 </Select>
               </div>
-              {/* resolutionTimeDays is not editable here as per requirement */}
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="resolutionTimeDays" className="text-right">Tiempo Resolución (días)</Label>
+                <Input id="resolutionTimeDays" name="resolutionTimeDays" type="number" value={editingTask.resolutionTimeDays === null ? "" : String(editingTask.resolutionTimeDays)} onChange={handleInputChange} className="col-span-3" disabled />
+              </div>
             </div>
             <DialogFooter>
               <DialogClose asChild>
@@ -306,5 +308,3 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     </div>
   );
 }
-
-    
