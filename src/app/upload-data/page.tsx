@@ -19,15 +19,11 @@ type UploadStep = "upload" | "map" | "confirm" | "done";
 // Define system columns based on Task interface for mapping
 const systemColumns: SystemColumn[] = [
   { name: 'id', description: 'ID Interno de Tarea (ej. TASK-001)', required: true },
-  { name: 'taskReference', description: 'TO Ref. (Referencia Orden de Transporte)', required: false },
   { name: 'name', description: 'Nombre de la Tarea', required: true },
   { name: 'status', description: 'TO Status (Estado de la Orden/Tarea)', required: true },
   { name: 'priority', description: 'Prioridad (Baja, Media, Alta, Muy Alta)', required: true },
-  { name: 'dueDate', description: 'Fecha de Vencimiento (YYYY-MM-DD)', required: false },
   { name: 'assignee', description: 'Desarrollador Logístico (Ejecutivo de Operaciones)', required: false },
-  { name: 'estimatedHours', description: 'Horas Estimadas (numérico)', required: false },
-  { name: 'actualHours', description: 'Horas Reales (numérico)', required: false },
-  { name: 'description', description: 'Descripción Detallada', required: false },
+  { name: 'taskReference', description: 'TO Ref. (Referencia Orden de Transporte)', required: false },
   { name: 'delayDays', description: 'Dias de atraso (Días Pendientes para Factura)', required: false },
   { name: 'customerAccount', description: 'Customer Account (Cuenta de Cliente)', required: false },
   { name: 'netAmount', description: 'Monto $ (Importe Neto Total Moneda Principal)', required: false },
@@ -123,14 +119,12 @@ export default function UploadDataPage() {
             taskObject.status = value as Task['status'] || "To Do";
           } else if (systemColName === 'priority') {
             taskObject.priority = value as Task['priority'] || "Medium";
-          } else if (systemColName === 'dueDate') {
-            taskObject.dueDate = value && !isNaN(new Date(value).getTime()) ? value : null;
           } else if (systemColName === 'assignee') {
             taskObject.assignee = value || "";
-          } else if (systemColName === 'estimatedHours' || systemColName === 'actualHours' || systemColName === 'delayDays' || systemColName === 'netAmount') {
-            taskObject[systemColName as 'estimatedHours' | 'actualHours' | 'delayDays' | 'netAmount'] = value && !isNaN(parseFloat(value)) ? parseFloat(value) : null;
-          } else if (systemColName === 'description' || systemColName === 'taskReference' || systemColName === 'customerAccount' || systemColName === 'transportMode') {
-             taskObject[systemColName as 'description' | 'taskReference' | 'customerAccount' | 'transportMode'] = value || "";
+          } else if (systemColName === 'delayDays' || systemColName === 'netAmount') {
+            taskObject[systemColName as 'delayDays' | 'netAmount'] = value && !isNaN(parseFloat(value)) ? parseFloat(value) : null;
+          } else if (systemColName === 'taskReference' || systemColName === 'customerAccount' || systemColName === 'transportMode') {
+             taskObject[systemColName as 'taskReference' | 'customerAccount' | 'transportMode'] = value || "";
           }
         }
       });
