@@ -31,6 +31,23 @@ const systemColumns: SystemColumn[] = [
   { name: 'resolutionTimeDays', description: 'Tiempo Resolución (días)', required: false },
 ];
 
+// Predefined map for common user CSV headers to system column names
+// Keys should be lowercase for case-insensitive matching
+const PREFERRED_CSV_TO_SYSTEM_MAP: Record<string, string> = {
+  "transport order ref.": "taskReference",
+  "days pending for first invoice": "delayDays",
+  "invoice on-time status": "status",
+  "customer account": "customerAccount",
+  "total net amount main currency": "netAmount",
+  "operations executive": "assignee",
+  "transport mode": "transportMode"
+  // Add other common CSV headers from the user if known, e.g.,
+  // "comentario": "comments",
+  // "admin resolucion": "resolutionAdmin",
+  // "estado resolucion": "resolutionStatus",
+  // "tiempo resolucion": "resolutionTimeDays"
+};
+
 
 export default function UploadDataPage() {
   const [step, setStep] = useState<UploadStep>("upload");
@@ -53,43 +70,80 @@ export default function UploadDataPage() {
     setRawCsvRows(allRows);
 
     startTransition(async () => {
-      try {
-        const suggestionsFromAI = await getMappingSuggestions(headers, systemColumns);
-        setSuggestedMappings(suggestionsFromAI.suggestedMappings); // Store AI suggestions
-        
-        const initialUserMappings: Record<string, string | null> = {};
-        headers.forEach(header => {
-          // Attempt direct match first (case-insensitive on description)
-          const directMatch = systemColumns.find(
-              sc => sc.description.toLowerCase() === header.toLowerCase()
-          );
+      const determinedMappings: Record<string, string | null> = {};
+      const headersForAI: string[] = [];
+      let aiSuggestionsOutput: SuggestCsvMappingOutput | null = null;
 
-          if (directMatch) {
-              initialUserMappings[header] = directMatch.name;
-          } else {
-              // If no direct match, use AI suggestion for this header
-              const aiSuggestion = suggestionsFromAI.suggestedMappings.find(
-                  m => m.csvColumn === header
-              );
-              // Use AI suggestion if available, otherwise default to null (Do Not Import)
-              initialUserMappings[header] = aiSuggestion ? aiSuggestion.systemColumn : null;
+      // Step 1: Preferred mapping (from user-provided CSV name to system name)
+      // Step 2: Direct description match (CSV name matches system column description)
+      headers.forEach(header => {
+        const lowerHeader = header.toLowerCase();
+        let mappedSystemColumn: string | null = null;
+
+        if (PREFERRED_CSV_TO_SYSTEM_MAP[lowerHeader]) {
+          mappedSystemColumn = PREFERRED_CSV_TO_SYSTEM_MAP[lowerHeader];
+        } else {
+          const directDescMatch = systemColumns.find(
+            sc => sc.description.toLowerCase() === lowerHeader
+          );
+          if (directDescMatch) {
+            mappedSystemColumn = directDescMatch.name;
           }
-        });
-        
-        setUserMappings(initialUserMappings);
-        setStep("map");
-        toast({ title: "Archivo CSV cargado", description: "Revisa el mapeo de columnas sugerido." });
-      } catch (error) {
-        toast({
-          title: "Error al sugerir mapeo",
-          description: error instanceof Error ? error.message : "No se pudieron obtener las sugerencias.",
-          variant: "destructive",
-        });
-        const fallbackMappings: Record<string, string | null> = {};
-        headers.forEach(h => fallbackMappings[h] = null);
-        setUserMappings(fallbackMappings);
-        setStep("map");
+        }
+
+        if (mappedSystemColumn) {
+          determinedMappings[header] = mappedSystemColumn;
+        } else {
+          determinedMappings[header] = null; // Fallback, AI will try to fill this
+          headersForAI.push(header);
+        }
+      });
+
+      // Step 3: AI Suggestions for remaining headers
+      if (headersForAI.length > 0) {
+        try {
+          aiSuggestionsOutput = await getMappingSuggestions(headersForAI, systemColumns);
+          aiSuggestionsOutput.suggestedMappings.forEach(aiMap => {
+            // Only update if AI found a mapping for a header that wasn't mapped by preferred/direct logic
+            if (determinedMappings.hasOwnProperty(aiMap.csvColumn) && determinedMappings[aiMap.csvColumn] === null && aiMap.systemColumn !== null) {
+              determinedMappings[aiMap.csvColumn] = aiMap.systemColumn;
+            }
+          });
+        } catch (error) {
+          toast({
+            title: "Error al obtener sugerencias de IA",
+            description: "Algunas columnas no pudieron ser mapeadas automáticamente por la IA. Por favor, revísalas manualmente.",
+            variant: "destructive",
+          });
+        }
       }
+
+      setUserMappings(determinedMappings);
+
+      // Prepare the 'suggestedMappings' prop for ColumnMapper.
+      // This prop could be used by ColumnMapper to e.g. show confidence scores or highlight AI suggestions.
+      const finalSuggestedMappingsForColumnMapper = headers.map(header => {
+        const systemColName = determinedMappings[header];
+        let confidence = 0;
+
+        if (systemColName) {
+          const lowerHeader = header.toLowerCase();
+          if (PREFERRED_CSV_TO_SYSTEM_MAP[lowerHeader] === systemColName) {
+            confidence = 0.99; // Very high confidence for preferred map
+          } else if (systemColumns.find(sc => sc.description.toLowerCase() === lowerHeader && sc.name === systemColName)) {
+            confidence = 0.95; // High confidence for direct description match
+          } else {
+            // Must have come from AI. Try to find its original confidence.
+            const aiSuggestionForThisHeader = aiSuggestionsOutput?.suggestedMappings.find(s => s.csvColumn === header);
+            confidence = aiSuggestionForThisHeader?.confidence || (systemColName ? 0.7 : 0); // Default AI confidence or 0 if still null
+          }
+        }
+        return { csvColumn: header, systemColumn: systemColName, confidence };
+      });
+      setSuggestedMappings(finalSuggestedMappingsForColumnMapper);
+      
+      setStep("map");
+      toast({ title: "Archivo CSV cargado", description: "Revisa el mapeo de columnas." });
     });
   };
 
@@ -126,20 +180,13 @@ export default function UploadDataPage() {
         if (systemColName) {
           const value = row[colIndex]?.trim();
 
-          // 'id' and 'name' are not part of systemColumns for mapping, so direct assignment is not typical here unless specifically mapped.
-          // They are optional in Task type.
-          if (systemColName === 'id') {
-             taskObject.id = value || `TEMP-CSV-${Date.now()}-${rowIndex}`;
-             idCandidate = taskObject.id;
-          } else if (systemColName === 'name') { // Though 'name' is removed from systemColumns
-            taskObject.name = value || "";
-          } else if (systemColName === 'status') {
+          if (systemColName === 'status') {
             taskObject.status = value as Task['status'] || "To Do";
           } else if (systemColName === 'assignee') {
             taskObject.assignee = value || "";
           } else if (systemColName === 'taskReference') {
             taskObject.taskReference = value || "";
-            if (!idCandidate) idCandidate = value; 
+            if (!idCandidate) idCandidate = value;
           } else if (systemColName === 'delayDays' || systemColName === 'netAmount' || systemColName === 'resolutionTimeDays') {
             taskObject[systemColName as 'delayDays' | 'netAmount' | 'resolutionTimeDays'] = value && !isNaN(parseFloat(value)) ? parseFloat(value) : null;
           } else if (systemColName === 'customerAccount' || systemColName === 'transportMode' || systemColName === 'comments' || systemColName === 'resolutionAdmin') {
@@ -147,14 +194,12 @@ export default function UploadDataPage() {
           } else if (systemColName === 'resolutionStatus') {
             taskObject.resolutionStatus = value as Task['resolutionStatus'] || "Pendiente";
           }
-           // For any other mapped system column not explicitly handled above
            else if (systemColumns.some(sc => sc.name === systemColName)) {
-            (taskObject as any)[systemColName] = value || null; // Default to null if value is empty
+            (taskObject as any)[systemColName] = value || null;
           }
         }
       });
       
-      // Ensure ID is set, prioritizing explicit mapping, then taskReference, then generated
       if (!taskObject.id && idCandidate) {
         taskObject.id = idCandidate;
       }
@@ -162,12 +207,10 @@ export default function UploadDataPage() {
         taskObject.id = `TEMP-CSV-${Date.now()}-${rowIndex}-${Math.random().toString(36).substring(2, 7)}`;
       }
 
-      // Ensure required or default-bearing fields have values
-      if (!taskObject.status) taskObject.status = "To Do"; // Default status
+      if (!taskObject.status) taskObject.status = "To Do";
       if (!taskObject.resolutionStatus && systemColumns.some(sc => sc.name === 'resolutionStatus')) {
-        taskObject.resolutionStatus = "Pendiente"; // Default resolution status
+        taskObject.resolutionStatus = "Pendiente";
       }
-
 
       tasks.push(taskObject as Task);
     });
@@ -200,8 +243,8 @@ export default function UploadDataPage() {
               <ColumnMapper
                 csvHeaders={csvHeaders}
                 systemColumns={systemColumns}
-                suggestedMappings={suggestedMappings} // This is just for reference if needed by ColumnMapper directly
-                currentMappings={userMappings} // This drives the Select values
+                suggestedMappings={suggestedMappings}
+                currentMappings={userMappings}
                 onMappingChange={handleMappingUpdate}
               />
               <div className="flex justify-end gap-2 mt-6">
@@ -229,7 +272,6 @@ export default function UploadDataPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      {/* Show headers based on actual mappings made by user, not all system columns */}
                       {systemColumns.filter(sc => Object.values(userMappings).includes(sc.name)).map(col => (
                         <TableHead key={col.name}>{col.description}</TableHead>
                       ))}
@@ -257,5 +299,4 @@ export default function UploadDataPage() {
     </div>
   );
 }
-
     
