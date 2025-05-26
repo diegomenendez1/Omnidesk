@@ -20,6 +20,8 @@ interface InteractiveTableClientProps {
 }
 
 const resolutionStatusOptions: Task["resolutionStatus"][] = ["Pendiente", "En Progreso", "Resuelto", "Bloqueado"];
+const statusOptions: Task["status"][] = ["Missing Estimated Dates", "Missing POD", "Pending to Invoice Out of Time"];
+
 
 export function InteractiveTableClient({ initialData }: InteractiveTableClientProps) {
   const [tasks, setTasks] = useState<Task[]>(initialData);
@@ -27,9 +29,11 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
-  const [editingCellKey, setEditingCellKey] = useState<string | null>(null); // e.g., "TASK-001-comments"
+  const [editingCellKey, setEditingCellKey] = useState<string | null>(null);
   const [currentEditText, setCurrentEditText] = useState<string>("");
   const [currentEditSelectValue, setCurrentEditSelectValue] = useState<string>("");
+  const [isSelectDropdownOpen, setIsSelectDropdownOpen] = useState(false);
+
 
   useEffect(() => {
     const storedTasksJson = localStorage.getItem('uploadedTasks');
@@ -85,14 +89,17 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     const cellKey = `${task.id}-${String(column)}`;
     setEditingCellKey(cellKey);
     const value = task[column];
+
     if (column === 'comments' || column === 'resolutionAdmin') {
       setCurrentEditText(String(value || ""));
+      setIsSelectDropdownOpen(false); // Close select if it was open for another cell
     } else if (column === 'resolutionStatus') {
       setCurrentEditSelectValue(String(value || "Pendiente"));
+      setIsSelectDropdownOpen(true); // Open the dropdown for resolutionStatus
     }
   };
 
-  const handleInlineInputChange = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleInlineTextChange = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setCurrentEditText(event.target.value);
   };
 
@@ -117,6 +124,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     );
     setEditingCellKey(null); 
     setCurrentEditSelectValue("");
+    setIsSelectDropdownOpen(false); // Close dropdown after selection
     toast({title: "Campo actualizado", description: `Se guardó el cambio para ${String(column)}.`});
   };
 
@@ -126,15 +134,12 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
        if (!event.shiftKey && event.currentTarget.tagName !== 'TEXTAREA') { 
         event.preventDefault(); 
         saveInlineEdit(taskId, column);
-      } else if (event.currentTarget.tagName === 'TEXTAREA' && event.key === 'Enter' && !event.shiftKey) {
-        // For Textarea, save on Enter only if not Shift+Enter
-        // event.preventDefault(); // Optionally prevent newline if you want Enter to always save
-        // saveInlineEdit(taskId, column);
       }
     } else if (event.key === 'Escape') {
       setEditingCellKey(null);
       setCurrentEditText("");
       setCurrentEditSelectValue("");
+      setIsSelectDropdownOpen(false); // Close dropdown if escape is pressed
     }
   };
 
@@ -146,7 +151,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
         <div className="flex gap-2 flex-shrink-0">
           <Button onClick={handleValidateData} disabled={isPending} variant="default">
             <ScanSearch className="mr-2 h-4 w-4" />
-            {isPending ? 'Validating...' : 'Validate Data with AI'}
+            {isPending ? 'Validando...' : 'Validate Data with AI'}
           </Button>
         </div>
       </div>
@@ -171,8 +176,8 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {tasks.map((task, rowIndex) => {
-                  const taskId = task.id || `task-${rowIndex}`; 
+                {tasks.map((task) => {
+                  const taskId = task.id || `task-${Math.random().toString(36).substring(2, 9)}`;
                   return (
                     <TableRow key={taskId}>
                       <TableCell>{task.taskReference || 'N/A'}</TableCell>
@@ -196,11 +201,11 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                         {editingCellKey === `${taskId}-comments` ? (
                           <Textarea
                             value={currentEditText}
-                            onChange={handleInlineInputChange}
+                            onChange={handleInlineTextChange}
                             onBlur={() => saveInlineEdit(taskId, 'comments')}
                             onKeyDown={(e) => handleKeyDown(e, taskId, 'comments')}
                             autoFocus
-                            className="w-full text-sm min-h-[60px]" // Adjust min-height as needed
+                            className="w-full text-sm min-h-[60px]"
                           />
                         ) : (
                           task.comments || <span className="text-muted-foreground italic">N/A</span>
@@ -212,7 +217,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                           <Input
                             type="text"
                             value={currentEditText}
-                            onChange={handleInlineInputChange}
+                            onChange={handleInlineTextChange}
                             onBlur={() => saveInlineEdit(taskId, 'resolutionAdmin')}
                             onKeyDown={(e) => handleKeyDown(e, taskId, 'resolutionAdmin')}
                             autoFocus
@@ -226,13 +231,24 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                       <TableCell className="text-right">{task.resolutionTimeDays === null || task.resolutionTimeDays === undefined ? 'N/A' : String(task.resolutionTimeDays)}</TableCell>
                       
                       <TableCell
-                        onClick={() => editingCellKey !== `${taskId}-resolutionStatus` && startEdit(task, 'resolutionStatus')}
+                        onClick={() => {
+                           if (editingCellKey !== `${taskId}-resolutionStatus`) {
+                             startEdit(task, 'resolutionStatus');
+                           }
+                        }}
                         className="text-left cursor-pointer hover:bg-muted/50"
                       >
                         {editingCellKey === `${taskId}-resolutionStatus` ? (
                           <Select
                             value={currentEditSelectValue}
                             onValueChange={(value) => handleInlineSelectChange(taskId, 'resolutionStatus', value)}
+                            open={isSelectDropdownOpen}
+                            onOpenChange={(openState) => {
+                              setIsSelectDropdownOpen(openState);
+                              if (!openState) { // If dropdown is closing
+                                setEditingCellKey(null); // Revert to display mode
+                              }
+                            }}
                           >
                             <SelectTrigger className="w-full text-sm" autoFocus>
                               <SelectValue placeholder="Select status" />
@@ -267,5 +283,4 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     </div>
   );
 }
-
     
