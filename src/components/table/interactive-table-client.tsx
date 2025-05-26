@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card, CardContent } from '@/components/ui/card';
 import { DataValidationReport } from './data-validation-report';
 import type { ValidateDataConsistencyOutput } from '@/types';
-import { ScanSearch } from 'lucide-react';
+import { ScanSearch, ArrowUp, ArrowDown } from 'lucide-react'; // Added ArrowUp, ArrowDown
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from '@/lib/utils';
 import { useLanguage } from '@/context/language-context';
@@ -20,7 +20,13 @@ import { useLanguage } from '@/context/language-context';
 const resolutionStatusOptions: TaskResolutionStatus[] = ["Pendiente", "SFP", "Resuelto"];
 const statusOptions: TaskStatus[] = ["Missing Estimated Dates", "Missing POD", "Pending to Invoice Out of Time"];
 
-const ALL_FILTER_VALUE = "_ALL_VALUES_"; // Unique value for "All" option
+const ALL_FILTER_VALUE = "_ALL_VALUES_"; 
+
+type SortDirection = 'ascending' | 'descending';
+interface SortConfig {
+  key: keyof Task | null;
+  direction: SortDirection | null;
+}
 
 interface InteractiveTableClientProps {
   initialData: Task[];
@@ -35,10 +41,12 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
 
   const [editingCellKey, setEditingCellKey] = useState<string | null>(null);
   const [currentEditText, setCurrentEditText] = useState<string>("");
-  const [currentEditSelectValue, setCurrentEditSelectValue] = useState<TaskResolutionStatus | TaskStatus | ''>(resolutionStatusOptions[0]);
+  const [currentEditSelectValue, setCurrentEditSelectValue] = useState<TaskResolutionStatus | TaskStatus | ''>('');
   const [isSelectDropdownOpen, setIsSelectDropdownOpen] = useState(false);
 
   const [filters, setFilters] = useState<Partial<Record<keyof Task, string | undefined>>>({});
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: null, direction: null });
+
 
   useEffect(() => {
     const storedTasksJson = localStorage.getItem('uploadedTasks');
@@ -63,7 +71,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [t]);
+  }, [t]); // t is included to re-trigger toast translation if language changes
 
   const handleValidateData = () => {
     startTransition(async () => {
@@ -109,12 +117,18 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
 
   const saveInlineEdit = (taskId: string, column: keyof Task) => {
     const taskIdentifier = tasks.find(t => t.id === taskId || t.taskReference === taskId);
-    if (!editingCellKey || !taskIdentifier || (!editingCellKey.startsWith(taskIdentifier.id || '') && !editingCellKey.startsWith(taskIdentifier.taskReference || ''))) return;
+     if (!editingCellKey || !taskIdentifier || (!editingCellKey.startsWith(taskIdentifier.id || String(Math.random())) && !editingCellKey.startsWith(taskIdentifier.taskReference || String(Math.random())))) return;
+
 
     setTasks(prevTasks =>
-      prevTasks.map(task =>
-        (task.id === taskId || task.taskReference === taskId) ? { ...task, [column]: currentEditText } : task
-      )
+      prevTasks.map(task => {
+        const currentId = task.id || task.taskReference;
+        const targetId = taskId;
+        if (currentId === targetId) {
+          return { ...task, [column]: currentEditText };
+        }
+        return task;
+      })
     );
     setEditingCellKey(null);
     setCurrentEditText("");
@@ -123,13 +137,18 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
 
   const handleInlineSelectChange = (taskId: string, column: keyof Task, value: string) => {
      setTasks(prevTasks =>
-      prevTasks.map(task =>
-        (task.id === taskId || task.taskReference === taskId) ? { ...task, [column]: value } : task
-      )
+      prevTasks.map(task => {
+        const currentId = task.id || task.taskReference;
+        const targetId = taskId;
+        if (currentId === targetId) {
+          return { ...task, [column]: value };
+        }
+        return task;
+      })
     );
     setEditingCellKey(null);
     setCurrentEditSelectValue('');
-    setIsSelectDropdownOpen(false);
+    setIsSelectDropdownOpen(false); // Close dropdown after selection
     toast({ title: t('interactiveTable.fieldUpdated'), description: t('interactiveTable.changeSavedFor', { field: t(`interactiveTable.tableHeaders.${column}` as any, String(column))}) });
   };
 
@@ -158,7 +177,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   };
 
   const getResolutionStatusDisplay = (statusValue?: TaskResolutionStatus) => {
-    if (!statusValue) return t('interactiveTable.resolutionStatus.pendiente');
+    if (!statusValue) return t('interactiveTable.resolutionStatus.pendiente'); // Default if undefined
     const keyMap: Record<TaskResolutionStatus, string> = {
       "Pendiente": "interactiveTable.resolutionStatus.pendiente",
       "SFP": "interactiveTable.resolutionStatus.sfp",
@@ -178,23 +197,21 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     const values = new Set<string>();
     tasks.forEach(task => {
       const val = task[columnKey];
-      // Use translated "N/A" for null/undefined values, but ensure it's not an empty string for the value prop
       const stringVal = (val === null || val === undefined) 
                         ? t('interactiveTable.notAvailable') 
                         : String(val);
       
-      if (stringVal.trim() !== "") { // Ensure non-empty and non-whitespace-only strings are added
+      if (stringVal.trim() !== "") {
         values.add(stringVal);
-      } else if (val === "") { // Explicitly handle original empty strings if needed as a distinct filter option
-        // If you want to filter by "actually empty" string values, use a placeholder key and label
-        // For now, we are excluding them from direct filter options.
-        // Example: values.add("_EMPTY_"); // And then handle "_EMPTY_" in filter logic and display "(Empty)"
       }
     });
     return Array.from(values).sort((a, b) => {
-        if (a === t('interactiveTable.notAvailable')) return 1; // Push "N/A" to the end
+        if (a === t('interactiveTable.notAvailable')) return 1;
         if (b === t('interactiveTable.notAvailable')) return -1;
-        return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+        if (!isNaN(parseFloat(a)) && !isNaN(parseFloat(b))) {
+            return parseFloat(a) - parseFloat(b);
+        }
+        return a.localeCompare(b, undefined, { sensitivity: 'base' });
     });
   };
   
@@ -203,8 +220,6 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   const uniqueDelayDays = useMemo(() => getUniqueValuesForColumn('delayDays'), [tasks, t]);
   const uniqueCustomerAccounts = useMemo(() => getUniqueValuesForColumn('customerAccount'), [tasks, t]);
   const uniqueNetAmounts = useMemo(() => {
-    // For netAmount, we want to filter by the formatted currency string if that's what's displayed
-    // Or by the raw number if that's preferred. Let's use raw numbers for filtering.
     const numericValues = new Set<string>();
     tasks.forEach(task => {
         if (task.netAmount !== null && task.netAmount !== undefined) {
@@ -224,10 +239,10 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   const uniqueResolutionTimeDays = useMemo(() => getUniqueValuesForColumn('resolutionTimeDays'), [tasks, t]);
 
 
-  const filteredTasks = tasks.filter(task => {
+  const filteredTasks = useMemo(() => tasks.filter(task => {
     return Object.entries(filters).every(([columnKeyStr, filterValue]) => {
       const columnKey = columnKeyStr as keyof Task;
-      if (filterValue === undefined) return true; // "All" selected or no filter set
+      if (filterValue === undefined || filterValue === ALL_FILTER_VALUE) return true;
 
       const taskValue = task[columnKey];
       let taskValueString: string;
@@ -243,10 +258,57 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
       }
       return taskValueString === filterValue;
     });
-  });
+  }), [tasks, filters, t]);
+
+  const requestSort = (key: keyof Task) => {
+    let newDirection: SortDirection = 'ascending';
+    if (sortConfig.key === key) {
+      if (sortConfig.direction === 'ascending') {
+        newDirection = 'descending';
+      }
+      // If current is descending, clicking again will reset to ascending
+    }
+    setSortConfig({ key, direction: newDirection });
+  };
+
+  const sortedTasks = useMemo(() => {
+    let sortableItems = [...filteredTasks];
+    if (sortConfig.key !== null && sortConfig.direction !== null) {
+      sortableItems.sort((a, b) => {
+        if (!sortConfig.key) return 0;
+        const key = sortConfig.key;
+        const valA = a[key];
+        const valB = b[key];
+
+        // Sort nulls/undefined to the end
+        if ((valA === null || typeof valA === 'undefined') && (valB !== null && typeof valB !== 'undefined')) return 1;
+        if ((valB === null || typeof valB === 'undefined') && (valA !== null && typeof valA !== 'undefined')) return -1;
+        if ((valA === null || typeof valA === 'undefined') && (valB === null || typeof valB === 'undefined')) return 0;
+  
+        let comparison = 0;
+        if (typeof valA === 'number' && typeof valB === 'number') {
+          comparison = valA - valB;
+        } else {
+          comparison = String(valA).toLowerCase().localeCompare(String(valB).toLowerCase());
+        }
+  
+        return sortConfig.direction === 'ascending' ? comparison : -comparison;
+      });
+    }
+    return sortableItems;
+  }, [filteredTasks, sortConfig]);
   
   const filterPlaceholder = (headerKey: string) => t('interactiveTable.filterBy', { columnName: t(headerKey as any) });
   const allOptionLabel = t('interactiveTable.filterAllOption');
+
+  const renderSortIcon = (columnKey: keyof Task) => {
+    if (sortConfig.key === columnKey) {
+      return sortConfig.direction === 'ascending' 
+        ? <ArrowUp className="h-3 w-3 text-muted-foreground" /> 
+        : <ArrowDown className="h-3 w-3 text-muted-foreground" />;
+    }
+    return null;
+  };
 
   return (
     <div className="space-y-4 w-full">
@@ -266,17 +328,72 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t('interactiveTable.tableHeaders.toRef')}</TableHead>
-                  <TableHead>{t('interactiveTable.tableHeaders.toStatus')}</TableHead>
-                  <TableHead>{t('interactiveTable.tableHeaders.logisticDeveloper')}</TableHead>
-                  <TableHead>{t('interactiveTable.tableHeaders.delayDays')}</TableHead>
-                  <TableHead>{t('interactiveTable.tableHeaders.customerAccount')}</TableHead>
-                  <TableHead className="text-right">{t('interactiveTable.tableHeaders.amount')}</TableHead>
-                  <TableHead>{t('interactiveTable.tableHeaders.transportMode')}</TableHead>
-                  <TableHead>{t('interactiveTable.tableHeaders.comments')}</TableHead>
-                  <TableHead>{t('interactiveTable.tableHeaders.admin')}</TableHead>
-                  <TableHead className="text-right">{t('interactiveTable.tableHeaders.resolutionTimeDays')}</TableHead>
-                  <TableHead className="text-left">{t('interactiveTable.tableHeaders.actions')}</TableHead>
+                  <TableHead className="cursor-pointer hover:bg-muted/80 transition-colors" onClick={() => requestSort('taskReference')}>
+                    <div className="flex items-center gap-1">
+                      {t('interactiveTable.tableHeaders.toRef')}
+                      {renderSortIcon('taskReference')}
+                    </div>
+                  </TableHead>
+                  <TableHead className="cursor-pointer hover:bg-muted/80 transition-colors" onClick={() => requestSort('status')}>
+                     <div className="flex items-center gap-1">
+                      {t('interactiveTable.tableHeaders.toStatus')}
+                      {renderSortIcon('status')}
+                    </div>
+                  </TableHead>
+                  <TableHead className="cursor-pointer hover:bg-muted/80 transition-colors" onClick={() => requestSort('assignee')}>
+                     <div className="flex items-center gap-1">
+                      {t('interactiveTable.tableHeaders.logisticDeveloper')}
+                      {renderSortIcon('assignee')}
+                    </div>
+                  </TableHead>
+                  <TableHead className="cursor-pointer hover:bg-muted/80 transition-colors" onClick={() => requestSort('delayDays')}>
+                     <div className="flex items-center gap-1">
+                      {t('interactiveTable.tableHeaders.delayDays')}
+                      {renderSortIcon('delayDays')}
+                    </div>
+                  </TableHead>
+                  <TableHead className="cursor-pointer hover:bg-muted/80 transition-colors" onClick={() => requestSort('customerAccount')}>
+                     <div className="flex items-center gap-1">
+                      {t('interactiveTable.tableHeaders.customerAccount')}
+                      {renderSortIcon('customerAccount')}
+                    </div>
+                  </TableHead>
+                  <TableHead className="text-right cursor-pointer hover:bg-muted/80 transition-colors" onClick={() => requestSort('netAmount')}>
+                     <div className="flex items-center justify-end gap-1">
+                      {t('interactiveTable.tableHeaders.amount')}
+                      {renderSortIcon('netAmount')}
+                    </div>
+                  </TableHead>
+                  <TableHead className="cursor-pointer hover:bg-muted/80 transition-colors" onClick={() => requestSort('transportMode')}>
+                     <div className="flex items-center gap-1">
+                      {t('interactiveTable.tableHeaders.transportMode')}
+                      {renderSortIcon('transportMode')}
+                    </div>
+                  </TableHead>
+                  <TableHead className="cursor-pointer hover:bg-muted/80 transition-colors" onClick={() => requestSort('comments')}>
+                     <div className="flex items-center gap-1">
+                      {t('interactiveTable.tableHeaders.comments')}
+                      {renderSortIcon('comments')}
+                    </div>
+                  </TableHead>
+                  <TableHead className="cursor-pointer hover:bg-muted/80 transition-colors" onClick={() => requestSort('resolutionAdmin')}>
+                     <div className="flex items-center gap-1">
+                      {t('interactiveTable.tableHeaders.admin')}
+                      {renderSortIcon('resolutionAdmin')}
+                    </div>
+                  </TableHead>
+                  <TableHead className="text-right cursor-pointer hover:bg-muted/80 transition-colors" onClick={() => requestSort('resolutionTimeDays')}>
+                     <div className="flex items-center justify-end gap-1">
+                       {t('interactiveTable.tableHeaders.resolutionTimeDays')}
+                       {renderSortIcon('resolutionTimeDays')}
+                    </div>
+                  </TableHead>
+                  <TableHead className="text-left cursor-pointer hover:bg-muted/80 transition-colors" onClick={() => requestSort('resolutionStatus')}>
+                     <div className="flex items-center gap-1">
+                      {t('interactiveTable.tableHeaders.actions')}
+                      {renderSortIcon('resolutionStatus')}
+                    </div>
+                  </TableHead>
                 </TableRow>
                 <TableRow>
                   <TableCell className="p-1">
@@ -307,7 +424,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                     </Select>
                   </TableCell>
                   <TableCell className="p-1">
-                     <Select value={filters.delayDays || ALL_FILTER_VALUE} onValueChange={(value) => handleFilterChange('delayDays', value)}>
+                     <Select value={String(filters.delayDays ?? ALL_FILTER_VALUE)} onValueChange={(value) => handleFilterChange('delayDays', value)}>
                         <SelectTrigger className="h-8"><SelectValue placeholder={filterPlaceholder('interactiveTable.tableHeaders.delayDays')} /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value={ALL_FILTER_VALUE}>{allOptionLabel}</SelectItem>
@@ -325,7 +442,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                     </Select>
                   </TableCell>
                   <TableCell className="p-1">
-                     <Select value={filters.netAmount || ALL_FILTER_VALUE} onValueChange={(value) => handleFilterChange('netAmount', value)}>
+                     <Select value={String(filters.netAmount ?? ALL_FILTER_VALUE)} onValueChange={(value) => handleFilterChange('netAmount', value)}>
                         <SelectTrigger className="h-8 w-[120px] text-right"><SelectValue placeholder={filterPlaceholder('interactiveTable.tableHeaders.amount')} /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value={ALL_FILTER_VALUE}>{allOptionLabel}</SelectItem>
@@ -360,7 +477,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                     </Select>
                   </TableCell>
                   <TableCell className="p-1">
-                    <Select value={filters.resolutionTimeDays || ALL_FILTER_VALUE} onValueChange={(value) => handleFilterChange('resolutionTimeDays', value)}>
+                    <Select value={String(filters.resolutionTimeDays ?? ALL_FILTER_VALUE)} onValueChange={(value) => handleFilterChange('resolutionTimeDays', value)}>
                         <SelectTrigger className="h-8 w-[120px] text-right"><SelectValue placeholder={filterPlaceholder('interactiveTable.tableHeaders.resolutionTimeDays')} /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value={ALL_FILTER_VALUE}>{allOptionLabel}</SelectItem>
@@ -368,7 +485,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                         </SelectContent>
                     </Select>
                   </TableCell>
-                  <TableCell className="p-1 text-left"> {/* ensure alignment for the header */}
+                  <TableCell className="p-1 text-left">
                     <Select value={filters.resolutionStatus || ALL_FILTER_VALUE} onValueChange={(value) => handleFilterChange('resolutionStatus', value as TaskResolutionStatus)}>
                       <SelectTrigger className="h-8"><SelectValue placeholder={filterPlaceholder('interactiveTable.tableHeaders.actions')} /></SelectTrigger>
                       <SelectContent>
@@ -380,7 +497,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredTasks.map((task) => {
+                {sortedTasks.map((task) => {
                   const taskId = task.id || task.taskReference || `task-${Math.random().toString(36).substring(2, 9)}`;
                   return (
                     <TableRow key={taskId}>
@@ -461,7 +578,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                           <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                             task.resolutionStatus === "Resuelto" ? "bg-green-100 text-green-700 dark:bg-green-700/20 dark:text-green-300" :
                             task.resolutionStatus === "SFP" ? "bg-blue-100 text-blue-700 dark:bg-blue-700/20 dark:text-blue-300" :
-                            "bg-gray-100 text-gray-700 dark:bg-gray-700/20 dark:text-gray-300"
+                            "bg-gray-100 text-gray-700 dark:bg-gray-700/20 dark:text-gray-300" // Pendiente or other
                           }`}>
                             {getResolutionStatusDisplay(task.resolutionStatus)}
                           </span>
@@ -482,5 +599,4 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     </div>
   );
 }
-
     
