@@ -16,38 +16,40 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useState, useEffect } from 'react';
-
-const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/table", label: "Interactive Table", icon: Table2 },
-  { href: "/upload-data", label: "Cargar Datos", icon: UploadCloud },
-];
+import { useLanguage } from '@/context/language-context';
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const { t } = useLanguage();
   const [currentActivePath, setCurrentActivePath] = useState<string | null>(null);
   const { state: sidebarState } = useSidebar();
   
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
-  useEffect(() => {
+  useEffect(() => { 
     setHydrated(true); 
   }, []);
 
-  useEffect(() => {
+  useEffect(() => { 
     if (hydrated) {
-      setCurrentActivePath(pathname);
+      setCurrentActivePath(pathname); 
     }
   }, [pathname, hydrated]);
 
-  useEffect(() => {
+  useEffect(() => { 
     if (hydrated) {
-      setIsSidebarCollapsed(sidebarState === 'collapsed');
+      setIsSidebarCollapsed(sidebarState === 'collapsed'); 
     }
   }, [sidebarState, hydrated]);
   
-  const logoText = hydrated ? (isSidebarCollapsed ? "OD" : "OmniDeck") : "OmniDeck";
+  const logoText = hydrated ? (isSidebarCollapsed ? "OD" : t('appName')) : t('appName');
+
+  const navItems = [
+    { href: "/dashboard", labelKey: "sidebar.dashboard", icon: LayoutDashboard },
+    { href: "/table", labelKey: "sidebar.interactiveTable", icon: Table2 },
+    { href: "/upload-data", labelKey: "sidebar.uploadData", icon: UploadCloud },
+  ];
 
   return (
     <Sidebar collapsible="icon" variant="sidebar" className="border-r">
@@ -64,18 +66,20 @@ export function AppSidebar() {
                 (item.href === "/dashboard" && currentActivePath === "/") ||
                 (item.href !== "/dashboard" && currentActivePath.startsWith(item.href))
               : false;
+            
+            const translatedLabel = t(item.labelKey as any);
 
             return (
               <SidebarMenuItem key={item.href}>
                 <SidebarMenuButton
                   asChild
                   isActive={isActive}
-                  tooltip={{ children: item.label, side: "right" }}
+                  tooltip={{ children: translatedLabel, side: "right" }}
                   className="justify-start"
                 >
                   <Link href={item.href}>
                     <item.icon />
-                    <span>{item.label}</span>
+                    <span>{translatedLabel}</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -90,8 +94,8 @@ export function AppSidebar() {
             <AvatarFallback>OD</AvatarFallback>
           </Avatar>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-            <span className="text-sm font-medium text-sidebar-foreground">Admin User</span>
-            <span className="text-xs text-muted-foreground">admin@omnideck.com</span>
+            <span className="text-sm font-medium text-sidebar-foreground">{t('sidebar.adminUser')}</span>
+            <span className="text-xs text-muted-foreground">{t('sidebar.adminEmail')}</span>
           </div>
         </div>
       </SidebarFooter>

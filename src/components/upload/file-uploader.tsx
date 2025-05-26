@@ -5,21 +5,21 @@ import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { UploadCloud, FileText, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/context/language-context'; // Import useLanguage
 
 interface FileUploaderProps {
   onFileAccepted: (file: File, headers: string[], previewRows: string[][], allRows: string[][]) => void;
   isProcessing?: boolean;
 }
 
-// Simple CSV parser (handles basic cases, no commas in quotes)
 const parseCSV = (csvText: string): { headers: string[]; rows: string[][] } => {
-  const lines = csvText.trim().split(/\r\n|\n/); // Handles both LF and CRLF line endings
+  const lines = csvText.trim().split(/\r\n|\n/);
   if (lines.length === 0) return { headers: [], rows: [] };
 
-  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '')); // Trim and remove surrounding quotes
+  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
   
   const rows = lines.slice(1).map(line => 
     line.split(',').map(cell => cell.trim().replace(/^"|"$/g, ''))
@@ -32,6 +32,7 @@ export function FileUploader({ onFileAccepted, isProcessing }: FileUploaderProps
   const [previewRows, setPreviewRows] = useState<string[][]>([]);
   const [fileName, setFileName] = useState<string | null>(null);
   const { toast } = useToast();
+  const { t } = useLanguage(); // Get the translation function
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
@@ -45,23 +46,23 @@ export function FileUploader({ onFileAccepted, isProcessing }: FileUploaderProps
             try {
               const { headers, rows } = parseCSV(text);
               if (headers.length === 0) {
-                toast({ title: "Archivo CSV vacío o inválido", description: "La cabecera está vacía.", variant: "destructive" });
+                toast({ title: t('uploadData.fileUploader.emptyFileToastTitle'), description: t('uploadData.fileUploader.emptyFileToastDescription'), variant: "destructive" });
                 return;
               }
               setPreviewHeaders(headers);
-              setPreviewRows(rows.slice(0, 5)); // Show first 5 rows for preview
+              setPreviewRows(rows.slice(0, 5));
               onFileAccepted(file, headers, rows.slice(0,5), rows);
             } catch (error) {
-               toast({ title: "Error al parsear CSV", description: error instanceof Error ? error.message : "Formato de archivo CSV no válido.", variant: "destructive" });
+               toast({ title: t('uploadData.fileUploader.parseErrorToastTitle'), description: (error instanceof Error ? error.message : t('uploadData.fileUploader.parseErrorToastDescription')), variant: "destructive" });
             }
           }
         };
         reader.readAsText(file);
       } else {
-        toast({ title: "Archivo no válido", description: "Por favor, sube un archivo .csv", variant: "destructive" });
+        toast({ title: t('uploadData.fileUploader.invalidFileToastTitle'), description: t('uploadData.fileUploader.invalidFileToastDescription'), variant: "destructive" });
       }
     }
-  }, [onFileAccepted, toast]);
+  }, [onFileAccepted, toast, t]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -80,11 +81,9 @@ export function FileUploader({ onFileAccepted, isProcessing }: FileUploaderProps
           <input {...getInputProps()} />
           <UploadCloud className="mx-auto h-12 w-12 text-muted-foreground" />
           {isDragActive ? (
-            <p className="mt-2 text-muted-foreground">Suelta el archivo CSV aquí...</p>
+            <p className="mt-2 text-muted-foreground">{t('uploadData.fileUploader.dropzoneActive')}</p>
           ) : (
-            <p className="mt-2 text-muted-foreground">
-              Arrastra y suelta un archivo CSV aquí, o <span className="text-primary">haz clic para seleccionar</span>.
-            </p>
+            <p className="mt-2 text-muted-foreground" dangerouslySetInnerHTML={{ __html: t('uploadData.fileUploader.dropzoneInactive') }}/>
           )}
         </CardContent>
       </Card>
@@ -92,7 +91,7 @@ export function FileUploader({ onFileAccepted, isProcessing }: FileUploaderProps
       {isProcessing && (
         <div className="flex items-center justify-center text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          Procesando archivo...
+          {t('uploadData.fileUploader.processingFile')}
         </div>
       )}
 
@@ -101,9 +100,9 @@ export function FileUploader({ onFileAccepted, isProcessing }: FileUploaderProps
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" />
-              Vista Previa de: {fileName}
+              {t('uploadData.fileUploader.previewFor', { fileName })}
             </CardTitle>
-            <CardDescription>Mostrando las primeras {previewRows.length} filas de datos.</CardDescription>
+            <CardDescription>{t('uploadData.fileUploader.showingFirstNRows', { count: previewRows.length })}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto rounded-md border">

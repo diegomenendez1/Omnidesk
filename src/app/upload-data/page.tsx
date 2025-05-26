@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useTransition } from 'react';
-import type { Task } from '@/types';
+import type { Task, TaskStatus, TaskResolutionStatus } from '@/types'; // Import TaskStatus and TaskResolutionStatus
 import { FileUploader } from '@/components/upload/file-uploader';
 import { ColumnMapper } from '@/components/upload/column-mapper';
 import { Button } from '@/components/ui/button';
@@ -15,29 +15,14 @@ import { getMappingSuggestions } from './actions';
 import type { SuggestCsvMappingOutput, SystemColumn } from './actions';
 import { useRouter } from 'next/navigation';
 import { formatCurrency } from '@/lib/utils';
+import { useLanguage } from '@/context/language-context';
 
 type UploadStep = "upload" | "map" | "confirm" | "done";
 
-const validStatuses: Task["status"][] = ["Missing Estimated Dates", "Missing POD", "Pending to Invoice Out of Time"];
-const validResolutionStatuses: Task["resolutionStatus"][] = ["Pendiente", "SFP", "Resuelto"];
+const validStatuses: TaskStatus[] = ["Missing Estimated Dates", "Missing POD", "Pending to Invoice Out of Time"];
+const validResolutionStatuses: TaskResolutionStatus[] = ["Pendiente", "SFP", "Resuelto"];
 
-// Define system columns based on Task interface for mapping
-const systemColumns: SystemColumn[] = [
-  { name: 'status', description: 'TO Status', required: true },
-  { name: 'assignee', description: 'Desarrollador Logístico', required: false },
-  { name: 'taskReference', description: 'TO Ref.', required: false },
-  { name: 'delayDays', description: 'Dias de atraso', required: false },
-  { name: 'customerAccount', description: 'Customer Acc.', required: false },
-  { name: 'netAmount', description: 'Monto $', required: false },
-  { name: 'transportMode', description: 'Transport Mode', required: false },
-  { name: 'comments', description: 'Comentarios', required: false },
-  { name: 'resolutionAdmin', description: 'Administrador', required: false },
-  { name: 'resolutionStatus', description: 'Estado de Resolución', required: false },
-  { name: 'resolutionTimeDays', description: 'Tiempo Resolución (días)', required: false },
-];
 
-// Predefined map for common user CSV headers to system column names
-// Keys should be lowercase for case-insensitive matching
 const PREFERRED_CSV_TO_SYSTEM_MAP: Record<string, string> = {
   "transport order ref.": "taskReference",
   "to ref.": "taskReference",
@@ -63,12 +48,29 @@ export default function UploadDataPage() {
   const [step, setStep] = useState<UploadStep>("upload");
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
-  const [csvPreviewRows, setCsvPreviewRows] = useState<string[][]>([]);
+  // const [csvPreviewRows, setCsvPreviewRows] = useState<string[][]>([]); // No longer directly used for display here
   const [rawCsvRows, setRawCsvRows] = useState<string[][]>([]);
 
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
   const router = useRouter();
+  const { t } = useLanguage();
+
+  const systemColumns: SystemColumn[] = [
+    // Use translation keys for descriptions
+    { name: 'status', description: t('uploadData.systemColumns.status'), required: true },
+    { name: 'assignee', description: t('uploadData.systemColumns.assignee'), required: false },
+    { name: 'taskReference', description: t('uploadData.systemColumns.taskReference'), required: false },
+    { name: 'delayDays', description: t('uploadData.systemColumns.delayDays'), required: false },
+    { name: 'customerAccount', description: t('uploadData.systemColumns.customerAccount'), required: false },
+    { name: 'netAmount', description: t('uploadData.systemColumns.netAmount'), required: false },
+    { name: 'transportMode', description: t('uploadData.systemColumns.transportMode'), required: false },
+    { name: 'comments', description: t('uploadData.systemColumns.comments'), required: false },
+    { name: 'resolutionAdmin', description: t('uploadData.systemColumns.resolutionAdmin'), required: false },
+    { name: 'resolutionStatus', description: t('uploadData.systemColumns.resolutionStatus'), required: false },
+    { name: 'resolutionTimeDays', description: t('uploadData.systemColumns.resolutionTimeDays'), required: false },
+  ];
+
 
   const [suggestedMappings, setSuggestedMappings] = useState<SuggestCsvMappingOutput['suggestedMappings']>([]);
   const [userMappings, setUserMappings] = useState<Record<string, string | null>>({});
@@ -77,8 +79,8 @@ export default function UploadDataPage() {
   const handleFileAccepted = (file: File, headers: string[], previewRows: string[][], allRows: string[][]) => {
     setCsvFile(file);
     setCsvHeaders(headers);
-    setCsvPreviewRows(previewRows);
-    setRawCsvRows(allRows); // Store all rows
+    // setCsvPreviewRows(previewRows); // Storing allRows, previewRows aren't directly used for display here anymore
+    setRawCsvRows(allRows); 
 
     startTransition(async () => {
       const initialUserMappings: Record<string, string | null> = {};
@@ -88,13 +90,11 @@ export default function UploadDataPage() {
         const lowerHeader = header.toLowerCase();
         let mappedSystemColumn: string | null = null;
 
-        // Step 1: Preferred mapping
         if (PREFERRED_CSV_TO_SYSTEM_MAP[lowerHeader]) {
           mappedSystemColumn = PREFERRED_CSV_TO_SYSTEM_MAP[lowerHeader];
         } else {
-          // Step 2: Direct description match
           const directDescMatch = systemColumns.find(
-            sc => sc.description.toLowerCase() === lowerHeader
+            sc => sc.description.toLowerCase() === lowerHeader // Match against translated descriptions
           );
           if (directDescMatch) {
             mappedSystemColumn = directDescMatch.name;
@@ -104,7 +104,7 @@ export default function UploadDataPage() {
         if (mappedSystemColumn) {
           initialUserMappings[header] = mappedSystemColumn;
         } else {
-          initialUserMappings[header] = null; // Fallback, AI will try to fill this
+          initialUserMappings[header] = null; 
           headersForAI.push(header);
         }
       });
@@ -112,7 +112,10 @@ export default function UploadDataPage() {
       let aiSuggestionsOutput: SuggestCsvMappingOutput | null = null;
       if (headersForAI.length > 0) {
         try {
-          aiSuggestionsOutput = await getMappingSuggestions(headersForAI, systemColumns);
+          // Pass system columns with translated descriptions to AI for better context
+          const systemColsForAI = systemColumns.map(sc => ({...sc, description: t(`uploadData.systemColumns.${sc.name}` as any) || sc.description}));
+          aiSuggestionsOutput = await getMappingSuggestions(headersForAI, systemColsForAI);
+
           aiSuggestionsOutput.suggestedMappings.forEach(aiMap => {
             if (initialUserMappings.hasOwnProperty(aiMap.csvColumn) && initialUserMappings[aiMap.csvColumn] === null && aiMap.systemColumn !== null) {
               initialUserMappings[aiMap.csvColumn] = aiMap.systemColumn;
@@ -120,8 +123,8 @@ export default function UploadDataPage() {
           });
         } catch (error) {
           toast({
-            title: "Error al obtener sugerencias de IA",
-            description: "Algunas columnas no pudieron ser mapeadas automáticamente. Por favor, revísalas manualmente.",
+            title: t('uploadData.aiErrorToastTitle'),
+            description: t('uploadData.aiErrorToastDescription'),
             variant: "destructive",
           });
         }
@@ -148,7 +151,7 @@ export default function UploadDataPage() {
       setSuggestedMappings(finalSuggestedMappingsForColumnMapper);
       
       setStep("map");
-      toast({ title: "Archivo CSV cargado", description: "Revisa el mapeo de columnas." });
+      toast({ title: t('uploadData.fileAcceptedToastTitle'), description: t('uploadData.fileAcceptedToastDescription') });
     });
   };
 
@@ -158,7 +161,7 @@ export default function UploadDataPage() {
 
   const processData = () => {
     if (rawCsvRows.length === 0 || csvHeaders.length === 0) {
-      toast({ title: "No hay datos para procesar", variant: "destructive" });
+      toast({ title: t('uploadData.noDataToProcess'), variant: "destructive" });
       return;
     }
 
@@ -167,9 +170,12 @@ export default function UploadDataPage() {
     const missingRequiredMappings = requiredSystemCols.filter(rc => !mappedSystemCols.includes(rc));
 
     if (missingRequiredMappings.length > 0) {
+      const missingColumnDescriptions = missingRequiredMappings
+        .map(colName => systemColumns.find(sc => sc.name === colName)?.description || colName)
+        .join(', ');
       toast({
-        title: "Mapeo Incompleto",
-        description: `Por favor, mapea las siguientes columnas requeridas del sistema: ${missingRequiredMappings.map(colName => systemColumns.find(sc => sc.name === colName)?.description || colName).join(', ')}`,
+        title: t('uploadData.incompleteMapping'),
+        description: t('uploadData.pleaseMapRequired', { columns: missingColumnDescriptions }),
         variant: "destructive"
       });
       return;
@@ -186,7 +192,7 @@ export default function UploadDataPage() {
           const value = row[colIndex]?.trim();
 
           if (systemColName === 'status') {
-            taskObject.status = validStatuses.includes(value as Task["status"]) ? value as Task["status"] : "Missing Estimated Dates";
+            taskObject.status = validStatuses.includes(value as TaskStatus) ? value as TaskStatus : "Missing Estimated Dates";
           } else if (systemColName === 'assignee') {
             taskObject.assignee = value || "";
           } else if (systemColName === 'taskReference') {
@@ -197,7 +203,7 @@ export default function UploadDataPage() {
           } else if (systemColName === 'customerAccount' || systemColName === 'transportMode' || systemColName === 'comments' || systemColName === 'resolutionAdmin') {
              taskObject[systemColName as 'customerAccount' | 'transportMode' | 'comments' | 'resolutionAdmin'] = value || "";
           } else if (systemColName === 'resolutionStatus') {
-            taskObject.resolutionStatus = validResolutionStatuses.includes(value as Task['resolutionStatus']) ? value as Task['resolutionStatus'] : "Pendiente";
+            taskObject.resolutionStatus = validResolutionStatuses.includes(value as TaskResolutionStatus) ? value as TaskResolutionStatus : "Pendiente";
           }
            else if (systemColumns.some(sc => sc.name === systemColName)) {
             (taskObject as any)[systemColName] = value || null;
@@ -224,13 +230,13 @@ export default function UploadDataPage() {
 
     try {
       localStorage.setItem('uploadedTasks', JSON.stringify(tasks));
-      toast({ title: "Datos Procesados", description: `${tasks.length} tareas procesadas y guardadas. Redirigiendo a la tabla...` });
+      toast({ title: t('uploadData.dataProcessed'), description: t('uploadData.tasksProcessedAndSaved', { count: tasks.length }) });
       router.push('/table');
     } catch (error) {
-      console.error("Error al guardar tareas en localStorage:", error);
+      console.error("Error saving tasks to localStorage:", error);
       toast({
-        title: "Error al guardar datos localmente",
-        description: "No se pudieron guardar los datos para la tabla interactiva. La vista previa sigue disponible en esta página.",
+        title: t('uploadData.errorSavingLocally'),
+        description: t('uploadData.errorSavingLocallyDescription'),
         variant: "destructive",
       });
       setStep("done"); 
@@ -242,8 +248,8 @@ export default function UploadDataPage() {
     <div className="space-y-6 w-full">
       <Card>
         <CardHeader>
-          <CardTitle>Cargar Datos desde CSV</CardTitle>
-          <CardDescription>Sube un archivo CSV, mapea las columnas y actualiza tus datos.</CardDescription>
+          <CardTitle>{t('uploadData.title')}</CardTitle>
+          <CardDescription>{t('uploadData.description')}</CardDescription>
         </CardHeader>
         <CardContent>
           {step === "upload" && (
@@ -252,23 +258,22 @@ export default function UploadDataPage() {
 
           {step === "map" && csvFile && (
             <div className="space-y-4">
-              <h3 className="text-xl font-semibold">Mapeo de Columnas</h3>
+              <h3 className="text-xl font-semibold">{t('uploadData.columnMappingTitle')}</h3>
               <p className="text-sm text-muted-foreground">
-                Hemos intentado adivinar cómo se asignan las columnas de tu archivo CSV ({csvFile.name}) a las columnas del sistema.
-                Por favor, revisa y ajusta las asignaciones si es necesario.
+                {t('uploadData.columnMappingDescription', { fileName: csvFile.name })}
               </p>
               <ColumnMapper
                 csvHeaders={csvHeaders}
-                systemColumns={systemColumns}
+                systemColumns={systemColumns.map(sc => ({...sc, description: t(`uploadData.systemColumns.${sc.name}` as any) || sc.description}))} // Pass translated descriptions
                 suggestedMappings={suggestedMappings}
                 currentMappings={userMappings}
                 onMappingChange={handleMappingUpdate}
               />
               <div className="flex justify-end gap-2 mt-6">
-                <Button variant="outline" onClick={() => { setStep("upload"); setCsvFile(null); }}>Cancelar</Button>
+                <Button variant="outline" onClick={() => { setStep("upload"); setCsvFile(null); }}>{t('uploadData.cancel')}</Button>
                 <Button onClick={processData} disabled={isPending}>
                   {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowRight className="mr-2 h-4 w-4" />}
-                  Confirmar Mapeo y Procesar
+                  {t('uploadData.confirmAndProcess')}
                 </Button>
               </div>
             </div>
@@ -278,20 +283,19 @@ export default function UploadDataPage() {
              <div className="space-y-4">
               <Alert variant="default" className="bg-green-50 border-green-200 dark:bg-green-900 dark:border-green-700">
                 <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
-                <AlertTitle className="text-green-700 dark:text-green-300">Procesamiento Completo</AlertTitle>
+                <AlertTitle className="text-green-700 dark:text-green-300">{t('uploadData.dataProcessed')}</AlertTitle>
                 <AlertDescription className="text-green-600 dark:text-green-400">
-                  Se han procesado {processedTasks.length} tareas desde el archivo CSV.
-                  Estos son los datos transformados. En una aplicación real, estos datos actualizarían la tabla principal.
-                  Para este prototipo, los datos se han guardado localmente y se intentarán cargar en la Tabla Interactiva.
+                   {t('uploadData.tasksProcessedAndSaved', { count: processedTasks.length }).replace(t('uploadData.redirectingToTable'), '')}
+                   {t('uploadData.previewTitle')}
                 </AlertDescription>
               </Alert>
-              <h3 className="text-xl font-semibold">Vista Previa de Datos Procesados (primeras 10 filas)</h3>
+              <h3 className="text-xl font-semibold">{t('uploadData.previewTitle')}</h3>
                <div className="max-h-96 overflow-y-auto rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       {systemColumns.filter(sc => Object.values(userMappings).includes(sc.name)).map(col => (
-                        <TableHead key={col.name}>{col.description}</TableHead>
+                        <TableHead key={col.name}>{t(`uploadData.systemColumns.${col.name}` as any) || col.description}</TableHead>
                       ))}
                     </TableRow>
                   </TableHeader>
@@ -303,7 +307,24 @@ export default function UploadDataPage() {
                            if (col.name === 'netAmount') {
                              return <TableCell key={col.name} className="text-right">{formatCurrency(value as number | null)}</TableCell>;
                            }
-                           return <TableCell key={col.name}>{String(value === null || value === undefined ? 'N/A' : value)}</TableCell>;
+                           // Handle status translation for preview table
+                           if (col.name === 'status') {
+                             const keyMap: Record<TaskStatus, string> = {
+                                "Missing Estimated Dates": "interactiveTable.status.missingEstimates",
+                                "Missing POD": "interactiveTable.status.missingPOD",
+                                "Pending to Invoice Out of Time": "interactiveTable.status.pendingInvoice",
+                             };
+                             return <TableCell key={col.name}>{t(keyMap[value as TaskStatus] as any)}</TableCell>;
+                           }
+                           if (col.name === 'resolutionStatus') {
+                             const keyMap: Record<TaskResolutionStatus, string> = {
+                               "Pendiente": "interactiveTable.resolutionStatus.pendiente",
+                               "SFP": "interactiveTable.resolutionStatus.sfp",
+                               "Resuelto": "interactiveTable.resolutionStatus.resuelto",
+                             };
+                             return <TableCell key={col.name}>{t(keyMap[value as TaskResolutionStatus] as any)}</TableCell>;
+                           }
+                           return <TableCell key={col.name}>{String(value === null || value === undefined ? t('interactiveTable.notAvailable') : value)}</TableCell>;
                         })}
                       </TableRow>
                     ))}
@@ -311,7 +332,7 @@ export default function UploadDataPage() {
                 </Table>
               </div>
               <Button onClick={() => { setStep("upload"); setCsvFile(null); setProcessedTasks([]); }} className="mt-4">
-                Cargar otro archivo
+                {t('uploadData.uploadAnotherFile')}
               </Button>
             </div>
           )}
@@ -320,5 +341,3 @@ export default function UploadDataPage() {
     </div>
   );
 }
-    
-    

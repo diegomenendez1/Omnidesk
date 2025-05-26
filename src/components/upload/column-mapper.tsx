@@ -5,10 +5,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import type { SystemColumn } from '@/app/upload-data/actions';
+import { useLanguage } from '@/context/language-context';
 
 interface ColumnMapperProps {
   csvHeaders: string[];
-  systemColumns: SystemColumn[];
+  systemColumns: SystemColumn[]; // Descriptions here should already be translated or be keys
   suggestedMappings: { csvColumn: string; systemColumn: string | null; confidence?: number }[];
   currentMappings: Record<string, string | null>;
   onMappingChange: (csvColumn: string, systemColumn: string | null) => void;
@@ -20,14 +21,14 @@ export function ColumnMapper({
   currentMappings,
   onMappingChange,
 }: ColumnMapperProps) {
+  const { t } = useLanguage();
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Asignación de Columnas</CardTitle>
+        <CardTitle>{t('uploadData.columnMappingTitle')}</CardTitle>
         <CardDescription>
-          Revisa y ajusta cómo se asignan las columnas de tu archivo CSV ({csvHeaders.length > 0 ? "detectadas" : ""}) a las columnas del sistema.
-          Las columnas del sistema marcadas como requeridas deben ser mapeadas.
+           {t('uploadData.columnMappingDescription', { fileName: csvHeaders.length > 0 ? "detectadas" : "" })}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -35,8 +36,8 @@ export function ColumnMapper({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="text-left">Columna CSV</TableHead>
-                <TableHead className="text-left">Mapear a Columna del Sistema</TableHead>
+                <TableHead className="text-left">{t('uploadData.csvColumn')}</TableHead>
+                <TableHead className="text-left">{t('uploadData.mapToSystemColumn')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -49,13 +50,14 @@ export function ColumnMapper({
                       onValueChange={(value) => onMappingChange(csvHeader, value === "DO_NOT_IMPORT" ? null : value)}
                     >
                       <SelectTrigger className="w-[280px] sm:w-[320px] md:w-[380px]">
-                        <SelectValue placeholder="Seleccionar columna del sistema" />
+                        <SelectValue placeholder={t('uploadData.mapToSystemColumn')} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="DO_NOT_IMPORT">No importar esta columna</SelectItem>
+                        <SelectItem value="DO_NOT_IMPORT">{t('uploadData.doNotImport')}</SelectItem>
                         {systemColumns.map((sysCol) => (
                           <SelectItem key={sysCol.name} value={sysCol.name}>
-                            {sysCol.description}
+                            {/* sysCol.description is now a translation key or already translated */}
+                            {sysCol.description} 
                           </SelectItem>
                         ))}
                       </SelectContent>
