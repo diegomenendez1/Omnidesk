@@ -9,6 +9,14 @@ export interface Task {
   estimatedHours: number | string | null; // Allow string for potential inconsistencies
   actualHours: number | null;
   description?: string;
+
+  // Nuevos campos opcionales para mapeo de CSV
+  taskReference?: string;
+  delayDays?: number | null;
+  customerAccount?: string;
+  netAmount?: number | null;
+  transportMode?: string;
+
   // Allow any other string keys for dynamic properties from CSV
   [key: string]: any;
 }

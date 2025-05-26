@@ -18,15 +18,20 @@ type UploadStep = "upload" | "map" | "confirm" | "done";
 
 // Define system columns based on Task interface for mapping
 const systemColumns: SystemColumn[] = [
-  { name: 'id', description: 'Unique identifier for the task (e.g., TASK-001)', required: true },
-  { name: 'name', description: 'The title or name of the task', required: true },
-  { name: 'status', description: 'Current status (To Do, In Progress, Blocked, Done, Review)', required: true },
-  { name: 'priority', description: 'Priority level (Low, Medium, High, Very High)', required: true },
-  { name: 'dueDate', description: 'Due date in YYYY-MM-DD format (optional)', required: false },
-  { name: 'assignee', description: 'Person or team assigned (optional)', required: false },
-  { name: 'estimatedHours', description: 'Estimated hours (numeric, optional)', required: false },
-  { name: 'actualHours', description: 'Actual hours spent (numeric, optional)', required: false },
-  { name: 'description', description: 'Detailed description of the task (optional)', required: false },
+  { name: 'id', description: 'ID Interno de Tarea (ej. TASK-001)', required: true },
+  { name: 'taskReference', description: 'TO Ref. (Referencia Orden de Transporte)', required: false },
+  { name: 'name', description: 'Nombre de la Tarea', required: true },
+  { name: 'status', description: 'TO Status (Estado de la Orden/Tarea)', required: true },
+  { name: 'priority', description: 'Prioridad (Baja, Media, Alta, Muy Alta)', required: true },
+  { name: 'dueDate', description: 'Fecha de Vencimiento (YYYY-MM-DD)', required: false },
+  { name: 'assignee', description: 'Desarrollador Logístico (Ejecutivo de Operaciones)', required: false },
+  { name: 'estimatedHours', description: 'Horas Estimadas (numérico)', required: false },
+  { name: 'actualHours', description: 'Horas Reales (numérico)', required: false },
+  { name: 'description', description: 'Descripción Detallada', required: false },
+  { name: 'delayDays', description: 'Dias de atraso (Días Pendientes para Factura)', required: false },
+  { name: 'customerAccount', description: 'Customer Account (Cuenta de Cliente)', required: false },
+  { name: 'netAmount', description: 'Monto $ (Importe Neto Total Moneda Principal)', required: false },
+  { name: 'transportMode', description: 'Transport Mode (Modo de Transporte)', required: false },
 ];
 
 
@@ -67,8 +72,6 @@ export default function UploadDataPage() {
           description: error instanceof Error ? error.message : "No se pudieron obtener las sugerencias.",
           variant: "destructive",
         });
-        // Optionally, allow proceeding without AI suggestions or reset
-        // For now, let's proceed to manual mapping
         const initialUserMappings: Record<string, string | null> = {};
         headers.forEach(h => initialUserMappings[h] = null);
         setUserMappings(initialUserMappings);
@@ -87,7 +90,6 @@ export default function UploadDataPage() {
       return;
     }
 
-    // Check if essential Task fields are mapped
     const requiredSystemCols = systemColumns.filter(sc => sc.required).map(sc => sc.name);
     const mappedSystemCols = Object.values(userMappings);
     const missingRequiredMappings = requiredSystemCols.filter(rc => !mappedSystemCols.includes(rc));
@@ -101,20 +103,19 @@ export default function UploadDataPage() {
       return;
     }
 
-
     const tasks: Task[] = [];
-    const newOrUpdatedTaskIds = new Set<string>();
-
     rawCsvRows.forEach((row, rowIndex) => {
       const taskObject: Partial<Task> = {};
-      let idColumnValue: string | undefined = undefined;
-
+      
       csvHeaders.forEach((header, colIndex) => {
         const systemColName = userMappings[header];
         if (systemColName) {
           const value = row[colIndex]?.trim();
+          // Assign general properties
+          taskObject[systemColName as keyof Task] = value;
+
+          // Specific parsing for known types
           if (systemColName === 'id') {
-            idColumnValue = value;
             taskObject.id = value || `GENERATED-${Date.now()}-${rowIndex}`;
           } else if (systemColName === 'name') {
             taskObject.name = value || `Unnamed Task ${rowIndex + 1}`;
@@ -126,35 +127,23 @@ export default function UploadDataPage() {
             taskObject.dueDate = value && !isNaN(new Date(value).getTime()) ? value : null;
           } else if (systemColName === 'assignee') {
             taskObject.assignee = value || "";
-          } else if (systemColName === 'estimatedHours') {
-            taskObject.estimatedHours = value && !isNaN(parseFloat(value)) ? parseFloat(value) : null;
-          } else if (systemColName === 'actualHours') {
-            taskObject.actualHours = value && !isNaN(parseFloat(value)) ? parseFloat(value) : null;
-          } else if (systemColName === 'description') {
-            taskObject.description = value || "";
+          } else if (systemColName === 'estimatedHours' || systemColName === 'actualHours' || systemColName === 'delayDays' || systemColName === 'netAmount') {
+            taskObject[systemColName as 'estimatedHours' | 'actualHours' | 'delayDays' | 'netAmount'] = value && !isNaN(parseFloat(value)) ? parseFloat(value) : null;
+          } else if (systemColName === 'description' || systemColName === 'taskReference' || systemColName === 'customerAccount' || systemColName === 'transportMode') {
+             taskObject[systemColName as 'description' | 'taskReference' | 'customerAccount' | 'transportMode'] = value || "";
           }
         }
       });
 
-      // Ensure required fields have default values if not properly mapped or empty in CSV
-      // This depends on how strictly we want to enforce Task creation
+      // Ensure required fields have default values if not properly mapped or empty
       if (!taskObject.id) taskObject.id = `GENERATED-${Date.now()}-${rowIndex}`;
       if (!taskObject.name) taskObject.name = `Unnamed Task ${taskObject.id}`;
       if (!taskObject.status) taskObject.status = "To Do";
       if (!taskObject.priority) taskObject.priority = "Medium";
       
-      // Simple duplicate handling: last one wins for now if IDs match
-      // More sophisticated handling would involve checking against existing app data.
-      // For this prototype, we assume new data or overwrites.
-      if (taskObject.id) {
-         newOrUpdatedTaskIds.add(taskObject.id);
-      }
       tasks.push(taskObject as Task);
     });
     
-    // Filter out old tasks that were not in the CSV if we want to replace a dataset.
-    // Or merge with existing data if we had access to it.
-    // For now, processedTasks will be just the data from the CSV.
     setProcessedTasks(tasks);
     setStep("done");
     toast({ title: "Datos Procesados", description: `${tasks.length} tareas han sido procesadas del archivo CSV.` });
@@ -207,23 +196,23 @@ export default function UploadDataPage() {
                   Estos son los datos transformados. En una aplicación real, estos datos actualizarían la tabla principal.
                 </AlertDescription>
               </Alert>
-              <h3 className="text-xl font-semibold">Vista Previa de Datos Procesados</h3>
+              <h3 className="text-xl font-semibold">Vista Previa de Datos Procesados (primeras 10 filas)</h3>
                <div className="max-h-96 overflow-y-auto rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      {systemColumns.map(col => userMappings[csvHeaders.find(h => userMappings[h] === col.name) || ''] === col.name && <TableHead key={col.name}>{col.description}</TableHead>)}
+                      {/* Filter systemColumns to only show those that were actually mapped by the user */}
+                      {systemColumns.filter(sc => Object.values(userMappings).includes(sc.name)).map(col => (
+                        <TableHead key={col.name}>{col.description}</TableHead>
+                      ))}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {processedTasks.slice(0, 10).map((task, index) => ( // Preview first 10
+                    {processedTasks.slice(0, 10).map((task, index) => (
                       <TableRow key={task.id || index}>
-                        {systemColumns.map(col => {
-                           if (userMappings[csvHeaders.find(h => userMappings[h] === col.name) || ''] === col.name) {
-                             const value = task[col.name as keyof Task];
-                             return <TableCell key={col.name}>{String(value === null || value === undefined ? 'N/A' : value)}</TableCell>;
-                           }
-                           return null;
+                        {systemColumns.filter(sc => Object.values(userMappings).includes(sc.name)).map(col => {
+                           const value = task[col.name as keyof Task];
+                           return <TableCell key={col.name}>{String(value === null || value === undefined ? 'N/A' : value)}</TableCell>;
                         })}
                       </TableRow>
                     ))}
