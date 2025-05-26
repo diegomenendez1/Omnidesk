@@ -72,7 +72,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [t]);
+  }, [t]); // t is added as a dependency because it's used in toast messages
 
   const handleValidateData = () => {
     startTransition(async () => {
@@ -201,7 +201,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                         ? t('interactiveTable.notAvailable') 
                         : String(val);
       
-      if (stringVal.trim() !== "" && stringVal !== t('interactiveTable.notAvailable')) { // Exclude empty strings and "N/A" from selectable filter options
+      if (stringVal.trim() !== "" && stringVal !== t('interactiveTable.notAvailable')) { 
         values.add(stringVal);
       }
     });
@@ -236,7 +236,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   const filteredTasks = useMemo(() => tasks.filter(task => {
     return Object.entries(filters).every(([columnKeyStr, filterValue]) => {
       const columnKey = columnKeyStr as keyof Task;
-      if (filterValue === undefined) return true; // No filter for this column if ALL_FILTER_VALUE was selected
+      if (filterValue === undefined) return true;
 
       const taskValue = task[columnKey];
       let taskValueString: string;
@@ -250,7 +250,6 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
       if (columnKey === 'comments') { 
         return taskValueString.toLowerCase().includes(String(filterValue).toLowerCase());
       }
-      // For Select filters, it's an exact match
       return taskValueString === filterValue;
     });
   }), [tasks, filters, t]);
@@ -300,7 +299,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
         ? <ArrowUp className="ml-1 h-3 w-3 text-muted-foreground" /> 
         : <ArrowDown className="ml-1 h-3 w-3 text-muted-foreground" />;
     }
-    return <span className="ml-1 h-3 w-3"></span>; // Placeholder for alignment
+    return <span className="ml-1 h-3 w-3"></span>; 
   };
 
   const renderFilterPopover = (columnKey: keyof Task, columnLabelKey: string, uniqueValues: string[], isNumeric: boolean = false) => {
@@ -484,10 +483,10 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                     </div>
                   </TableHead>
 
-                  <TableHead className="group text-left">
+                  <TableHead className="group text-left"> {/* Changed from Actions to Estado Resolución for filter context */}
                      <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1 cursor-pointer flex-grow py-3 pr-2" onClick={() => requestSort('resolutionStatus')}>
-                        {t('interactiveTable.tableHeaders.actions')}
+                        {t('interactiveTable.tableHeaders.actions')} {/* Display name is Actions */}
                         {renderSortIcon('resolutionStatus')}
                       </div>
                       <Popover>
@@ -614,6 +613,8 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     </div>
   );
 }
+    
+
     
 
     
