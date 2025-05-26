@@ -18,18 +18,17 @@ type UploadStep = "upload" | "map" | "confirm" | "done";
 
 // Define system columns based on Task interface for mapping
 const systemColumns: SystemColumn[] = [
-  { name: 'status', description: 'TO Status (Estado de la Orden/Tarea)', required: true },
-  { name: 'assignee', description: 'Desarrollador Logístico (Ejecutivo de Operaciones)', required: false },
-  { name: 'taskReference', description: 'TO Ref. (Referencia Orden de Transporte)', required: false },
-  { name: 'delayDays', description: 'Dias de atraso (Días Pendientes para Factura)', required: false },
-  { name: 'customerAccount', description: 'Customer Account (Cuenta de Cliente)', required: false },
-  { name: 'netAmount', description: 'Monto $ (Importe Neto Total Moneda Principal)', required: false },
-  { name: 'transportMode', description: 'Transport Mode (Modo de Transporte)', required: false },
-  // New admin tracking fields
-  { name: 'comments', description: 'Comentarios (Notas del administrador)', required: false },
+  { name: 'status', description: 'TO Status', required: true },
+  { name: 'assignee', description: 'Desarrollador Logístico', required: false },
+  { name: 'taskReference', description: 'TO Ref.', required: false },
+  { name: 'delayDays', description: 'Dias de atraso', required: false },
+  { name: 'customerAccount', description: 'Customer Acc.', required: false },
+  { name: 'netAmount', description: 'Monto $', required: false },
+  { name: 'transportMode', description: 'Transport Mode', required: false },
+  { name: 'comments', description: 'Comentarios', required: false },
   { name: 'resolutionAdmin', description: 'Administrador', required: false },
   { name: 'resolutionStatus', description: 'Estado de Resolución', required: false },
-  { name: 'resolutionTimeDays', description: 'Tiempo de Resolución (Días)', required: false },
+  { name: 'resolutionTimeDays', description: 'Tiempo Resolución (días)', required: false },
 ];
 
 
@@ -234,5 +233,3 @@ export default function UploadDataPage() {
     </div>
   );
 }
-
-    
