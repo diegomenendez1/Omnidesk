@@ -13,6 +13,7 @@ import { Loader2, CheckCircle2, AlertCircle, ArrowRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getMappingSuggestions } from './actions';
 import type { SuggestCsvMappingOutput, SystemColumn } from './actions';
+import { useRouter } from 'next/navigation';
 
 type UploadStep = "upload" | "map" | "confirm" | "done";
 
@@ -58,6 +59,7 @@ export default function UploadDataPage() {
 
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
+  const router = useRouter();
 
   const [suggestedMappings, setSuggestedMappings] = useState<SuggestCsvMappingOutput['suggestedMappings']>([]);
   const [userMappings, setUserMappings] = useState<Record<string, string | null>>({});
@@ -67,22 +69,21 @@ export default function UploadDataPage() {
     setCsvFile(file);
     setCsvHeaders(headers);
     setCsvPreviewRows(previewRows);
-    setRawCsvRows(allRows);
+    setRawCsvRows(allRows); // Store all rows
 
     startTransition(async () => {
-      const determinedMappings: Record<string, string | null> = {};
+      const initialUserMappings: Record<string, string | null> = {};
       const headersForAI: string[] = [];
-      let aiSuggestionsOutput: SuggestCsvMappingOutput | null = null;
 
-      // Step 1: Preferred mapping (from user-provided CSV name to system name)
-      // Step 2: Direct description match (CSV name matches system column description)
       headers.forEach(header => {
         const lowerHeader = header.toLowerCase();
         let mappedSystemColumn: string | null = null;
 
+        // Step 1: Preferred mapping
         if (PREFERRED_CSV_TO_SYSTEM_MAP[lowerHeader]) {
           mappedSystemColumn = PREFERRED_CSV_TO_SYSTEM_MAP[lowerHeader];
         } else {
+          // Step 2: Direct description match
           const directDescMatch = systemColumns.find(
             sc => sc.description.toLowerCase() === lowerHeader
           );
@@ -92,51 +93,46 @@ export default function UploadDataPage() {
         }
 
         if (mappedSystemColumn) {
-          determinedMappings[header] = mappedSystemColumn;
+          initialUserMappings[header] = mappedSystemColumn;
         } else {
-          determinedMappings[header] = null; // Fallback, AI will try to fill this
+          initialUserMappings[header] = null; // Fallback, AI will try to fill this
           headersForAI.push(header);
         }
       });
-
-      // Step 3: AI Suggestions for remaining headers
+      
+      let aiSuggestionsOutput: SuggestCsvMappingOutput | null = null;
       if (headersForAI.length > 0) {
         try {
           aiSuggestionsOutput = await getMappingSuggestions(headersForAI, systemColumns);
           aiSuggestionsOutput.suggestedMappings.forEach(aiMap => {
-            // Only update if AI found a mapping for a header that wasn't mapped by preferred/direct logic
-            if (determinedMappings.hasOwnProperty(aiMap.csvColumn) && determinedMappings[aiMap.csvColumn] === null && aiMap.systemColumn !== null) {
-              determinedMappings[aiMap.csvColumn] = aiMap.systemColumn;
+            if (initialUserMappings.hasOwnProperty(aiMap.csvColumn) && initialUserMappings[aiMap.csvColumn] === null && aiMap.systemColumn !== null) {
+              initialUserMappings[aiMap.csvColumn] = aiMap.systemColumn;
             }
           });
         } catch (error) {
           toast({
             title: "Error al obtener sugerencias de IA",
-            description: "Algunas columnas no pudieron ser mapeadas automáticamente por la IA. Por favor, revísalas manualmente.",
+            description: "Algunas columnas no pudieron ser mapeadas automáticamente. Por favor, revísalas manualmente.",
             variant: "destructive",
           });
         }
       }
+      
+      setUserMappings(initialUserMappings);
 
-      setUserMappings(determinedMappings);
-
-      // Prepare the 'suggestedMappings' prop for ColumnMapper.
-      // This prop could be used by ColumnMapper to e.g. show confidence scores or highlight AI suggestions.
       const finalSuggestedMappingsForColumnMapper = headers.map(header => {
-        const systemColName = determinedMappings[header];
+        const systemColName = initialUserMappings[header];
         let confidence = 0;
-
         if (systemColName) {
-          const lowerHeader = header.toLowerCase();
-          if (PREFERRED_CSV_TO_SYSTEM_MAP[lowerHeader] === systemColName) {
-            confidence = 0.99; // Very high confidence for preferred map
-          } else if (systemColumns.find(sc => sc.description.toLowerCase() === lowerHeader && sc.name === systemColName)) {
-            confidence = 0.95; // High confidence for direct description match
-          } else {
-            // Must have come from AI. Try to find its original confidence.
-            const aiSuggestionForThisHeader = aiSuggestionsOutput?.suggestedMappings.find(s => s.csvColumn === header);
-            confidence = aiSuggestionForThisHeader?.confidence || (systemColName ? 0.7 : 0); // Default AI confidence or 0 if still null
-          }
+            const lowerHeader = header.toLowerCase();
+            if (PREFERRED_CSV_TO_SYSTEM_MAP[lowerHeader] === systemColName) {
+                confidence = 0.99; 
+            } else if (systemColumns.find(sc => sc.description.toLowerCase() === lowerHeader && sc.name === systemColName)) {
+                confidence = 0.95; 
+            } else {
+                const aiSuggestionForThisHeader = aiSuggestionsOutput?.suggestedMappings.find(s => s.csvColumn === header && s.systemColumn === systemColName);
+                confidence = aiSuggestionForThisHeader?.confidence || (systemColName ? 0.7 : 0);
+            }
         }
         return { csvColumn: header, systemColumn: systemColName, confidence };
       });
@@ -216,8 +212,20 @@ export default function UploadDataPage() {
     });
 
     setProcessedTasks(tasks);
-    setStep("done");
-    toast({ title: "Datos Procesados", description: `${tasks.length} tareas han sido procesadas del archivo CSV.` });
+
+    try {
+      localStorage.setItem('uploadedTasks', JSON.stringify(tasks));
+      toast({ title: "Datos Procesados", description: `${tasks.length} tareas procesadas y guardadas. Redirigiendo a la tabla...` });
+      router.push('/table');
+    } catch (error) {
+      console.error("Error al guardar tareas en localStorage:", error);
+      toast({
+        title: "Error al guardar datos localmente",
+        description: "No se pudieron guardar los datos para la tabla interactiva. La vista previa sigue disponible en esta página.",
+        variant: "destructive",
+      });
+      setStep("done"); // Permanecer en la página de carga para mostrar la vista previa
+    }
   };
 
 
@@ -265,6 +273,7 @@ export default function UploadDataPage() {
                 <AlertDescription className="text-green-600 dark:text-green-400">
                   Se han procesado {processedTasks.length} tareas desde el archivo CSV.
                   Estos son los datos transformados. En una aplicación real, estos datos actualizarían la tabla principal.
+                  Para este prototipo, los datos se han guardado localmente y se intentarán cargar en la Tabla Interactiva.
                 </AlertDescription>
               </Alert>
               <h3 className="text-xl font-semibold">Vista Previa de Datos Procesados (primeras 10 filas)</h3>
@@ -299,4 +308,6 @@ export default function UploadDataPage() {
     </div>
   );
 }
+    
+
     

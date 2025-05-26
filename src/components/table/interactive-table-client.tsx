@@ -43,6 +43,33 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isNewTask, setIsNewTask] = useState(false);
 
+  useEffect(() => {
+    const storedTasksJson = localStorage.getItem('uploadedTasks');
+    if (storedTasksJson) {
+      try {
+        const loadedTasks: Task[] = JSON.parse(storedTasksJson);
+        if (loadedTasks && loadedTasks.length > 0) {
+          setTasks(loadedTasks); 
+          toast({
+            title: "Datos Cargados",
+            description: `Se han cargado ${loadedTasks.length} tareas desde la última importación.`,
+            variant: "default",
+          });
+          // Consider clearing localStorage item if data should only be loaded once per upload
+          // localStorage.removeItem('uploadedTasks'); 
+        }
+      } catch (error) {
+        console.error("Error al parsear tareas desde localStorage:", error);
+        toast({
+          title: "Error al cargar datos",
+          description: "No se pudieron cargar las tareas guardadas.",
+          variant: "destructive",
+        });
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [toast]); // toast from useToast is stable
+
   const handleValidateData = () => {
     startTransition(async () => {
       try {
@@ -76,7 +103,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
 
   const handleAddNew = () => {
     setEditingTask({
-      // id: `temp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, // ID will be set on save if not provided
+      id: `TEMP-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       status: "To Do",
       assignee: "",
       taskReference: "",
@@ -165,7 +192,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                   <TableHead>Comentarios</TableHead>
                   <TableHead>Administrador</TableHead>
                   <TableHead>Tiempo Resolución (días)</TableHead>
-                  <TableHead className="text-left sticky right-0 bg-card px-4">Actions</TableHead>
+                  <TableHead className="text-left sticky right-0 bg-card px-4">Actions</TableHead> {/* Header is "Actions" */}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -178,7 +205,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                         task.status === "In Progress" ? "bg-blue-100 text-blue-700 dark:bg-blue-700/20 dark:text-blue-300" :
                         task.status === "To Do" ? "bg-gray-100 text-gray-700 dark:bg-gray-700/20 dark:text-gray-300" :
                         task.status === "Blocked" ? "bg-red-100 text-red-700 dark:bg-red-700/20 dark:text-red-300" : 
-                        "bg-yellow-100 text-yellow-700 dark:bg-yellow-700/20 dark:text-yellow-300" // For "Review" or any other status
+                        "bg-yellow-100 text-yellow-700 dark:bg-yellow-700/20 dark:text-yellow-300"
                       }`}>
                         {task.status}
                       </span>
@@ -191,7 +218,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                     <TableCell className="max-w-xs truncate">{task.comments || 'N/A'}</TableCell>
                     <TableCell>{task.resolutionAdmin || 'N/A'}</TableCell>
                     <TableCell className="text-right">{task.resolutionTimeDays === null || task.resolutionTimeDays === undefined ? 'N/A' : String(task.resolutionTimeDays)}</TableCell>
-                    <TableCell className="sticky right-0 bg-card px-4">
+                    <TableCell className="sticky right-0 bg-card px-4"> {/* Content is task.resolutionStatus */}
                       {task.resolutionStatus ? (
                         <span className={`px-2 py-1 text-xs rounded-full ${
                           task.resolutionStatus === "Resuelto" ? "bg-green-100 text-green-700 dark:bg-green-700/20 dark:text-green-300" :
@@ -299,3 +326,5 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     </div>
   );
 }
+
+    
