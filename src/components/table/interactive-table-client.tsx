@@ -19,7 +19,6 @@ interface InteractiveTableClientProps {
   initialData: Task[];
 }
 
-const statusOptions: Task["status"][] = ["Missing Estimated Dates", "Missing POD", "Pending to Invoice Out of Time"];
 const resolutionStatusOptions: Task["resolutionStatus"][] = ["Pendiente", "En Progreso", "Resuelto", "Bloqueado"];
 
 export function InteractiveTableClient({ initialData }: InteractiveTableClientProps) {
@@ -44,7 +43,6 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
             description: `Se han cargado ${loadedTasks.length} tareas desde la última importación.`,
             variant: "default",
           });
-          // localStorage.removeItem('uploadedTasks'); // Consider clearing if needed
         }
       } catch (error) {
         console.error("Error al parsear tareas desde localStorage:", error);
@@ -86,10 +84,11 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   const startEdit = (task: Task, column: keyof Task) => {
     const cellKey = `${task.id}-${String(column)}`;
     setEditingCellKey(cellKey);
+    const value = task[column];
     if (column === 'comments' || column === 'resolutionAdmin') {
-      setCurrentEditText(String(task[column] || ""));
+      setCurrentEditText(String(value || ""));
     } else if (column === 'resolutionStatus') {
-      setCurrentEditSelectValue(String(task[column] || "Pendiente"));
+      setCurrentEditSelectValue(String(value || "Pendiente"));
     }
   };
 
@@ -116,7 +115,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
         task.id === taskId ? { ...task, [column]: value } : task
       )
     );
-    setEditingCellKey(null); // Exit editing mode for select immediately after change
+    setEditingCellKey(null); 
     setCurrentEditSelectValue("");
     toast({title: "Campo actualizado", description: `Se guardó el cambio para ${String(column)}.`});
   };
@@ -124,11 +123,13 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>, taskId: string, column: keyof Task) => {
     if (event.key === 'Enter') {
-       if (!event.shiftKey && event.currentTarget.tagName !== 'TEXTAREA') { // Allow Shift+Enter in textarea for new lines
-        event.preventDefault(); // Prevent form submission if inside a form
+       if (!event.shiftKey && event.currentTarget.tagName !== 'TEXTAREA') { 
+        event.preventDefault(); 
         saveInlineEdit(taskId, column);
-      } else if (event.currentTarget.tagName === 'TEXTAREA' && !event.shiftKey) {
-        // Potentially save on Enter for Textarea if not Shift+Enter, or rely on onBlur
+      } else if (event.currentTarget.tagName === 'TEXTAREA' && event.key === 'Enter' && !event.shiftKey) {
+        // For Textarea, save on Enter only if not Shift+Enter
+        // event.preventDefault(); // Optionally prevent newline if you want Enter to always save
+        // saveInlineEdit(taskId, column);
       }
     } else if (event.key === 'Escape') {
       setEditingCellKey(null);
@@ -143,7 +144,6 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
       <div className="flex justify-between items-center flex-wrap gap-x-4 gap-y-2">
         <h2 className="text-2xl font-semibold truncate min-w-0">Tasks Overview</h2>
         <div className="flex gap-2 flex-shrink-0">
-          {/* "Add New Task" button removed as modal is removed */}
           <Button onClick={handleValidateData} disabled={isPending} variant="default">
             <ScanSearch className="mr-2 h-4 w-4" />
             {isPending ? 'Validating...' : 'Validate Data with AI'}
@@ -167,12 +167,12 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                   <TableHead>Comentarios</TableHead>
                   <TableHead>Administrador</TableHead>
                   <TableHead>Tiempo Resolución (días)</TableHead>
-                  <TableHead className="text-left sticky right-0 bg-card px-4">Actions</TableHead>
+                  <TableHead className="text-left">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {tasks.map((task, rowIndex) => {
-                  const taskId = task.id || `task-${rowIndex}`; // Ensure a unique ID for key and editing logic
+                  const taskId = task.id || `task-${rowIndex}`; 
                   return (
                     <TableRow key={taskId}>
                       <TableCell>{task.taskReference || 'N/A'}</TableCell>
@@ -192,7 +192,6 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                       <TableCell className="text-right">{task.netAmount === null || task.netAmount === undefined ? 'N/A' : String(task.netAmount)}</TableCell>
                       <TableCell>{task.transportMode || 'N/A'}</TableCell>
                       
-                      {/* Comentarios - Editable */}
                       <TableCell onClick={() => editingCellKey !== `${taskId}-comments` && startEdit(task, 'comments')} className="max-w-xs truncate cursor-pointer hover:bg-muted/50">
                         {editingCellKey === `${taskId}-comments` ? (
                           <Textarea
@@ -201,14 +200,13 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                             onBlur={() => saveInlineEdit(taskId, 'comments')}
                             onKeyDown={(e) => handleKeyDown(e, taskId, 'comments')}
                             autoFocus
-                            className="w-full text-sm"
+                            className="w-full text-sm min-h-[60px]" // Adjust min-height as needed
                           />
                         ) : (
                           task.comments || <span className="text-muted-foreground italic">N/A</span>
                         )}
                       </TableCell>
 
-                      {/* Administrador - Editable */}
                       <TableCell onClick={() => editingCellKey !== `${taskId}-resolutionAdmin` && startEdit(task, 'resolutionAdmin')} className="cursor-pointer hover:bg-muted/50">
                         {editingCellKey === `${taskId}-resolutionAdmin` ? (
                           <Input
@@ -227,10 +225,9 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                       
                       <TableCell className="text-right">{task.resolutionTimeDays === null || task.resolutionTimeDays === undefined ? 'N/A' : String(task.resolutionTimeDays)}</TableCell>
                       
-                      {/* Estado Resolución (bajo cabecera "Actions") - Editable */}
                       <TableCell
                         onClick={() => editingCellKey !== `${taskId}-resolutionStatus` && startEdit(task, 'resolutionStatus')}
-                        className="sticky right-0 bg-card px-4 text-left cursor-pointer hover:bg-muted/50"
+                        className="text-left cursor-pointer hover:bg-muted/50"
                       >
                         {editingCellKey === `${taskId}-resolutionStatus` ? (
                           <Select
@@ -270,3 +267,5 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     </div>
   );
 }
+
+    
