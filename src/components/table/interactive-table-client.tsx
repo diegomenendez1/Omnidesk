@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useTransition, type ChangeEvent, useEffect } from 'react';
+import { useState, useTransition, type ChangeEvent, type KeyboardEvent, useEffect } from 'react';
 import type { Task } from '@/types';
 import { performDataValidation } from '@/app/table/actions';
 import { Button } from '@/components/ui/button';
@@ -12,18 +12,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card, CardContent } from '@/components/ui/card';
 import { DataValidationReport } from './data-validation-report';
 import type { ValidateDataConsistencyOutput } from '@/types';
-import { ScanSearch, PlusCircle, Save, XCircle } from 'lucide-react';
+import { ScanSearch } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  DialogClose,
-} from "@/components/ui/dialog";
-import { Label } from '@/components/ui/label';
 
 interface InteractiveTableClientProps {
   initialData: Task[];
@@ -32,16 +22,15 @@ interface InteractiveTableClientProps {
 const statusOptions: Task["status"][] = ["Missing Estimated Dates", "Missing POD", "Pending to Invoice Out of Time"];
 const resolutionStatusOptions: Task["resolutionStatus"][] = ["Pendiente", "En Progreso", "Resuelto", "Bloqueado"];
 
-
 export function InteractiveTableClient({ initialData }: InteractiveTableClientProps) {
   const [tasks, setTasks] = useState<Task[]>(initialData);
   const [validationResult, setValidationResult] = useState<ValidateDataConsistencyOutput | null>(null);
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [isNewTask, setIsNewTask] = useState(false);
+  const [editingCellKey, setEditingCellKey] = useState<string | null>(null); // e.g., "TASK-001-comments"
+  const [currentEditText, setCurrentEditText] = useState<string>("");
+  const [currentEditSelectValue, setCurrentEditSelectValue] = useState<string>("");
 
   useEffect(() => {
     const storedTasksJson = localStorage.getItem('uploadedTasks');
@@ -49,14 +38,13 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
       try {
         const loadedTasks: Task[] = JSON.parse(storedTasksJson);
         if (loadedTasks && loadedTasks.length > 0) {
-          setTasks(loadedTasks); 
+          setTasks(loadedTasks);
           toast({
             title: "Datos Cargados",
             description: `Se han cargado ${loadedTasks.length} tareas desde la última importación.`,
             variant: "default",
           });
-          // Consider clearing localStorage item if data should only be loaded once per upload
-          // localStorage.removeItem('uploadedTasks'); 
+          // localStorage.removeItem('uploadedTasks'); // Consider clearing if needed
         }
       } catch (error) {
         console.error("Error al parsear tareas desde localStorage:", error);
@@ -68,7 +56,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); 
+  }, []);
 
   const handleValidateData = () => {
     startTransition(async () => {
@@ -95,81 +83,67 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     });
   };
 
-  const handleEdit = (task: Task) => {
-    setEditingTask({ ...task });
-    setIsNewTask(false);
-    setIsModalOpen(true);
+  const startEdit = (task: Task, column: keyof Task) => {
+    const cellKey = `${task.id}-${String(column)}`;
+    setEditingCellKey(cellKey);
+    if (column === 'comments' || column === 'resolutionAdmin') {
+      setCurrentEditText(String(task[column] || ""));
+    } else if (column === 'resolutionStatus') {
+      setCurrentEditSelectValue(String(task[column] || "Pendiente"));
+    }
   };
 
-  const handleAddNew = () => {
-    setEditingTask({
-      id: `TEMP-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      name: "", // Optional field
-      status: "Missing Estimated Dates",
-      assignee: "",
-      taskReference: "",
-      delayDays: null,
-      customerAccount: "",
-      netAmount: null,
-      transportMode: "",
-      comments: "",
-      resolutionAdmin: "",
-      resolutionStatus: "Pendiente",
-      resolutionTimeDays: null,
-    });
-    setIsNewTask(true);
-    setIsModalOpen(true);
+  const handleInlineInputChange = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setCurrentEditText(event.target.value);
   };
 
-  const handleDelete = (taskId: string | undefined) => {
-    if (!taskId) return;
-    setTasks(currentTasks => currentTasks.filter(task => task.id !== taskId));
-    toast({ title: "Task Deleted", description: `Task ${taskId} has been removed.` });
+  const saveInlineEdit = (taskId: string, column: keyof Task) => {
+    if (!editingCellKey || !editingCellKey.startsWith(taskId)) return;
+
+    setTasks(prevTasks =>
+      prevTasks.map(task =>
+        task.id === taskId ? { ...task, [column]: currentEditText } : task
+      )
+    );
+    setEditingCellKey(null);
+    setCurrentEditText("");
+    toast({title: "Campo actualizado", description: `Se guardó el cambio para ${String(column)}.`});
+  };
+  
+  const handleInlineSelectChange = (taskId: string, column: keyof Task, value: string) => {
+     setTasks(prevTasks =>
+      prevTasks.map(task =>
+        task.id === taskId ? { ...task, [column]: value } : task
+      )
+    );
+    setEditingCellKey(null); // Exit editing mode for select immediately after change
+    setCurrentEditSelectValue("");
+    toast({title: "Campo actualizado", description: `Se guardó el cambio para ${String(column)}.`});
   };
 
-  const handleSaveTask = () => {
-    if (!editingTask) return;
 
-    if (isNewTask) {
-      const newTask = { ...editingTask };
-      if (!newTask.id) { 
-        newTask.id = `TEMP-CSV-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>, taskId: string, column: keyof Task) => {
+    if (event.key === 'Enter') {
+       if (!event.shiftKey && event.currentTarget.tagName !== 'TEXTAREA') { // Allow Shift+Enter in textarea for new lines
+        event.preventDefault(); // Prevent form submission if inside a form
+        saveInlineEdit(taskId, column);
+      } else if (event.currentTarget.tagName === 'TEXTAREA' && !event.shiftKey) {
+        // Potentially save on Enter for Textarea if not Shift+Enter, or rely on onBlur
       }
-      setTasks(prevTasks => [...prevTasks, newTask]);
-      toast({ title: "Task Added", description: `Task ${newTask.id || 'new task'} created successfully.`});
-    } else {
-      setTasks(prevTasks => prevTasks.map(task => task.id === editingTask.id ? editingTask : task));
-      toast({ title: "Task Updated", description: `Task ${editingTask.id} updated successfully.`});
+    } else if (event.key === 'Escape') {
+      setEditingCellKey(null);
+      setCurrentEditText("");
+      setCurrentEditSelectValue("");
     }
-    setIsModalOpen(false);
-    setEditingTask(null);
   };
 
-  const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    if (!editingTask) return;
-    const { name, value } = e.target;
-
-    let processedValue: string | number | null = value;
-    if (name === 'delayDays' || name === 'netAmount' || name === 'resolutionTimeDays') {
-      processedValue = value === '' ? null : Number(value);
-    }
-
-    setEditingTask(prev => prev ? { ...prev, [name]: processedValue } : null);
-  };
-
-  const handleSelectChange = (name: keyof Task, value: string) => {
-    if (!editingTask) return;
-    setEditingTask(prev => prev ? { ...prev, [name]: value } : null);
-  };
 
   return (
     <div className="space-y-4 w-full">
       <div className="flex justify-between items-center flex-wrap gap-x-4 gap-y-2">
         <h2 className="text-2xl font-semibold truncate min-w-0">Tasks Overview</h2>
         <div className="flex gap-2 flex-shrink-0">
-          <Button onClick={handleAddNew} variant="outline">
-            <PlusCircle className="mr-2 h-4 w-4" /> Add New Task
-          </Button>
+          {/* "Add New Task" button removed as modal is removed */}
           <Button onClick={handleValidateData} disabled={isPending} variant="default">
             <ScanSearch className="mr-2 h-4 w-4" />
             {isPending ? 'Validating...' : 'Validate Data with AI'}
@@ -197,41 +171,93 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {tasks.map((task, rowIndex) => (
-                  <TableRow key={task.id || task.taskReference || `task-${rowIndex}`} onClick={() => handleEdit(task)} className="cursor-pointer hover:bg-muted/50">
-                    <TableCell>{task.taskReference || 'N/A'}</TableCell>
-                    <TableCell>
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        task.status === "Pending to Invoice Out of Time" ? "bg-orange-100 text-orange-700 dark:bg-orange-700/20 dark:text-orange-300" :
-                        task.status === "Missing POD" ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-700/20 dark:text-yellow-300" :
-                        task.status === "Missing Estimated Dates" ? "bg-purple-100 text-purple-700 dark:bg-purple-700/20 dark:text-purple-300" :
-                        "bg-gray-100 text-gray-700 dark:bg-gray-700/20 dark:text-gray-300" // Fallback
-                      }`}>
-                        {task.status}
-                      </span>
-                    </TableCell>
-                    <TableCell>{task.assignee || 'N/A'}</TableCell>
-                    <TableCell>{task.delayDays === null || task.delayDays === undefined ? 'N/A' : String(task.delayDays)}</TableCell>
-                    <TableCell>{task.customerAccount || 'N/A'}</TableCell>
-                    <TableCell className="text-right">{task.netAmount === null || task.netAmount === undefined ? 'N/A' : String(task.netAmount)}</TableCell>
-                    <TableCell>{task.transportMode || 'N/A'}</TableCell>
-                    <TableCell className="max-w-xs truncate">{task.comments || 'N/A'}</TableCell>
-                    <TableCell>{task.resolutionAdmin || 'N/A'}</TableCell>
-                    <TableCell className="text-right">{task.resolutionTimeDays === null || task.resolutionTimeDays === undefined ? 'N/A' : String(task.resolutionTimeDays)}</TableCell>
-                    <TableCell className="sticky right-0 bg-card px-4 text-left">
-                      {task.resolutionStatus ? (
+                {tasks.map((task, rowIndex) => {
+                  const taskId = task.id || `task-${rowIndex}`; // Ensure a unique ID for key and editing logic
+                  return (
+                    <TableRow key={taskId}>
+                      <TableCell>{task.taskReference || 'N/A'}</TableCell>
+                      <TableCell>
                         <span className={`px-2 py-1 text-xs rounded-full ${
-                          task.resolutionStatus === "Resuelto" ? "bg-green-100 text-green-700 dark:bg-green-700/20 dark:text-green-300" :
-                          task.resolutionStatus === "En Progreso" ? "bg-blue-100 text-blue-700 dark:bg-blue-700/20 dark:text-blue-300" :
-                          task.resolutionStatus === "Pendiente" ? "bg-gray-100 text-gray-700 dark:bg-gray-700/20 dark:text-gray-300" :
-                          task.resolutionStatus === "Bloqueado" ? "bg-red-100 text-red-700 dark:bg-red-700/20 dark:text-red-300" : ""
+                          task.status === "Pending to Invoice Out of Time" ? "bg-orange-100 text-orange-700 dark:bg-orange-700/20 dark:text-orange-300" :
+                          task.status === "Missing POD" ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-700/20 dark:text-yellow-300" :
+                          task.status === "Missing Estimated Dates" ? "bg-purple-100 text-purple-700 dark:bg-purple-700/20 dark:text-purple-300" :
+                          "bg-gray-100 text-gray-700 dark:bg-gray-700/20 dark:text-gray-300"
                         }`}>
-                          {task.resolutionStatus}
+                          {task.status}
                         </span>
-                      ) : 'N/A'}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      </TableCell>
+                      <TableCell>{task.assignee || 'N/A'}</TableCell>
+                      <TableCell>{task.delayDays === null || task.delayDays === undefined ? 'N/A' : String(task.delayDays)}</TableCell>
+                      <TableCell>{task.customerAccount || 'N/A'}</TableCell>
+                      <TableCell className="text-right">{task.netAmount === null || task.netAmount === undefined ? 'N/A' : String(task.netAmount)}</TableCell>
+                      <TableCell>{task.transportMode || 'N/A'}</TableCell>
+                      
+                      {/* Comentarios - Editable */}
+                      <TableCell onClick={() => editingCellKey !== `${taskId}-comments` && startEdit(task, 'comments')} className="max-w-xs truncate cursor-pointer hover:bg-muted/50">
+                        {editingCellKey === `${taskId}-comments` ? (
+                          <Textarea
+                            value={currentEditText}
+                            onChange={handleInlineInputChange}
+                            onBlur={() => saveInlineEdit(taskId, 'comments')}
+                            onKeyDown={(e) => handleKeyDown(e, taskId, 'comments')}
+                            autoFocus
+                            className="w-full text-sm"
+                          />
+                        ) : (
+                          task.comments || <span className="text-muted-foreground italic">N/A</span>
+                        )}
+                      </TableCell>
+
+                      {/* Administrador - Editable */}
+                      <TableCell onClick={() => editingCellKey !== `${taskId}-resolutionAdmin` && startEdit(task, 'resolutionAdmin')} className="cursor-pointer hover:bg-muted/50">
+                        {editingCellKey === `${taskId}-resolutionAdmin` ? (
+                          <Input
+                            type="text"
+                            value={currentEditText}
+                            onChange={handleInlineInputChange}
+                            onBlur={() => saveInlineEdit(taskId, 'resolutionAdmin')}
+                            onKeyDown={(e) => handleKeyDown(e, taskId, 'resolutionAdmin')}
+                            autoFocus
+                            className="w-full text-sm"
+                          />
+                        ) : (
+                          task.resolutionAdmin || <span className="text-muted-foreground italic">N/A</span>
+                        )}
+                      </TableCell>
+                      
+                      <TableCell className="text-right">{task.resolutionTimeDays === null || task.resolutionTimeDays === undefined ? 'N/A' : String(task.resolutionTimeDays)}</TableCell>
+                      
+                      {/* Estado Resolución (bajo cabecera "Actions") - Editable */}
+                      <TableCell
+                        onClick={() => editingCellKey !== `${taskId}-resolutionStatus` && startEdit(task, 'resolutionStatus')}
+                        className="sticky right-0 bg-card px-4 text-left cursor-pointer hover:bg-muted/50"
+                      >
+                        {editingCellKey === `${taskId}-resolutionStatus` ? (
+                          <Select
+                            value={currentEditSelectValue}
+                            onValueChange={(value) => handleInlineSelectChange(taskId, 'resolutionStatus', value)}
+                          >
+                            <SelectTrigger className="w-full text-sm" autoFocus>
+                              <SelectValue placeholder="Select status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {resolutionStatusOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <span className={`px-2 py-1 text-xs rounded-full ${
+                            task.resolutionStatus === "Resuelto" ? "bg-green-100 text-green-700 dark:bg-green-700/20 dark:text-green-300" :
+                            task.resolutionStatus === "En Progreso" ? "bg-blue-100 text-blue-700 dark:bg-blue-700/20 dark:text-blue-300" :
+                            task.resolutionStatus === "Pendiente" ? "bg-gray-100 text-gray-700 dark:bg-gray-700/20 dark:text-gray-300" :
+                            task.resolutionStatus === "Bloqueado" ? "bg-red-100 text-red-700 dark:bg-red-700/20 dark:text-red-300" : ""
+                          }`}>
+                            {task.resolutionStatus || "Pendiente"}
+                          </span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
               </TableBody>
             </Table>
           </div>
@@ -241,89 +267,6 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
       {validationResult && (
         <DataValidationReport result={validationResult} />
       )}
-
-      {isModalOpen && editingTask && (
-        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-          <DialogContent className="sm:max-w-[600px]">
-            <DialogHeader>
-              <DialogTitle>{isNewTask ? "Add New Task" : "Edit Task"}</DialogTitle>
-              <DialogDescription>
-                {isNewTask ? "Fill in the details for the new task." : `Modify the details for task ${editingTask.taskReference || editingTask.id || 'selected task'}.`}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto pr-2">
-              {/* Standard Fields */}
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="taskReference" className="text-right">TO Ref.</Label>
-                <Input id="taskReference" name="taskReference" value={editingTask.taskReference || ""} onChange={handleInputChange} className="col-span-3" disabled />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="status" className="text-right">TO Status</Label>
-                <Select name="status" value={editingTask.status} onValueChange={(value) => handleSelectChange("status", value as Task["status"])} disabled>
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statusOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="assignee" className="text-right">Desarrollador Logístico</Label>
-                <Input id="assignee" name="assignee" value={editingTask.assignee || ""} onChange={handleInputChange} className="col-span-3" disabled />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="delayDays" className="text-right">Dias de atraso</Label>
-                <Input id="delayDays" name="delayDays" type="number" value={editingTask.delayDays === null ? "" : String(editingTask.delayDays)} onChange={handleInputChange} className="col-span-3" disabled />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="customerAccount" className="text-right">Customer Acc.</Label>
-                <Input id="customerAccount" name="customerAccount" value={editingTask.customerAccount || ""} onChange={handleInputChange} className="col-span-3" disabled />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="netAmount" className="text-right">Monto $</Label>
-                <Input id="netAmount" name="netAmount" type="number" value={editingTask.netAmount === null ? "" : String(editingTask.netAmount)} onChange={handleInputChange} className="col-span-3" disabled />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="transportMode" className="text-right">Transport Mode</Label>
-                <Input id="transportMode" name="transportMode" value={editingTask.transportMode || ""} onChange={handleInputChange} className="col-span-3" disabled />
-              </div>
-
-              {/* New Admin Fields - Editable */}
-              <div className="grid grid-cols-4 items-start gap-4">
-                <Label htmlFor="comments" className="text-right pt-2">Comentarios</Label>
-                <Textarea id="comments" name="comments" value={editingTask.comments || ""} onChange={handleInputChange} className="col-span-3" placeholder="Add comments..." />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="resolutionAdmin" className="text-right">Administrador</Label>
-                <Input id="resolutionAdmin" name="resolutionAdmin" value={editingTask.resolutionAdmin || ""} onChange={handleInputChange} className="col-span-3" />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="resolutionStatus" className="text-right">Estado Resolución</Label>
-                <Select name="resolutionStatus" value={editingTask.resolutionStatus || "Pendiente"} onValueChange={(value) => handleSelectChange("resolutionStatus", value as Task["resolutionStatus"])}>
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Select resolution status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {resolutionStatusOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="resolutionTimeDays" className="text-right">Tiempo Resolución (días)</Label>
-                <Input id="resolutionTimeDays" name="resolutionTimeDays" type="number" value={editingTask.resolutionTimeDays === null ? "" : String(editingTask.resolutionTimeDays)} onChange={handleInputChange} className="col-span-3" disabled />
-              </div>
-            </div>
-            <DialogFooter>
-              <DialogClose asChild>
-                <Button variant="outline"><XCircle className="mr-2 h-4 w-4" />Cancel</Button>
-              </DialogClose>
-              <Button onClick={handleSaveTask}><Save className="mr-2 h-4 w-4" />Save Task</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
     </div>
   );
 }
-
