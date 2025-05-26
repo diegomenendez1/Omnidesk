@@ -7,6 +7,7 @@ import { MainContentArea } from '@/components/layout/main-content-area';
 import { Toaster } from "@/components/ui/toaster";
 import { Geist, Geist_Mono } from 'next/font/google';
 import { LanguageProvider } from '@/context/language-context';
+import { ThemeProvider } from '@/context/theme-context'; // Import ThemeProvider
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -19,7 +20,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'OmniDeck - Your Team Workspace', // This could also be made dynamic with context
+  title: 'OmniDeck - Your Team Workspace',
   description: 'Efficiently manage your team projects and data with OmniDeck.',
 };
 
@@ -31,17 +32,19 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className="h-full">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased h-full`}>
-        <LanguageProvider>
-          <SidebarProvider defaultOpen={true}>
-            <div className="flex h-full overflow-hidden">
-              <AppSidebar />
-              <MainContentArea>
-                {children}
-              </MainContentArea>
-            </div>
-            <Toaster />
-          </SidebarProvider>
-        </LanguageProvider>
+        <ThemeProvider> {/* Wrap LanguageProvider with ThemeProvider */}
+          <LanguageProvider>
+            <SidebarProvider defaultOpen={true}>
+              <div className="flex h-full overflow-hidden">
+                <AppSidebar />
+                <MainContentArea>
+                  {children}
+                </MainContentArea>
+              </div>
+              <Toaster />
+            </SidebarProvider>
+          </LanguageProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -4,7 +4,7 @@ export type Locale = 'en' | 'es';
 type Translations = {
   [key in Locale]: {
     [namespace: string]: {
-      [key: string]: string | { [key: string]: string };
+      [key: string]: string | { [key: string]: string | { [key: string]: string } }; // Added deeper nesting for theme
     };
   };
 };
@@ -12,7 +12,9 @@ type Translations = {
 // Helper type for ensuring key validity (optional, for better DX)
 type PathImpl<T, K extends keyof T> = K extends string
   ? T[K] extends Record<string, any>
-    ? `${K}.${PathImpl<T[K], Exclude<keyof T[K], keyof any[]>> & string}`
+    ? T[K] extends Array<any> // Check if it's an array to stop recursion
+      ? `${K}`
+      : `${K}.${PathImpl<T[K], Exclude<keyof T[K], keyof any[]>> & string}`
     : `${K}`
   : never;
 type Path<T> = PathImpl<T, keyof T>;
@@ -35,6 +37,13 @@ export const translations: Translations = {
       language: "Language",
       english: "English",
       spanish: "Español",
+      theme: { // Added theme translations
+        toggle: "Toggle theme",
+        title: "Theme",
+        light: "Light",
+        dark: "Dark",
+        system: "System",
+      },
     },
     sidebar: {
       dashboard: "Dashboard",
@@ -91,14 +100,14 @@ export const translations: Translations = {
         comments: "Comments",
         admin: "Administrator",
         resolutionTimeDays: "Resolution Time (days)",
-        actions: "Actions",
+        actions: "Actions", // This is technically "Estado Resolución" in content
       },
-      status: { // For task.status
+      status: { 
         missingEstimates: "Missing Estimated Dates",
         missingPOD: "Missing POD",
         pendingInvoice: "Pending to Invoice Out of Time",
       },
-      resolutionStatus: { // For task.resolutionStatus
+      resolutionStatus: { 
         pendiente: "Pending",
         sfp: "SFP",
         resuelto: "Resolved",
@@ -123,23 +132,23 @@ export const translations: Translations = {
       incompleteMapping: "Incomplete Mapping",
       pleaseMapRequired: "Please map the following required system columns: {columns}",
       dataProcessed: "Data Processed",
-      tasksProcessedAndSaved: "{count} tasks processed and saved. Redirecting to table...",
+      tasksProcessedAndSaved: "{count} tasks processed and saved. Data available in Interactive Table.",
       errorSavingLocally: "Error saving data locally",
       errorSavingLocallyDescription: "Could not save data for the interactive table. Preview is still available on this page.",
       previewTitle: "Preview of Processed Data (first 10 rows)",
       uploadAnotherFile: "Upload another file",
       systemColumns: {
         status: "TO Status",
-        assignee: "Logistic Developer",
+        assignee: "Desarrollador Logístico",
         taskReference: "TO Ref.",
-        delayDays: "Delay Days",
+        delayDays: "Dias de atraso",
         customerAccount: "Customer Acc.",
-        netAmount: "Amount $",
+        netAmount: "Monto $",
         transportMode: "Transport Mode",
-        comments: "Comments",
-        resolutionAdmin: "Administrator",
-        resolutionStatus: "Resolution Status",
-        resolutionTimeDays: "Resolution Time (days)",
+        comments: "Comentarios",
+        resolutionAdmin: "Administrador",
+        resolutionStatus: "Estado de Resolución",
+        resolutionTimeDays: "Tiempo Resolución (días)",
       },
       fileUploader: {
         dropzoneActive: "Drop CSV file here...",
@@ -188,6 +197,13 @@ export const translations: Translations = {
       language: "Idioma",
       english: "Inglés",
       spanish: "Español",
+      theme: { // Added theme translations
+        toggle: "Alternar tema",
+        title: "Tema",
+        light: "Claro",
+        dark: "Oscuro",
+        system: "Sistema",
+      },
     },
     sidebar: {
       dashboard: "Panel de Control",
@@ -244,14 +260,14 @@ export const translations: Translations = {
         comments: "Comentarios",
         admin: "Administrador",
         resolutionTimeDays: "Tiempo Resolución (días)",
-        actions: "Acciones",
+        actions: "Acciones", // This is technically "Estado Resolución" in content
       },
-      status: { // For task.status
+      status: {
         missingEstimates: "Fechas Estimadas Faltantes",
         missingPOD: "POD Faltante",
         pendingInvoice: "Pendiente de Facturar Fuera de Tiempo",
       },
-      resolutionStatus: { // For task.resolutionStatus
+      resolutionStatus: {
         pendiente: "Pendiente",
         sfp: "SFP",
         resuelto: "Resuelto",
@@ -276,7 +292,7 @@ export const translations: Translations = {
       incompleteMapping: "Mapeo Incompleto",
       pleaseMapRequired: "Por favor, mapea las siguientes columnas requeridas del sistema: {columns}",
       dataProcessed: "Datos Procesados",
-      tasksProcessedAndSaved: "{count} tareas procesadas y guardadas. Redirigiendo a la tabla...",
+      tasksProcessedAndSaved: "{count} tareas procesadas y guardadas. Datos disponibles en Tabla Interactiva.",
       errorSavingLocally: "Error al guardar datos localmente",
       errorSavingLocallyDescription: "No se pudieron guardar los datos para la tabla interactiva. La vista previa sigue disponible en esta página.",
       previewTitle: "Vista Previa de Datos Procesados (primeras 10 filas)",

@@ -2,7 +2,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { Bell, Search, Globe } from "lucide-react";
+import { Bell, Search, Globe, Sun, Moon, Laptop } from "lucide-react"; // Added theme icons
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SidebarTrigger } from "@/components/ui/sidebar";
@@ -20,18 +20,21 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useState, useEffect } from 'react';
 import { useLanguage } from '@/context/language-context';
 import type { Locale } from '@/lib/translations';
+import { useTheme } from '@/context/theme-context'; // Import useTheme
+import type { Theme } from '@/context/theme-context'; // Import Theme type
 
 function getPageTitleKey(pathname: string | null): string {
-  if (!pathname) return "pageHeader.appName"; // Fallback to appName or a generic title
+  if (!pathname) return "pageHeader.appName";
   if (pathname === "/" || pathname.startsWith("/dashboard")) return "pageHeader.dashboard";
   if (pathname.startsWith("/table")) return "pageHeader.interactiveTable";
   if (pathname.startsWith("/upload-data")) return "pageHeader.uploadData";
-  return "pageHeader.appName"; // Fallback for unknown paths
+  return "pageHeader.appName";
 }
 
 export function PageHeader() {
   const pathname = usePathname();
   const { language, setLanguage, t } = useLanguage();
+  const { theme, setTheme } = useTheme(); // Use theme context
   const [titleKey, setTitleKey] = useState<string>("pageHeader.appName");
   const [hydrated, setHydrated] = useState(false);
 
@@ -45,12 +48,14 @@ export function PageHeader() {
     }
   }, [pathname, hydrated]);
 
+  const pageTitle = hydrated ? t(titleKey as any) : t('pageHeader.appName' as any);
+
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-6 shadow-sm min-w-0">
       <div className="flex items-center gap-2 flex-shrink min-w-0">
         <SidebarTrigger />
         <h1 className="text-xl font-semibold text-foreground truncate">
-          {t(titleKey as any)} {/* Use 'any' for key type if complex keys are problematic for TS */}
+          {pageTitle}
         </h1>
       </div>
       
@@ -64,6 +69,34 @@ export function PageHeader() {
           />
         </form>
 
+        {/* Theme Switcher Dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="rounded-full">
+              <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+              <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+              <span className="sr-only">{t('pageHeader.theme.toggle')}</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>{t('pageHeader.theme.title')}</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => setTheme('light')}>
+              <Sun className="mr-2 h-4 w-4" />
+              <span>{t('pageHeader.theme.light')}</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setTheme('dark')}>
+              <Moon className="mr-2 h-4 w-4" />
+              <span>{t('pageHeader.theme.dark')}</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setTheme('system')}>
+              <Laptop className="mr-2 h-4 w-4" />
+              <span>{t('pageHeader.theme.system')}</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Language Switcher Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="rounded-full">
