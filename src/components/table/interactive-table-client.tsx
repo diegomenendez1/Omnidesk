@@ -72,7 +72,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [t]); // t is added as a dependency because it's used in toast messages
+  }, [t]); 
 
   const handleValidateData = () => {
     startTransition(async () => {
@@ -201,7 +201,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                         ? t('interactiveTable.notAvailable') 
                         : String(val);
       
-      if (stringVal.trim() !== "" && stringVal !== t('interactiveTable.notAvailable')) { 
+      if (stringVal.trim() !== "" || stringVal === t('interactiveTable.notAvailable')) { 
         values.add(stringVal);
       }
     });
@@ -220,6 +220,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   const uniqueDelayDays = useMemo(() => getUniqueValuesForColumn('delayDays'), [tasks, t]);
   const uniqueCustomerAccounts = useMemo(() => getUniqueValuesForColumn('customerAccount'), [tasks, t]);
   const uniqueNetAmounts = useMemo(() => {
+    // Special handling for netAmount to ensure numeric sorting for display in filter
     const numericValues = new Set<string>();
     tasks.forEach(task => {
         if (task.netAmount !== null && task.netAmount !== undefined) {
@@ -281,6 +282,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
         if (typeof valA === 'number' && typeof valB === 'number') {
           comparison = valA - valB;
         } else {
+          // Ensure consistent string comparison for all other types
           comparison = String(valA).toLowerCase().localeCompare(String(valB).toLowerCase());
         }
   
@@ -308,7 +310,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
         <PopoverTrigger asChild>
           <Button variant="ghost" size="icon" className="h-7 w-7 opacity-60 hover:opacity-100 data-[state=open]:opacity-100 data-[state=open]:bg-accent">
             <FilterIcon className="h-4 w-4" />
-            <span className="sr-only">Filter {t(columnLabelKey as any)}</span>
+            <span className="sr-only">{t('interactiveTable.filterBy', {columnName: t(columnLabelKey as any)})}</span>
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-60 p-2" align="start">
@@ -372,7 +374,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                         <PopoverTrigger asChild>
                            <Button variant="ghost" size="icon" className="h-7 w-7 opacity-60 hover:opacity-100 data-[state=open]:opacity-100 data-[state=open]:bg-accent">
                             <FilterIcon className="h-4 w-4" />
-                            <span className="sr-only">Filter {t('interactiveTable.tableHeaders.toStatus')}</span>
+                            <span className="sr-only">{t('interactiveTable.filterBy', {columnName: t('interactiveTable.tableHeaders.toStatus')})}</span>
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-60 p-2" align="start">
@@ -448,7 +450,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                         <PopoverTrigger asChild>
                            <Button variant="ghost" size="icon" className="h-7 w-7 opacity-60 hover:opacity-100 data-[state=open]:opacity-100 data-[state=open]:bg-accent">
                             <FilterIcon className="h-4 w-4" />
-                            <span className="sr-only">Filter {t('interactiveTable.tableHeaders.comments')}</span>
+                            <span className="sr-only">{t('interactiveTable.filterBy', {columnName: t('interactiveTable.tableHeaders.comments')})}</span>
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-72 p-2" align="start">
@@ -483,17 +485,17 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                     </div>
                   </TableHead>
 
-                  <TableHead className="group text-left"> {/* Changed from Actions to Estado Resolución for filter context */}
+                  <TableHead className="group text-left"> 
                      <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1 cursor-pointer flex-grow py-3 pr-2" onClick={() => requestSort('resolutionStatus')}>
-                        {t('interactiveTable.tableHeaders.actions')} {/* Display name is Actions */}
+                        {t('interactiveTable.tableHeaders.actions')} 
                         {renderSortIcon('resolutionStatus')}
                       </div>
                       <Popover>
                         <PopoverTrigger asChild>
                            <Button variant="ghost" size="icon" className="h-7 w-7 opacity-60 hover:opacity-100 data-[state=open]:opacity-100 data-[state=open]:bg-accent">
                             <FilterIcon className="h-4 w-4" />
-                             <span className="sr-only">Filter {t('interactiveTable.tableHeaders.actions')}</span>
+                             <span className="sr-only">{t('interactiveTable.filterBy', {columnName: t('interactiveTable.tableHeaders.actions')})}</span>
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-60 p-2" align="start">
