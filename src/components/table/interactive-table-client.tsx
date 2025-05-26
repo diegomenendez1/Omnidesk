@@ -6,7 +6,7 @@ import type { Task } from '@/types';
 import { performDataValidation } from '@/app/table/actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-// Textarea removed as description is removed
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent } from '@/components/ui/card';
@@ -30,6 +30,8 @@ interface InteractiveTableClientProps {
 }
 
 const statusOptions: Task["status"][] = ["To Do", "In Progress", "Blocked", "Done", "Review"];
+const resolutionStatusOptions: Task["resolutionStatus"][] = ["Pendiente", "En Progreso", "Resuelto", "Bloqueado"];
+
 
 export function InteractiveTableClient({ initialData }: InteractiveTableClientProps) {
   const [tasks, setTasks] = useState<Task[]>(initialData);
@@ -75,7 +77,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   const handleAddNew = () => {
     setEditingTask({
       id: `temp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      name: "", // Name is optional
+      name: "", 
       status: "To Do",
       assignee: "",
       taskReference: "",
@@ -83,6 +85,10 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
       customerAccount: "",
       netAmount: null,
       transportMode: "",
+      comments: "",
+      resolutionAdmin: "",
+      resolutionStatus: "Pendiente",
+      resolutionTimeDays: null,
     });
     setIsNewTask(true);
     setIsModalOpen(true);
@@ -108,12 +114,12 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     setEditingTask(null);
   };
 
-  const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => { // Removed HTMLTextAreaElement
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     if (!editingTask) return;
     const { name, value } = e.target;
 
     let processedValue: string | number | null = value;
-    if (name === 'delayDays' || name === 'netAmount') {
+    if (name === 'delayDays' || name === 'netAmount' || name === 'resolutionTimeDays') {
       processedValue = value === '' ? null : Number(value);
     }
 
@@ -124,8 +130,6 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     if (!editingTask) return;
     setEditingTask(prev => prev ? { ...prev, [name]: value } : null);
   };
-
-  // const getCellRef removed as it's not used after AI validation prompt update
 
   return (
     <div className="space-y-4 w-full">
@@ -149,12 +153,16 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
               <TableHeader>
                 <TableRow>
                   <TableHead>TO Ref.</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Assignee</TableHead>
+                  <TableHead>TO Status</TableHead>
+                  <TableHead>Desarrollador Logístico</TableHead>
                   <TableHead>Dias de atraso</TableHead>
                   <TableHead>Customer Acc.</TableHead>
                   <TableHead>Monto $</TableHead>
                   <TableHead>Transport Mode</TableHead>
+                  <TableHead>Comentarios</TableHead>
+                  <TableHead>Admin. Resolución</TableHead>
+                  <TableHead>Estado Resolución</TableHead>
+                  <TableHead>Tiempo Resolución (días)</TableHead>
                   <TableHead className="text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -164,10 +172,11 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                     <TableCell>{task.taskReference || 'N/A'}</TableCell>
                     <TableCell>
                       <span className={`px-2 py-1 text-xs rounded-full ${
-                        task.status === "Done" ? "bg-green-100 text-green-700" :
-                        task.status === "In Progress" ? "bg-blue-100 text-blue-700" :
-                        task.status === "To Do" ? "bg-gray-100 text-gray-700" :
-                        task.status === "Blocked" ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"
+                        task.status === "Done" ? "bg-green-100 text-green-700 dark:bg-green-700/20 dark:text-green-300" :
+                        task.status === "In Progress" ? "bg-blue-100 text-blue-700 dark:bg-blue-700/20 dark:text-blue-300" :
+                        task.status === "To Do" ? "bg-gray-100 text-gray-700 dark:bg-gray-700/20 dark:text-gray-300" :
+                        task.status === "Blocked" ? "bg-red-100 text-red-700 dark:bg-red-700/20 dark:text-red-300" : 
+                        "bg-yellow-100 text-yellow-700 dark:bg-yellow-700/20 dark:text-yellow-300"
                       }`}>
                         {task.status}
                       </span>
@@ -177,7 +186,22 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                     <TableCell>{task.customerAccount || 'N/A'}</TableCell>
                     <TableCell className="text-right">{task.netAmount === null || task.netAmount === undefined ? 'N/A' : String(task.netAmount)}</TableCell>
                     <TableCell>{task.transportMode || 'N/A'}</TableCell>
-                    <TableCell className="text-center">
+                    <TableCell className="max-w-xs truncate">{task.comments || 'N/A'}</TableCell>
+                    <TableCell>{task.resolutionAdmin || 'N/A'}</TableCell>
+                    <TableCell>
+                      {task.resolutionStatus ? (
+                        <span className={`px-2 py-1 text-xs rounded-full ${
+                          task.resolutionStatus === "Resuelto" ? "bg-green-100 text-green-700 dark:bg-green-700/20 dark:text-green-300" :
+                          task.resolutionStatus === "En Progreso" ? "bg-blue-100 text-blue-700 dark:bg-blue-700/20 dark:text-blue-300" :
+                          task.resolutionStatus === "Pendiente" ? "bg-gray-100 text-gray-700 dark:bg-gray-700/20 dark:text-gray-300" :
+                          task.resolutionStatus === "Bloqueado" ? "bg-red-100 text-red-700 dark:bg-red-700/20 dark:text-red-300" : ""
+                        }`}>
+                          {task.resolutionStatus}
+                        </span>
+                      ) : 'N/A'}
+                    </TableCell>
+                    <TableCell className="text-right">{task.resolutionTimeDays === null || task.resolutionTimeDays === undefined ? 'N/A' : String(task.resolutionTimeDays)}</TableCell>
+                    <TableCell className="text-center sticky right-0 bg-card">
                       <Button variant="ghost" size="icon" onClick={() => handleEdit(task)} className="hover:text-primary">
                         <Edit3 className="h-4 w-4" />
                       </Button>
@@ -207,13 +231,14 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto pr-2">
-               <div className="grid grid-cols-4 items-center gap-4">
+              {/* Standard Fields */}
+              <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="taskReference" className="text-right">TO Ref.</Label>
                 <Input id="taskReference" name="taskReference" value={editingTask.taskReference || ""} onChange={handleInputChange} className="col-span-3" />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="status" className="text-right">Status</Label>
-                <Select name="status" value={editingTask.status} onValueChange={(value) => handleSelectChange("status", value)}>
+                <Label htmlFor="status" className="text-right">TO Status</Label>
+                <Select name="status" value={editingTask.status} onValueChange={(value) => handleSelectChange("status", value as Task["status"])}>
                   <SelectTrigger className="col-span-3">
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
@@ -222,8 +247,8 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                   </SelectContent>
                 </Select>
               </div>
-               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="assignee" className="text-right">Assignee</Label>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="assignee" className="text-right">Desarrollador Logístico</Label>
                 <Input id="assignee" name="assignee" value={editingTask.assignee || ""} onChange={handleInputChange} className="col-span-3" />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
@@ -242,6 +267,28 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                 <Label htmlFor="transportMode" className="text-right">Transport Mode</Label>
                 <Input id="transportMode" name="transportMode" value={editingTask.transportMode || ""} onChange={handleInputChange} className="col-span-3" />
               </div>
+
+              {/* New Admin Fields */}
+              <div className="grid grid-cols-4 items-start gap-4">
+                <Label htmlFor="comments" className="text-right pt-2">Comentarios</Label>
+                <Textarea id="comments" name="comments" value={editingTask.comments || ""} onChange={handleInputChange} className="col-span-3" placeholder="Add comments..." />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="resolutionAdmin" className="text-right">Admin. Resolución</Label>
+                <Input id="resolutionAdmin" name="resolutionAdmin" value={editingTask.resolutionAdmin || ""} onChange={handleInputChange} className="col-span-3" />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="resolutionStatus" className="text-right">Estado Resolución</Label>
+                <Select name="resolutionStatus" value={editingTask.resolutionStatus || "Pendiente"} onValueChange={(value) => handleSelectChange("resolutionStatus", value as Task["resolutionStatus"])}>
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder="Select resolution status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {resolutionStatusOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              {/* resolutionTimeDays is not editable here as per requirement */}
             </div>
             <DialogFooter>
               <DialogClose asChild>

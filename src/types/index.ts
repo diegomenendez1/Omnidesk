@@ -3,14 +3,20 @@ export interface Task {
   id?: string; // Made optional
   name?: string; // Made optional
   status: "To Do" | "In Progress" | "Blocked" | "Done" | "Review";
-  assignee: string;
+  assignee: string; // Desarrollador Logístico (Ejecutivo de Operaciones)
 
-  // Campos para mapeo de CSV
-  taskReference?: string;
-  delayDays?: number | null;
-  customerAccount?: string;
-  netAmount?: number | null;
-  transportMode?: string;
+  // Campos para mapeo de CSV y seguimiento de órdenes
+  taskReference?: string; // TO Ref. (Referencia Orden de Transporte)
+  delayDays?: number | null; // Dias de atraso (Días Pendientes para Factura)
+  customerAccount?: string; // Customer Account (Cuenta de Cliente)
+  netAmount?: number | null; // Monto $ (Importe Neto Total Moneda Principal)
+  transportMode?: string; // Transport Mode (Modo de Transporte)
+
+  // Nuevos campos para seguimiento de administradores
+  comments?: string; // Comentarios del administrador
+  resolutionAdmin?: string; // Administrador asignado a la resolución
+  resolutionStatus?: 'Pendiente' | 'En Progreso' | 'Resuelto' | 'Bloqueado'; // Estado de la resolución
+  resolutionTimeDays?: number | null; // Días que tomó la resolución
 
   [key: string]: any;
 }

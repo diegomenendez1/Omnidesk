@@ -25,6 +25,11 @@ const systemColumns: SystemColumn[] = [
   { name: 'customerAccount', description: 'Customer Account (Cuenta de Cliente)', required: false },
   { name: 'netAmount', description: 'Monto $ (Importe Neto Total Moneda Principal)', required: false },
   { name: 'transportMode', description: 'Transport Mode (Modo de Transporte)', required: false },
+  // New admin tracking fields
+  { name: 'comments', description: 'Comentarios (Notas del administrador)', required: false },
+  { name: 'resolutionAdmin', description: 'Administrador de Resolución', required: false },
+  { name: 'resolutionStatus', description: 'Estado de Resolución', required: false },
+  { name: 'resolutionTimeDays', description: 'Tiempo de Resolución (Días)', required: false },
 ];
 
 
@@ -117,28 +122,30 @@ export default function UploadDataPage() {
             taskObject.assignee = value || "";
           } else if (systemColName === 'taskReference') {
             taskObject.taskReference = value || "";
-            if (!idCandidate) idCandidate = value; // Use taskReference as ID if no ID column is mapped
-          } else if (systemColName === 'delayDays' || systemColName === 'netAmount') {
-            taskObject[systemColName as 'delayDays' | 'netAmount'] = value && !isNaN(parseFloat(value)) ? parseFloat(value) : null;
-          } else if (systemColName === 'customerAccount' || systemColName === 'transportMode' ) {
-             taskObject[systemColName as 'customerAccount' | 'transportMode'] = value || "";
-          } else {
-            // For any other dynamically mapped columns
+            if (!idCandidate) idCandidate = value; 
+          } else if (systemColName === 'delayDays' || systemColName === 'netAmount' || systemColName === 'resolutionTimeDays') {
+            taskObject[systemColName as 'delayDays' | 'netAmount' | 'resolutionTimeDays'] = value && !isNaN(parseFloat(value)) ? parseFloat(value) : null;
+          } else if (systemColName === 'customerAccount' || systemColName === 'transportMode' || systemColName === 'comments' || systemColName === 'resolutionAdmin') {
+             taskObject[systemColName as 'customerAccount' | 'transportMode' | 'comments' | 'resolutionAdmin'] = value || "";
+          } else if (systemColName === 'resolutionStatus') {
+            taskObject.resolutionStatus = value as Task['resolutionStatus'] || "Pendiente";
+          }
+           else {
             (taskObject as any)[systemColName] = value;
           }
         }
       });
 
-      // Assign ID if not explicitly mapped to 'id' but taskReference was
       if (!taskObject.id && idCandidate) {
         taskObject.id = idCandidate;
       }
-      if (!taskObject.id) { // Fallback ID if nothing suitable was mapped
+      if (!taskObject.id) { 
         taskObject.id = `TEMP-CSV-${Date.now()}-${rowIndex}`;
       }
 
-      // Ensure required fields have default values if not properly mapped or empty
-      if (!taskObject.status) taskObject.status = "To Do"; // Example: status is required
+      if (!taskObject.status) taskObject.status = "To Do";
+      if (!taskObject.resolutionStatus) taskObject.resolutionStatus = "Pendiente";
+
 
       tasks.push(taskObject as Task);
     });
