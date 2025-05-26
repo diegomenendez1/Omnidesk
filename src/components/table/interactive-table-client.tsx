@@ -20,6 +20,8 @@ import { useLanguage } from '@/context/language-context';
 const resolutionStatusOptions: TaskResolutionStatus[] = ["Pendiente", "SFP", "Resuelto"];
 const statusOptions: TaskStatus[] = ["Missing Estimated Dates", "Missing POD", "Pending to Invoice Out of Time"];
 
+const ALL_FILTER_VALUE = "_ALL_VALUES_"; // Unique value for "All" option
+
 interface InteractiveTableClientProps {
   initialData: Task[];
 }
@@ -33,10 +35,10 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
 
   const [editingCellKey, setEditingCellKey] = useState<string | null>(null);
   const [currentEditText, setCurrentEditText] = useState<string>("");
-  const [currentEditSelectValue, setCurrentEditSelectValue] = useState<TaskResolutionStatus | '' | TaskStatus>("Pendiente");
+  const [currentEditSelectValue, setCurrentEditSelectValue] = useState<TaskResolutionStatus | TaskStatus | ''>(resolutionStatusOptions[0]);
   const [isSelectDropdownOpen, setIsSelectDropdownOpen] = useState(false);
 
-  const [filters, setFilters] = useState<Partial<Record<keyof Task, string>>>({});
+  const [filters, setFilters] = useState<Partial<Record<keyof Task, string | undefined>>>({});
 
   useEffect(() => {
     const storedTasksJson = localStorage.getItem('uploadedTasks');
@@ -96,17 +98,18 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     if (column === 'comments' || column === 'resolutionAdmin') {
       setCurrentEditText(String(value || ""));
     } else if (column === 'resolutionStatus') {
-      setCurrentEditSelectValue((value as TaskResolutionStatus) || "Pendiente");
-      setIsSelectDropdownOpen(true);
+      setCurrentEditSelectValue((value as TaskResolutionStatus) || resolutionStatusOptions[0]);
+      setIsSelectDropdownOpen(true); 
     }
   };
-
+  
   const handleInlineTextChange = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setCurrentEditText(event.target.value);
   };
 
   const saveInlineEdit = (taskId: string, column: keyof Task) => {
-    if (!editingCellKey || (!editingCellKey.startsWith(taskId) && !(taskReferenceForId(taskId) && editingCellKey.startsWith(taskReferenceForId(taskId)!)))) return;
+    const taskIdentifier = tasks.find(t => t.id === taskId || t.taskReference === taskId);
+    if (!editingCellKey || !taskIdentifier || (!editingCellKey.startsWith(taskIdentifier.id || '') && !editingCellKey.startsWith(taskIdentifier.taskReference || ''))) return;
 
     setTasks(prevTasks =>
       prevTasks.map(task =>
@@ -115,11 +118,11 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     );
     setEditingCellKey(null);
     setCurrentEditText("");
-    toast({ title: t('interactiveTable.fieldUpdated'), description: t('interactiveTable.changeSavedFor', { field: String(column) }) });
+    toast({ title: t('interactiveTable.fieldUpdated'), description: t('interactiveTable.changeSavedFor', { field: t(`interactiveTable.tableHeaders.${column}` as any, String(column))}) });
   };
 
   const handleInlineSelectChange = (taskId: string, column: keyof Task, value: string) => {
-    setTasks(prevTasks =>
+     setTasks(prevTasks =>
       prevTasks.map(task =>
         (task.id === taskId || task.taskReference === taskId) ? { ...task, [column]: value } : task
       )
@@ -127,7 +130,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     setEditingCellKey(null);
     setCurrentEditSelectValue('');
     setIsSelectDropdownOpen(false);
-    toast({ title: t('interactiveTable.fieldUpdated'), description: t('interactiveTable.changeSavedFor', { field: String(column) }) });
+    toast({ title: t('interactiveTable.fieldUpdated'), description: t('interactiveTable.changeSavedFor', { field: t(`interactiveTable.tableHeaders.${column}` as any, String(column))}) });
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>, taskId: string, column: keyof Task) => {
@@ -144,10 +147,8 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     }
   };
   
-  const taskReferenceForId = (id: string) => tasks.find(t => t.id === id)?.taskReference;
-
-
-  const getStatusDisplay = (statusValue: TaskStatus) => {
+  const getStatusDisplay = (statusValue?: TaskStatus) => {
+    if (!statusValue) return t('interactiveTable.notAvailable');
     const keyMap: Record<TaskStatus, string> = {
       "Missing Estimated Dates": "interactiveTable.status.missingEstimates",
       "Missing POD": "interactiveTable.status.missingPOD",
@@ -167,41 +168,79 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   };
 
   const handleFilterChange = (columnKey: keyof Task, value: string) => {
-    setFilters(prev => ({ ...prev, [columnKey]: value }));
+    setFilters(prev => ({
+      ...prev,
+      [columnKey]: value === ALL_FILTER_VALUE ? undefined : value,
+    }));
   };
 
   const getUniqueValuesForColumn = (columnKey: keyof Task): string[] => {
-    const values = new Set(
-      tasks.map(task => {
-        const val = task[columnKey];
-        return val === null || val === undefined ? t('interactiveTable.notAvailable') : String(val);
-      })
-    );
-    return Array.from(values).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+    const values = new Set<string>();
+    tasks.forEach(task => {
+      const val = task[columnKey];
+      // Use translated "N/A" for null/undefined values, but ensure it's not an empty string for the value prop
+      const stringVal = (val === null || val === undefined) 
+                        ? t('interactiveTable.notAvailable') 
+                        : String(val);
+      
+      if (stringVal.trim() !== "") { // Ensure non-empty and non-whitespace-only strings are added
+        values.add(stringVal);
+      } else if (val === "") { // Explicitly handle original empty strings if needed as a distinct filter option
+        // If you want to filter by "actually empty" string values, use a placeholder key and label
+        // For now, we are excluding them from direct filter options.
+        // Example: values.add("_EMPTY_"); // And then handle "_EMPTY_" in filter logic and display "(Empty)"
+      }
+    });
+    return Array.from(values).sort((a, b) => {
+        if (a === t('interactiveTable.notAvailable')) return 1; // Push "N/A" to the end
+        if (b === t('interactiveTable.notAvailable')) return -1;
+        return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+    });
   };
   
-  const uniqueTaskReferences = useMemo(() => getUniqueValuesForColumn('taskReference'), [tasks]);
-  const uniqueAssignees = useMemo(() => getUniqueValuesForColumn('assignee'), [tasks]);
-  const uniqueDelayDays = useMemo(() => getUniqueValuesForColumn('delayDays'), [tasks]);
-  const uniqueCustomerAccounts = useMemo(() => getUniqueValuesForColumn('customerAccount'), [tasks]);
-  const uniqueNetAmounts = useMemo(() => getUniqueValuesForColumn('netAmount'), [tasks]);
-  const uniqueTransportModes = useMemo(() => getUniqueValuesForColumn('transportMode'), [tasks]);
-  const uniqueResolutionAdmins = useMemo(() => getUniqueValuesForColumn('resolutionAdmin'), [tasks]);
-  const uniqueResolutionTimeDays = useMemo(() => getUniqueValuesForColumn('resolutionTimeDays'), [tasks]);
+  const uniqueTaskReferences = useMemo(() => getUniqueValuesForColumn('taskReference'), [tasks, t]);
+  const uniqueAssignees = useMemo(() => getUniqueValuesForColumn('assignee'), [tasks, t]);
+  const uniqueDelayDays = useMemo(() => getUniqueValuesForColumn('delayDays'), [tasks, t]);
+  const uniqueCustomerAccounts = useMemo(() => getUniqueValuesForColumn('customerAccount'), [tasks, t]);
+  const uniqueNetAmounts = useMemo(() => {
+    // For netAmount, we want to filter by the formatted currency string if that's what's displayed
+    // Or by the raw number if that's preferred. Let's use raw numbers for filtering.
+    const numericValues = new Set<string>();
+    tasks.forEach(task => {
+        if (task.netAmount !== null && task.netAmount !== undefined) {
+            numericValues.add(String(task.netAmount));
+        } else {
+            numericValues.add(t('interactiveTable.notAvailable'));
+        }
+    });
+    return Array.from(numericValues).sort((a,b) => {
+        if (a === t('interactiveTable.notAvailable')) return 1;
+        if (b === t('interactiveTable.notAvailable')) return -1;
+        return parseFloat(a) - parseFloat(b);
+    });
+  }, [tasks, t]);
+  const uniqueTransportModes = useMemo(() => getUniqueValuesForColumn('transportMode'), [tasks, t]);
+  const uniqueResolutionAdmins = useMemo(() => getUniqueValuesForColumn('resolutionAdmin'), [tasks, t]);
+  const uniqueResolutionTimeDays = useMemo(() => getUniqueValuesForColumn('resolutionTimeDays'), [tasks, t]);
 
 
   const filteredTasks = tasks.filter(task => {
     return Object.entries(filters).every(([columnKeyStr, filterValue]) => {
       const columnKey = columnKeyStr as keyof Task;
-      if (!filterValue || filterValue === "") return true; // "" is now the "All" value for Selects
+      if (filterValue === undefined) return true; // "All" selected or no filter set
 
       const taskValue = task[columnKey];
-      const taskValueString = taskValue === null || taskValue === undefined ? t('interactiveTable.notAvailable') : String(taskValue);
+      let taskValueString: string;
 
-      if (columnKey === 'comments') { // Text search for comments
-        return taskValueString.toLowerCase().includes(filterValue.toLowerCase());
+      if (columnKey === 'netAmount') {
+          taskValueString = (taskValue === null || taskValue === undefined) ? t('interactiveTable.notAvailable') : String(taskValue);
+      } else {
+          taskValueString = (taskValue === null || taskValue === undefined) ? t('interactiveTable.notAvailable') : String(taskValue);
       }
-      // Exact match for Select filters
+      
+      if (columnKey === 'comments') { 
+        return taskValueString.toLowerCase().includes(String(filterValue).toLowerCase());
+      }
       return taskValueString === filterValue;
     });
   });
@@ -241,64 +280,64 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                 </TableRow>
                 <TableRow>
                   <TableCell className="p-1">
-                    <Select value={filters.taskReference || ""} onValueChange={(value) => handleFilterChange('taskReference', value)}>
+                    <Select value={filters.taskReference || ALL_FILTER_VALUE} onValueChange={(value) => handleFilterChange('taskReference', value)}>
                         <SelectTrigger className="h-8"><SelectValue placeholder={filterPlaceholder('interactiveTable.tableHeaders.toRef')} /></SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="">{allOptionLabel}</SelectItem>
+                            <SelectItem value={ALL_FILTER_VALUE}>{allOptionLabel}</SelectItem>
                             {uniqueTaskReferences.map(opt => (<SelectItem key={opt} value={opt}>{opt}</SelectItem>))}
                         </SelectContent>
                     </Select>
                   </TableCell>
                   <TableCell className="p-1">
-                    <Select value={filters.status || ""} onValueChange={(value) => handleFilterChange('status', value)}>
+                    <Select value={filters.status || ALL_FILTER_VALUE} onValueChange={(value) => handleFilterChange('status', value as TaskStatus)}>
                       <SelectTrigger className="h-8"><SelectValue placeholder={filterPlaceholder('interactiveTable.tableHeaders.toStatus')} /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">{t('interactiveTable.allStatuses')}</SelectItem>
+                        <SelectItem value={ALL_FILTER_VALUE}>{t('interactiveTable.allStatuses')}</SelectItem>
                         {statusOptions.map(opt => (<SelectItem key={opt} value={opt}>{getStatusDisplay(opt)}</SelectItem>))}
                       </SelectContent>
                     </Select>
                   </TableCell>
                   <TableCell className="p-1">
-                     <Select value={filters.assignee || ""} onValueChange={(value) => handleFilterChange('assignee', value)}>
+                     <Select value={filters.assignee || ALL_FILTER_VALUE} onValueChange={(value) => handleFilterChange('assignee', value)}>
                         <SelectTrigger className="h-8"><SelectValue placeholder={filterPlaceholder('interactiveTable.tableHeaders.logisticDeveloper')} /></SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="">{allOptionLabel}</SelectItem>
+                            <SelectItem value={ALL_FILTER_VALUE}>{allOptionLabel}</SelectItem>
                             {uniqueAssignees.map(opt => (<SelectItem key={opt} value={opt}>{opt}</SelectItem>))}
                         </SelectContent>
                     </Select>
                   </TableCell>
                   <TableCell className="p-1">
-                     <Select value={filters.delayDays || ""} onValueChange={(value) => handleFilterChange('delayDays', value)}>
+                     <Select value={filters.delayDays || ALL_FILTER_VALUE} onValueChange={(value) => handleFilterChange('delayDays', value)}>
                         <SelectTrigger className="h-8"><SelectValue placeholder={filterPlaceholder('interactiveTable.tableHeaders.delayDays')} /></SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="">{allOptionLabel}</SelectItem>
+                            <SelectItem value={ALL_FILTER_VALUE}>{allOptionLabel}</SelectItem>
                             {uniqueDelayDays.map(opt => (<SelectItem key={opt} value={opt}>{opt}</SelectItem>))}
                         </SelectContent>
                     </Select>
                   </TableCell>
                   <TableCell className="p-1">
-                     <Select value={filters.customerAccount || ""} onValueChange={(value) => handleFilterChange('customerAccount', value)}>
+                     <Select value={filters.customerAccount || ALL_FILTER_VALUE} onValueChange={(value) => handleFilterChange('customerAccount', value)}>
                         <SelectTrigger className="h-8"><SelectValue placeholder={filterPlaceholder('interactiveTable.tableHeaders.customerAccount')} /></SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="">{allOptionLabel}</SelectItem>
+                            <SelectItem value={ALL_FILTER_VALUE}>{allOptionLabel}</SelectItem>
                             {uniqueCustomerAccounts.map(opt => (<SelectItem key={opt} value={opt}>{opt}</SelectItem>))}
                         </SelectContent>
                     </Select>
                   </TableCell>
                   <TableCell className="p-1">
-                     <Select value={filters.netAmount || ""} onValueChange={(value) => handleFilterChange('netAmount', value)}>
+                     <Select value={filters.netAmount || ALL_FILTER_VALUE} onValueChange={(value) => handleFilterChange('netAmount', value)}>
                         <SelectTrigger className="h-8 w-[120px] text-right"><SelectValue placeholder={filterPlaceholder('interactiveTable.tableHeaders.amount')} /></SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="">{allOptionLabel}</SelectItem>
-                            {uniqueNetAmounts.map(opt => (<SelectItem key={opt} value={opt}>{formatCurrency(parseFloat(opt))}</SelectItem>))}
+                            <SelectItem value={ALL_FILTER_VALUE}>{allOptionLabel}</SelectItem>
+                            {uniqueNetAmounts.map(opt => (<SelectItem key={opt} value={opt}>{opt === t('interactiveTable.notAvailable') ? opt : formatCurrency(parseFloat(opt))}</SelectItem>))}
                         </SelectContent>
                     </Select>
                   </TableCell>
                   <TableCell className="p-1">
-                     <Select value={filters.transportMode || ""} onValueChange={(value) => handleFilterChange('transportMode', value)}>
+                     <Select value={filters.transportMode || ALL_FILTER_VALUE} onValueChange={(value) => handleFilterChange('transportMode', value)}>
                         <SelectTrigger className="h-8"><SelectValue placeholder={filterPlaceholder('interactiveTable.tableHeaders.transportMode')} /></SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="">{allOptionLabel}</SelectItem>
+                            <SelectItem value={ALL_FILTER_VALUE}>{allOptionLabel}</SelectItem>
                             {uniqueTransportModes.map(opt => (<SelectItem key={opt} value={opt}>{opt}</SelectItem>))}
                         </SelectContent>
                     </Select>
@@ -306,34 +345,34 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                   <TableCell className="p-1">
                     <Input
                       placeholder={filterPlaceholder('interactiveTable.tableHeaders.comments')}
-                      value={filters.comments || ''}
+                      value={String(filters.comments || '')}
                       onChange={(e) => handleFilterChange('comments', e.target.value)}
                       className="h-8"
                     />
                   </TableCell>
                   <TableCell className="p-1">
-                    <Select value={filters.resolutionAdmin || ""} onValueChange={(value) => handleFilterChange('resolutionAdmin', value)}>
+                    <Select value={filters.resolutionAdmin || ALL_FILTER_VALUE} onValueChange={(value) => handleFilterChange('resolutionAdmin', value)}>
                         <SelectTrigger className="h-8"><SelectValue placeholder={filterPlaceholder('interactiveTable.tableHeaders.admin')} /></SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="">{allOptionLabel}</SelectItem>
+                            <SelectItem value={ALL_FILTER_VALUE}>{allOptionLabel}</SelectItem>
                             {uniqueResolutionAdmins.map(opt => (<SelectItem key={opt} value={opt}>{opt}</SelectItem>))}
                         </SelectContent>
                     </Select>
                   </TableCell>
                   <TableCell className="p-1">
-                    <Select value={filters.resolutionTimeDays || ""} onValueChange={(value) => handleFilterChange('resolutionTimeDays', value)}>
+                    <Select value={filters.resolutionTimeDays || ALL_FILTER_VALUE} onValueChange={(value) => handleFilterChange('resolutionTimeDays', value)}>
                         <SelectTrigger className="h-8 w-[120px] text-right"><SelectValue placeholder={filterPlaceholder('interactiveTable.tableHeaders.resolutionTimeDays')} /></SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="">{allOptionLabel}</SelectItem>
+                            <SelectItem value={ALL_FILTER_VALUE}>{allOptionLabel}</SelectItem>
                             {uniqueResolutionTimeDays.map(opt => (<SelectItem key={opt} value={opt}>{opt}</SelectItem>))}
                         </SelectContent>
                     </Select>
                   </TableCell>
-                  <TableCell className="p-1">
-                    <Select value={filters.resolutionStatus || ""} onValueChange={(value) => handleFilterChange('resolutionStatus', value)}>
+                  <TableCell className="p-1 text-left"> {/* ensure alignment for the header */}
+                    <Select value={filters.resolutionStatus || ALL_FILTER_VALUE} onValueChange={(value) => handleFilterChange('resolutionStatus', value as TaskResolutionStatus)}>
                       <SelectTrigger className="h-8"><SelectValue placeholder={filterPlaceholder('interactiveTable.tableHeaders.actions')} /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">{t('interactiveTable.allStatuses')}</SelectItem>
+                        <SelectItem value={ALL_FILTER_VALUE}>{t('interactiveTable.allStatuses')}</SelectItem>
                         {resolutionStatusOptions.map(opt => (<SelectItem key={opt} value={opt}>{getResolutionStatusDisplay(opt)}</SelectItem>))}
                       </SelectContent>
                     </Select>
@@ -401,7 +440,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                       >
                         {editingCellKey === `${taskId}-resolutionStatus` ? (
                           <Select
-                            value={currentEditSelectValue as TaskResolutionStatus || "Pendiente"}
+                            value={currentEditSelectValue as TaskResolutionStatus || resolutionStatusOptions[0]}
                             onValueChange={(value) => handleInlineSelectChange(taskId, 'resolutionStatus', value as TaskResolutionStatus)}
                             open={isSelectDropdownOpen}
                             onOpenChange={(openState) => {
@@ -422,7 +461,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                           <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                             task.resolutionStatus === "Resuelto" ? "bg-green-100 text-green-700 dark:bg-green-700/20 dark:text-green-300" :
                             task.resolutionStatus === "SFP" ? "bg-blue-100 text-blue-700 dark:bg-blue-700/20 dark:text-blue-300" :
-                            "bg-gray-100 text-gray-700 dark:bg-gray-700/20 dark:text-gray-300" // Pendiente or undefined
+                            "bg-gray-100 text-gray-700 dark:bg-gray-700/20 dark:text-gray-300"
                           }`}>
                             {getResolutionStatusDisplay(task.resolutionStatus)}
                           </span>
