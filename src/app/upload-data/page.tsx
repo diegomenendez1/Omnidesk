@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getMappingSuggestions } from './actions';
 import type { SuggestCsvMappingOutput, SystemColumn } from './actions';
 import { useRouter } from 'next/navigation';
+import { formatCurrency } from '@/lib/utils';
 
 type UploadStep = "upload" | "map" | "confirm" | "done";
 
@@ -299,6 +300,9 @@ export default function UploadDataPage() {
                       <TableRow key={task.id || `processed-${index}`}>
                         {systemColumns.filter(sc => Object.values(userMappings).includes(sc.name)).map(col => {
                            const value = task[col.name as keyof Task];
+                           if (col.name === 'netAmount') {
+                             return <TableCell key={col.name} className="text-right">{formatCurrency(value as number | null)}</TableCell>;
+                           }
                            return <TableCell key={col.name}>{String(value === null || value === undefined ? 'N/A' : value)}</TableCell>;
                         })}
                       </TableRow>

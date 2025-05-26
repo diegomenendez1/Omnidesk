@@ -14,6 +14,7 @@ import { DataValidationReport } from './data-validation-report';
 import type { ValidateDataConsistencyOutput } from '@/types';
 import { ScanSearch } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
+import { formatCurrency } from '@/lib/utils';
 
 interface InteractiveTableClientProps {
   initialData: Task[];
@@ -31,7 +32,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
 
   const [editingCellKey, setEditingCellKey] = useState<string | null>(null);
   const [currentEditText, setCurrentEditText] = useState<string>("");
-  const [currentEditSelectValue, setCurrentEditSelectValue] = useState<string>("");
+  const [currentEditSelectValue, setCurrentEditSelectValue] = useState<Task['resolutionStatus'] | ''>("Pendiente");
   const [isSelectDropdownOpen, setIsSelectDropdownOpen] = useState(false);
 
 
@@ -94,7 +95,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
       setCurrentEditText(String(value || ""));
       setIsSelectDropdownOpen(false); 
     } else if (column === 'resolutionStatus') {
-      setCurrentEditSelectValue(String(value || "Pendiente"));
+      setCurrentEditSelectValue( (value as Task['resolutionStatus']) || "Pendiente");
       setIsSelectDropdownOpen(true); 
     }
   };
@@ -123,7 +124,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
       )
     );
     setEditingCellKey(null); 
-    setCurrentEditSelectValue("");
+    setCurrentEditSelectValue('');
     setIsSelectDropdownOpen(false);
     toast({title: "Campo actualizado", description: `Se guardó el cambio para ${String(column)}.`});
   };
@@ -138,7 +139,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     } else if (event.key === 'Escape') {
       setEditingCellKey(null);
       setCurrentEditText("");
-      setCurrentEditSelectValue("");
+      setCurrentEditSelectValue('');
       setIsSelectDropdownOpen(false);
     }
   };
@@ -167,11 +168,11 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                   <TableHead>Desarrollador Logístico</TableHead>
                   <TableHead>Dias de atraso</TableHead>
                   <TableHead>Customer Acc.</TableHead>
-                  <TableHead>Monto $</TableHead>
+                  <TableHead className="text-right">Monto $</TableHead>
                   <TableHead>Transport Mode</TableHead>
                   <TableHead>Comentarios</TableHead>
                   <TableHead>Administrador</TableHead>
-                  <TableHead>Tiempo Resolución (días)</TableHead>
+                  <TableHead className="text-right">Tiempo Resolución (días)</TableHead>
                   <TableHead className="text-left">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -194,7 +195,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                       <TableCell>{task.assignee || 'N/A'}</TableCell>
                       <TableCell>{task.delayDays === null || task.delayDays === undefined ? 'N/A' : String(task.delayDays)}</TableCell>
                       <TableCell>{task.customerAccount || 'N/A'}</TableCell>
-                      <TableCell className="text-right">{task.netAmount === null || task.netAmount === undefined ? 'N/A' : String(task.netAmount)}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(task.netAmount)}</TableCell>
                       <TableCell>{task.transportMode || 'N/A'}</TableCell>
                       
                       <TableCell onClick={() => editingCellKey !== `${taskId}-comments` && startEdit(task, 'comments')} className="max-w-xs truncate cursor-pointer hover:bg-muted/50">
