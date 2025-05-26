@@ -112,7 +112,7 @@ export default function UploadDataPage() {
         if (systemColName) {
           const value = row[colIndex]?.trim();
           // Assign general properties
-          taskObject[systemColName as keyof Task] = value;
+          (taskObject as any)[systemColName] = value;
 
           // Specific parsing for known types
           if (systemColName === 'id') {
