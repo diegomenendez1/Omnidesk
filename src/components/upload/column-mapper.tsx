@@ -3,9 +3,8 @@
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import type { SystemColumn } from '@/app/upload-data/actions'; // Using the extended type
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"; // Added CardDescription
+import type { SystemColumn } from '@/app/upload-data/actions';
 
 interface ColumnMapperProps {
   csvHeaders: string[];
@@ -18,7 +17,6 @@ interface ColumnMapperProps {
 export function ColumnMapper({
   csvHeaders,
   systemColumns,
-  // suggestedMappings is used to pre-fill, currentMappings holds the live state
   currentMappings,
   onMappingChange,
 }: ColumnMapperProps) {
@@ -27,30 +25,33 @@ export function ColumnMapper({
     <Card>
       <CardHeader>
         <CardTitle>Asignación de Columnas</CardTitle>
+        <CardDescription>
+          Revisa y ajusta cómo se asignan las columnas de tu archivo CSV a las columnas del sistema.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Columna CSV</TableHead>
-                <TableHead>Mapear a Columna del Sistema</TableHead>
-                <TableHead>Requerida</TableHead>
+                <TableHead className="text-left">Columna CSV</TableHead>
+                <TableHead className="text-left">Mapear a Columna del Sistema</TableHead>
+                <TableHead className="text-left">Requerida</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {csvHeaders.map((csvHeader) => {
-                const currentSystemCol = currentMappings[csvHeader];
-                const systemColDef = systemColumns.find(sc => sc.name === currentSystemCol);
+                const currentSystemColName = currentMappings[csvHeader];
+                const systemColDef = systemColumns.find(sc => sc.name === currentSystemColName);
                 return (
                   <TableRow key={csvHeader}>
-                    <TableCell className="font-medium py-3">{csvHeader}</TableCell>
-                    <TableCell className="py-2">
+                    <TableCell className="font-medium py-3 text-left">{csvHeader}</TableCell>
+                    <TableCell className="py-2 text-left">
                       <Select
                         value={currentMappings[csvHeader] || "DO_NOT_IMPORT"}
                         onValueChange={(value) => onMappingChange(csvHeader, value === "DO_NOT_IMPORT" ? null : value)}
                       >
-                        <SelectTrigger className="w-[250px]">
+                        <SelectTrigger className="w-[280px] sm:w-[300px] md:w-[350px]">
                           <SelectValue placeholder="Seleccionar columna del sistema" />
                         </SelectTrigger>
                         <SelectContent>
@@ -63,7 +64,7 @@ export function ColumnMapper({
                         </SelectContent>
                       </Select>
                     </TableCell>
-                    <TableCell className="py-3">
+                    <TableCell className="py-3 text-left">
                         {systemColDef?.required ? 
                             <span className="text-destructive font-medium">Sí</span> : 
                             <span className="text-muted-foreground">No</span>
@@ -79,3 +80,4 @@ export function ColumnMapper({
     </Card>
   );
 }
+
