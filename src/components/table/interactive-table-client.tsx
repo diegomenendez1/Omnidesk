@@ -153,34 +153,23 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
               <TableHeader>
                 <TableRow>
                   <TableHead>TO Ref.</TableHead>
-                  <TableHead>TO Status</TableHead>
                   <TableHead>Desarrollador Logístico</TableHead>
                   <TableHead>Dias de atraso</TableHead>
                   <TableHead>Customer Acc.</TableHead>
                   <TableHead>Monto $</TableHead>
                   <TableHead>Transport Mode</TableHead>
                   <TableHead>Comentarios</TableHead>
-                  <TableHead>Admin. Resolución</TableHead>
+                  <TableHead>Administrador</TableHead>
                   <TableHead>Estado Resolución</TableHead>
+                  <TableHead>TO Status</TableHead>
                   <TableHead>Tiempo Resolución (días)</TableHead>
-                  <TableHead className="text-center">Actions</TableHead>
+                  <TableHead className="text-center sticky right-0 bg-card">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {tasks.map((task, rowIndex) => (
                   <TableRow key={task.id || task.taskReference || `task-${rowIndex}`}>
                     <TableCell>{task.taskReference || 'N/A'}</TableCell>
-                    <TableCell>
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        task.status === "Done" ? "bg-green-100 text-green-700 dark:bg-green-700/20 dark:text-green-300" :
-                        task.status === "In Progress" ? "bg-blue-100 text-blue-700 dark:bg-blue-700/20 dark:text-blue-300" :
-                        task.status === "To Do" ? "bg-gray-100 text-gray-700 dark:bg-gray-700/20 dark:text-gray-300" :
-                        task.status === "Blocked" ? "bg-red-100 text-red-700 dark:bg-red-700/20 dark:text-red-300" : 
-                        "bg-yellow-100 text-yellow-700 dark:bg-yellow-700/20 dark:text-yellow-300"
-                      }`}>
-                        {task.status}
-                      </span>
-                    </TableCell>
                     <TableCell>{task.assignee || 'N/A'}</TableCell>
                     <TableCell>{task.delayDays === null || task.delayDays === undefined ? 'N/A' : String(task.delayDays)}</TableCell>
                     <TableCell>{task.customerAccount || 'N/A'}</TableCell>
@@ -199,6 +188,17 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                           {task.resolutionStatus}
                         </span>
                       ) : 'N/A'}
+                    </TableCell>
+                    <TableCell>
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        task.status === "Done" ? "bg-green-100 text-green-700 dark:bg-green-700/20 dark:text-green-300" :
+                        task.status === "In Progress" ? "bg-blue-100 text-blue-700 dark:bg-blue-700/20 dark:text-blue-300" :
+                        task.status === "To Do" ? "bg-gray-100 text-gray-700 dark:bg-gray-700/20 dark:text-gray-300" :
+                        task.status === "Blocked" ? "bg-red-100 text-red-700 dark:bg-red-700/20 dark:text-red-300" : 
+                        "bg-yellow-100 text-yellow-700 dark:bg-yellow-700/20 dark:text-yellow-300"
+                      }`}>
+                        {task.status}
+                      </span>
                     </TableCell>
                     <TableCell className="text-right">{task.resolutionTimeDays === null || task.resolutionTimeDays === undefined ? 'N/A' : String(task.resolutionTimeDays)}</TableCell>
                     <TableCell className="text-center sticky right-0 bg-card">
@@ -274,7 +274,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                 <Textarea id="comments" name="comments" value={editingTask.comments || ""} onChange={handleInputChange} className="col-span-3" placeholder="Add comments..." />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="resolutionAdmin" className="text-right">Admin. Resolución</Label>
+                <Label htmlFor="resolutionAdmin" className="text-right">Administrador</Label>
                 <Input id="resolutionAdmin" name="resolutionAdmin" value={editingTask.resolutionAdmin || ""} onChange={handleInputChange} className="col-span-3" />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
@@ -302,3 +302,5 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     </div>
   );
 }
+
+    

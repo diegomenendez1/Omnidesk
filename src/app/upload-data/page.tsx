@@ -27,7 +27,7 @@ const systemColumns: SystemColumn[] = [
   { name: 'transportMode', description: 'Transport Mode (Modo de Transporte)', required: false },
   // New admin tracking fields
   { name: 'comments', description: 'Comentarios (Notas del administrador)', required: false },
-  { name: 'resolutionAdmin', description: 'Administrador de Resolución', required: false },
+  { name: 'resolutionAdmin', description: 'Administrador', required: false },
   { name: 'resolutionStatus', description: 'Estado de Resolución', required: false },
   { name: 'resolutionTimeDays', description: 'Tiempo de Resolución (Días)', required: false },
 ];
@@ -234,3 +234,5 @@ export default function UploadDataPage() {
     </div>
   );
 }
+
+    
