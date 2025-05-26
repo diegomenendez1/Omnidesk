@@ -2,7 +2,7 @@
 export interface Task {
   id?: string; // Made optional
   name?: string; // Made optional
-  status: "To Do" | "In Progress" | "Blocked" | "Done" | "Review";
+  status: "Missing Estimated Dates" | "Missing POD" | "Pending to Invoice Out of Time";
   assignee: string; // Desarrollador Logístico (Ejecutivo de Operaciones)
 
   // Campos para mapeo de CSV y seguimiento de órdenes
@@ -38,3 +38,4 @@ export interface SystemColumnInfo {
   description: string;
   required?: boolean;
 }
+

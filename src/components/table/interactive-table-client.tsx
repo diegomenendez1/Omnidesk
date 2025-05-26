@@ -29,7 +29,7 @@ interface InteractiveTableClientProps {
   initialData: Task[];
 }
 
-const statusOptions: Task["status"][] = ["To Do", "In Progress", "Blocked", "Done", "Review"];
+const statusOptions: Task["status"][] = ["Missing Estimated Dates", "Missing POD", "Pending to Invoice Out of Time"];
 const resolutionStatusOptions: Task["resolutionStatus"][] = ["Pendiente", "En Progreso", "Resuelto", "Bloqueado"];
 
 
@@ -68,7 +68,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [toast]); // toast from useToast is stable
+  }, []); 
 
   const handleValidateData = () => {
     startTransition(async () => {
@@ -104,7 +104,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   const handleAddNew = () => {
     setEditingTask({
       id: `TEMP-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      status: "To Do",
+      status: "Missing Estimated Dates", // Default to one of the new statuses
       assignee: "",
       taskReference: "",
       delayDays: null,
@@ -192,7 +192,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                   <TableHead>Comentarios</TableHead>
                   <TableHead>Administrador</TableHead>
                   <TableHead>Tiempo Resolución (días)</TableHead>
-                  <TableHead className="text-left sticky right-0 bg-card px-4">Actions</TableHead> {/* Header is "Actions" */}
+                  <TableHead className="text-left sticky right-0 bg-card px-4">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -201,11 +201,10 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                     <TableCell>{task.taskReference || 'N/A'}</TableCell>
                     <TableCell>
                       <span className={`px-2 py-1 text-xs rounded-full ${
-                        task.status === "Done" ? "bg-green-100 text-green-700 dark:bg-green-700/20 dark:text-green-300" :
-                        task.status === "In Progress" ? "bg-blue-100 text-blue-700 dark:bg-blue-700/20 dark:text-blue-300" :
-                        task.status === "To Do" ? "bg-gray-100 text-gray-700 dark:bg-gray-700/20 dark:text-gray-300" :
-                        task.status === "Blocked" ? "bg-red-100 text-red-700 dark:bg-red-700/20 dark:text-red-300" : 
-                        "bg-yellow-100 text-yellow-700 dark:bg-yellow-700/20 dark:text-yellow-300"
+                        task.status === "Pending to Invoice Out of Time" ? "bg-orange-100 text-orange-700 dark:bg-orange-700/20 dark:text-orange-300" :
+                        task.status === "Missing POD" ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-700/20 dark:text-yellow-300" :
+                        task.status === "Missing Estimated Dates" ? "bg-purple-100 text-purple-700 dark:bg-purple-700/20 dark:text-purple-300" :
+                        "bg-gray-100 text-gray-700 dark:bg-gray-700/20 dark:text-gray-300" // Fallback
                       }`}>
                         {task.status}
                       </span>
@@ -218,7 +217,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                     <TableCell className="max-w-xs truncate">{task.comments || 'N/A'}</TableCell>
                     <TableCell>{task.resolutionAdmin || 'N/A'}</TableCell>
                     <TableCell className="text-right">{task.resolutionTimeDays === null || task.resolutionTimeDays === undefined ? 'N/A' : String(task.resolutionTimeDays)}</TableCell>
-                    <TableCell className="sticky right-0 bg-card px-4"> {/* Content is task.resolutionStatus */}
+                    <TableCell className="sticky right-0 bg-card px-4">
                       {task.resolutionStatus ? (
                         <span className={`px-2 py-1 text-xs rounded-full ${
                           task.resolutionStatus === "Resuelto" ? "bg-green-100 text-green-700 dark:bg-green-700/20 dark:text-green-300" :
@@ -327,4 +326,3 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   );
 }
 
-    

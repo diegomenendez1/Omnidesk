@@ -17,6 +17,8 @@ import { useRouter } from 'next/navigation';
 
 type UploadStep = "upload" | "map" | "confirm" | "done";
 
+const validStatuses: Task["status"][] = ["Missing Estimated Dates", "Missing POD", "Pending to Invoice Out of Time"];
+
 // Define system columns based on Task interface for mapping
 const systemColumns: SystemColumn[] = [
   { name: 'status', description: 'TO Status', required: true },
@@ -177,7 +179,7 @@ export default function UploadDataPage() {
           const value = row[colIndex]?.trim();
 
           if (systemColName === 'status') {
-            taskObject.status = value as Task['status'] || "To Do";
+            taskObject.status = validStatuses.includes(value as Task["status"]) ? value as Task["status"] : "Missing Estimated Dates";
           } else if (systemColName === 'assignee') {
             taskObject.assignee = value || "";
           } else if (systemColName === 'taskReference') {
@@ -203,7 +205,7 @@ export default function UploadDataPage() {
         taskObject.id = `TEMP-CSV-${Date.now()}-${rowIndex}-${Math.random().toString(36).substring(2, 7)}`;
       }
 
-      if (!taskObject.status) taskObject.status = "To Do";
+      if (!taskObject.status) taskObject.status = "Missing Estimated Dates"; // Default status
       if (!taskObject.resolutionStatus && systemColumns.some(sc => sc.name === 'resolutionStatus')) {
         taskObject.resolutionStatus = "Pendiente";
       }
