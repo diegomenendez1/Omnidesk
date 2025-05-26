@@ -54,12 +54,28 @@ export default function UploadDataPage() {
 
     startTransition(async () => {
       try {
-        const suggestions = await getMappingSuggestions(headers, systemColumns);
-        setSuggestedMappings(suggestions.suggestedMappings);
+        const suggestionsFromAI = await getMappingSuggestions(headers, systemColumns);
+        setSuggestedMappings(suggestionsFromAI.suggestedMappings); // Store AI suggestions
+        
         const initialUserMappings: Record<string, string | null> = {};
-        suggestions.suggestedMappings.forEach(m => {
-          initialUserMappings[m.csvColumn] = m.systemColumn;
+        headers.forEach(header => {
+          // Attempt direct match first (case-insensitive on description)
+          const directMatch = systemColumns.find(
+              sc => sc.description.toLowerCase() === header.toLowerCase()
+          );
+
+          if (directMatch) {
+              initialUserMappings[header] = directMatch.name;
+          } else {
+              // If no direct match, use AI suggestion for this header
+              const aiSuggestion = suggestionsFromAI.suggestedMappings.find(
+                  m => m.csvColumn === header
+              );
+              // Use AI suggestion if available, otherwise default to null (Do Not Import)
+              initialUserMappings[header] = aiSuggestion ? aiSuggestion.systemColumn : null;
+          }
         });
+        
         setUserMappings(initialUserMappings);
         setStep("map");
         toast({ title: "Archivo CSV cargado", description: "Revisa el mapeo de columnas sugerido." });
@@ -69,9 +85,9 @@ export default function UploadDataPage() {
           description: error instanceof Error ? error.message : "No se pudieron obtener las sugerencias.",
           variant: "destructive",
         });
-        const initialUserMappings: Record<string, string | null> = {};
-        headers.forEach(h => initialUserMappings[h] = null);
-        setUserMappings(initialUserMappings);
+        const fallbackMappings: Record<string, string | null> = {};
+        headers.forEach(h => fallbackMappings[h] = null);
+        setUserMappings(fallbackMappings);
         setStep("map");
       }
     });
@@ -110,10 +126,12 @@ export default function UploadDataPage() {
         if (systemColName) {
           const value = row[colIndex]?.trim();
 
+          // 'id' and 'name' are not part of systemColumns for mapping, so direct assignment is not typical here unless specifically mapped.
+          // They are optional in Task type.
           if (systemColName === 'id') {
              taskObject.id = value || `TEMP-CSV-${Date.now()}-${rowIndex}`;
              idCandidate = taskObject.id;
-          } else if (systemColName === 'name') {
+          } else if (systemColName === 'name') { // Though 'name' is removed from systemColumns
             taskObject.name = value || "";
           } else if (systemColName === 'status') {
             taskObject.status = value as Task['status'] || "To Do";
@@ -129,21 +147,26 @@ export default function UploadDataPage() {
           } else if (systemColName === 'resolutionStatus') {
             taskObject.resolutionStatus = value as Task['resolutionStatus'] || "Pendiente";
           }
-           else {
-            (taskObject as any)[systemColName] = value;
+           // For any other mapped system column not explicitly handled above
+           else if (systemColumns.some(sc => sc.name === systemColName)) {
+            (taskObject as any)[systemColName] = value || null; // Default to null if value is empty
           }
         }
       });
-
+      
+      // Ensure ID is set, prioritizing explicit mapping, then taskReference, then generated
       if (!taskObject.id && idCandidate) {
         taskObject.id = idCandidate;
       }
       if (!taskObject.id) { 
-        taskObject.id = `TEMP-CSV-${Date.now()}-${rowIndex}`;
+        taskObject.id = `TEMP-CSV-${Date.now()}-${rowIndex}-${Math.random().toString(36).substring(2, 7)}`;
       }
 
-      if (!taskObject.status) taskObject.status = "To Do";
-      if (!taskObject.resolutionStatus) taskObject.resolutionStatus = "Pendiente";
+      // Ensure required or default-bearing fields have values
+      if (!taskObject.status) taskObject.status = "To Do"; // Default status
+      if (!taskObject.resolutionStatus && systemColumns.some(sc => sc.name === 'resolutionStatus')) {
+        taskObject.resolutionStatus = "Pendiente"; // Default resolution status
+      }
 
 
       tasks.push(taskObject as Task);
@@ -177,8 +200,8 @@ export default function UploadDataPage() {
               <ColumnMapper
                 csvHeaders={csvHeaders}
                 systemColumns={systemColumns}
-                suggestedMappings={suggestedMappings}
-                currentMappings={userMappings}
+                suggestedMappings={suggestedMappings} // This is just for reference if needed by ColumnMapper directly
+                currentMappings={userMappings} // This drives the Select values
                 onMappingChange={handleMappingUpdate}
               />
               <div className="flex justify-end gap-2 mt-6">
@@ -206,6 +229,7 @@ export default function UploadDataPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      {/* Show headers based on actual mappings made by user, not all system columns */}
                       {systemColumns.filter(sc => Object.values(userMappings).includes(sc.name)).map(col => (
                         <TableHead key={col.name}>{col.description}</TableHead>
                       ))}
@@ -233,3 +257,5 @@ export default function UploadDataPage() {
     </div>
   );
 }
+
+    
