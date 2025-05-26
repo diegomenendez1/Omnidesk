@@ -104,7 +104,8 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   const handleAddNew = () => {
     setEditingTask({
       id: `TEMP-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      status: "Missing Estimated Dates", // Default to one of the new statuses
+      name: "", // Optional field
+      status: "Missing Estimated Dates",
       assignee: "",
       taskReference: "",
       delayDays: null,
@@ -217,7 +218,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                     <TableCell className="max-w-xs truncate">{task.comments || 'N/A'}</TableCell>
                     <TableCell>{task.resolutionAdmin || 'N/A'}</TableCell>
                     <TableCell className="text-right">{task.resolutionTimeDays === null || task.resolutionTimeDays === undefined ? 'N/A' : String(task.resolutionTimeDays)}</TableCell>
-                    <TableCell className="sticky right-0 bg-card px-4">
+                    <TableCell className="sticky right-0 bg-card px-4 text-left">
                       {task.resolutionStatus ? (
                         <span className={`px-2 py-1 text-xs rounded-full ${
                           task.resolutionStatus === "Resuelto" ? "bg-green-100 text-green-700 dark:bg-green-700/20 dark:text-green-300" :
@@ -254,11 +255,11 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
               {/* Standard Fields */}
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="taskReference" className="text-right">TO Ref.</Label>
-                <Input id="taskReference" name="taskReference" value={editingTask.taskReference || ""} onChange={handleInputChange} className="col-span-3" />
+                <Input id="taskReference" name="taskReference" value={editingTask.taskReference || ""} onChange={handleInputChange} className="col-span-3" disabled />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="status" className="text-right">TO Status</Label>
-                <Select name="status" value={editingTask.status} onValueChange={(value) => handleSelectChange("status", value as Task["status"])}>
+                <Select name="status" value={editingTask.status} onValueChange={(value) => handleSelectChange("status", value as Task["status"])} disabled>
                   <SelectTrigger className="col-span-3">
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
@@ -269,26 +270,26 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="assignee" className="text-right">Desarrollador Logístico</Label>
-                <Input id="assignee" name="assignee" value={editingTask.assignee || ""} onChange={handleInputChange} className="col-span-3" />
+                <Input id="assignee" name="assignee" value={editingTask.assignee || ""} onChange={handleInputChange} className="col-span-3" disabled />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="delayDays" className="text-right">Dias de atraso</Label>
-                <Input id="delayDays" name="delayDays" type="number" value={editingTask.delayDays === null ? "" : String(editingTask.delayDays)} onChange={handleInputChange} className="col-span-3" />
+                <Input id="delayDays" name="delayDays" type="number" value={editingTask.delayDays === null ? "" : String(editingTask.delayDays)} onChange={handleInputChange} className="col-span-3" disabled />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="customerAccount" className="text-right">Customer Acc.</Label>
-                <Input id="customerAccount" name="customerAccount" value={editingTask.customerAccount || ""} onChange={handleInputChange} className="col-span-3" />
+                <Input id="customerAccount" name="customerAccount" value={editingTask.customerAccount || ""} onChange={handleInputChange} className="col-span-3" disabled />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="netAmount" className="text-right">Monto $</Label>
-                <Input id="netAmount" name="netAmount" type="number" value={editingTask.netAmount === null ? "" : String(editingTask.netAmount)} onChange={handleInputChange} className="col-span-3" />
+                <Input id="netAmount" name="netAmount" type="number" value={editingTask.netAmount === null ? "" : String(editingTask.netAmount)} onChange={handleInputChange} className="col-span-3" disabled />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="transportMode" className="text-right">Transport Mode</Label>
-                <Input id="transportMode" name="transportMode" value={editingTask.transportMode || ""} onChange={handleInputChange} className="col-span-3" />
+                <Input id="transportMode" name="transportMode" value={editingTask.transportMode || ""} onChange={handleInputChange} className="col-span-3" disabled />
               </div>
 
-              {/* New Admin Fields */}
+              {/* New Admin Fields - Editable */}
               <div className="grid grid-cols-4 items-start gap-4">
                 <Label htmlFor="comments" className="text-right pt-2">Comentarios</Label>
                 <Textarea id="comments" name="comments" value={editingTask.comments || ""} onChange={handleInputChange} className="col-span-3" placeholder="Add comments..." />
