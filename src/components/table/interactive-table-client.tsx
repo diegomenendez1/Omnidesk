@@ -5,7 +5,7 @@ import { useState, useTransition, type ChangeEvent, type KeyboardEvent, useEffec
 import type { Task, TaskStatus, TaskResolutionStatus } from '@/types';
 import { performDataValidation } from '@/app/table/actions';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Input } from '@/components/ui/input'; // Added Input
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -16,10 +16,6 @@ import { ScanSearch } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from '@/lib/utils';
 import { useLanguage } from '@/context/language-context';
-
-interface InteractiveTableClientProps {
-  initialData: Task[];
-}
 
 // Internal values, these will be used as keys for translation
 const resolutionStatusOptions: TaskResolutionStatus[] = ["Pendiente", "SFP", "Resuelto"];
@@ -38,6 +34,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   const [currentEditSelectValue, setCurrentEditSelectValue] = useState<TaskResolutionStatus | ''>("Pendiente");
   const [isSelectDropdownOpen, setIsSelectDropdownOpen] = useState(false);
 
+  const [filters, setFilters] = useState<Partial<Record<keyof Task, string>>>({});
 
   useEffect(() => {
     const storedTasksJson = localStorage.getItem('uploadedTasks');
@@ -62,7 +59,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [t]); // Add t to dependency array if it's used in toast messages
+  }, [t]); 
 
   const handleValidateData = () => {
     startTransition(async () => {
@@ -75,7 +72,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
         setValidationResult(result);
         toast({
           title: t('interactiveTable.validationComplete'),
-          description: result.summary, // Assuming summary is already a translated string or key
+          description: result.summary, 
         });
       } catch (error) {
         console.error("Validation failed:", error);
@@ -127,7 +124,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     );
     setEditingCellKey(null); 
     setCurrentEditSelectValue('' as TaskResolutionStatus);
-    setIsSelectDropdownOpen(false);
+    setIsSelectDropdownOpen(false); // Ensure dropdown closes
     toast({title: t('interactiveTable.fieldUpdated'), description: t('interactiveTable.changeSavedFor', {field: String(column)}) });
   };
 
@@ -146,7 +143,6 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     }
   };
 
-  // Helper to get display string for status
   const getStatusDisplay = (statusValue: TaskStatus) => {
     const keyMap: Record<TaskStatus, string> = {
       "Missing Estimated Dates": "interactiveTable.status.missingEstimates",
@@ -166,6 +162,31 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     return t(keyMap[statusValue] as any);
   };
 
+  const handleFilterChange = (columnKey: keyof Task, value: string) => {
+    setFilters(prev => ({ ...prev, [columnKey]: value }));
+  };
+
+  const filteredTasks = tasks.filter(task => {
+    return Object.entries(filters).every(([columnKeyStr, filterValue]) => {
+      const columnKey = columnKeyStr as keyof Task;
+      if (!filterValue || filterValue === "ALL_STATUS") return true; 
+
+      const taskValue = task[columnKey];
+
+      if (taskValue === null || taskValue === undefined) {
+        // If filter is set but task value is null/undefined, it shouldn't match
+        return filterValue === ""; // or handle as "N/A" if you have such a filter value
+      }
+
+      if (columnKey === 'status' || columnKey === 'resolutionStatus') {
+        return taskValue === filterValue;
+      }
+      
+      return String(taskValue).toLowerCase().includes(filterValue.toLowerCase());
+    });
+  });
+
+  const inputFilterPlaceholder = (headerKey: string) => t('interactiveTable.filterPlaceholder', { columnName: t(headerKey as any) });
 
   return (
     <div className="space-y-4 w-full">
@@ -197,9 +218,110 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                   <TableHead className="text-right">{t('interactiveTable.tableHeaders.resolutionTimeDays')}</TableHead>
                   <TableHead className="text-left">{t('interactiveTable.tableHeaders.actions')}</TableHead>
                 </TableRow>
+                {/* Filter Row */}
+                <TableRow>
+                  <TableCell className="p-1">
+                    <Input
+                      placeholder={inputFilterPlaceholder('interactiveTable.tableHeaders.toRef')}
+                      value={filters.taskReference || ''}
+                      onChange={(e) => handleFilterChange('taskReference', e.target.value)}
+                      className="h-8"
+                    />
+                  </TableCell>
+                  <TableCell className="p-1">
+                    <Select value={filters.status || 'ALL_STATUS'} onValueChange={(value) => handleFilterChange('status', value === 'ALL_STATUS' ? '' : value)}>
+                      <SelectTrigger className="h-8">
+                        <SelectValue placeholder={t('interactiveTable.filterBy', { columnName: t('interactiveTable.tableHeaders.toStatus')})} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ALL_STATUS">{t('interactiveTable.allStatuses')}</SelectItem>
+                        {statusOptions.map(opt => (
+                          <SelectItem key={opt} value={opt}>{getStatusDisplay(opt)}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell className="p-1">
+                    <Input
+                      placeholder={inputFilterPlaceholder('interactiveTable.tableHeaders.logisticDeveloper')}
+                      value={filters.assignee || ''}
+                      onChange={(e) => handleFilterChange('assignee', e.target.value)}
+                      className="h-8"
+                    />
+                  </TableCell>
+                  <TableCell className="p-1">
+                    <Input
+                      placeholder={inputFilterPlaceholder('interactiveTable.tableHeaders.delayDays')}
+                      value={filters.delayDays || ''}
+                      onChange={(e) => handleFilterChange('delayDays', e.target.value)}
+                      className="h-8"
+                    />
+                  </TableCell>
+                  <TableCell className="p-1">
+                    <Input
+                      placeholder={inputFilterPlaceholder('interactiveTable.tableHeaders.customerAccount')}
+                      value={filters.customerAccount || ''}
+                      onChange={(e) => handleFilterChange('customerAccount', e.target.value)}
+                      className="h-8"
+                    />
+                  </TableCell>
+                  <TableCell className="p-1">
+                    <Input
+                      placeholder={inputFilterPlaceholder('interactiveTable.tableHeaders.amount')}
+                      value={filters.netAmount || ''}
+                      onChange={(e) => handleFilterChange('netAmount', e.target.value)}
+                      className="h-8 text-right"
+                    />
+                  </TableCell>
+                  <TableCell className="p-1">
+                    <Input
+                      placeholder={inputFilterPlaceholder('interactiveTable.tableHeaders.transportMode')}
+                      value={filters.transportMode || ''}
+                      onChange={(e) => handleFilterChange('transportMode', e.target.value)}
+                      className="h-8"
+                    />
+                  </TableCell>
+                  <TableCell className="p-1">
+                     <Input
+                      placeholder={inputFilterPlaceholder('interactiveTable.tableHeaders.comments')}
+                      value={filters.comments || ''}
+                      onChange={(e) => handleFilterChange('comments', e.target.value)}
+                      className="h-8"
+                    />
+                  </TableCell>
+                  <TableCell className="p-1">
+                    <Input
+                      placeholder={inputFilterPlaceholder('interactiveTable.tableHeaders.admin')}
+                      value={filters.resolutionAdmin || ''}
+                      onChange={(e) => handleFilterChange('resolutionAdmin', e.target.value)}
+                      className="h-8"
+                    />
+                  </TableCell>
+                   <TableCell className="p-1">
+                    <Input
+                      placeholder={inputFilterPlaceholder('interactiveTable.tableHeaders.resolutionTimeDays')}
+                      value={filters.resolutionTimeDays || ''}
+                      onChange={(e) => handleFilterChange('resolutionTimeDays', e.target.value)}
+                      className="h-8 text-right"
+                    />
+                  </TableCell>
+                  <TableCell className="p-1">
+                     <Select value={filters.resolutionStatus || 'ALL_STATUS'} onValueChange={(value) => handleFilterChange('resolutionStatus', value === 'ALL_STATUS' ? '' : value)}>
+                      <SelectTrigger className="h-8">
+                        <SelectValue placeholder={t('interactiveTable.filterBy', { columnName: t('interactiveTable.tableHeaders.actions')})} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ALL_STATUS">{t('interactiveTable.allStatuses')}</SelectItem>
+                        {resolutionStatusOptions.map(opt => (
+                          <SelectItem key={opt} value={opt}>{getResolutionStatusDisplay(opt)}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                </TableRow>
               </TableHeader>
               <TableBody>
-                {tasks.map((task) => {
+                {filteredTasks.map((task) => {
                   const taskId = task.id || `task-${task.taskReference || Math.random().toString(36).substring(2, 9)}`;
                   return (
                     <TableRow key={taskId}>

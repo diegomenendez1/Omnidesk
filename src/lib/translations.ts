@@ -4,7 +4,7 @@ export type Locale = 'en' | 'es';
 type Translations = {
   [key in Locale]: {
     [namespace: string]: {
-      [key: string]: string | { [key: string]: string | { [key: string]: string } }; // Added deeper nesting for theme
+      [key: string]: string | { [key: string]: string | { [key: string]: string } }; 
     };
   };
 };
@@ -37,7 +37,7 @@ export const translations: Translations = {
       language: "Language",
       english: "English",
       spanish: "Español",
-      theme: { // Added theme translations
+      theme: { 
         toggle: "Toggle theme",
         title: "Theme",
         light: "Light",
@@ -100,7 +100,7 @@ export const translations: Translations = {
         comments: "Comments",
         admin: "Administrator",
         resolutionTimeDays: "Resolution Time (days)",
-        actions: "Actions", // This is technically "Estado Resolución" in content
+        actions: "Actions", 
       },
       status: { 
         missingEstimates: "Missing Estimated Dates",
@@ -114,6 +114,9 @@ export const translations: Translations = {
       },
       notAvailable: "N/A",
       selectStatus: "Select status",
+      filterBy: "Filter by {columnName}",
+      allStatuses: "All Statuses",
+      filterPlaceholder: "Filter {columnName}...",
     },
     uploadData: {
       title: "Upload Data from CSV",
@@ -121,7 +124,7 @@ export const translations: Translations = {
       fileAcceptedToastTitle: "CSV File Uploaded",
       fileAcceptedToastDescription: "Please review the column mapping.",
       columnMappingTitle: "Column Mapping",
-      columnMappingDescription: "We've tried to guess how your CSV columns ({fileName}) map to system columns. Please review and adjust if necessary.",
+      columnMappingDescription: "Review and adjust how your CSV columns ({fileName}) map to system columns.",
       csvColumn: "CSV Column",
       mapToSystemColumn: "Map to System Column",
       doNotImport: "Do not import this column",
@@ -197,7 +200,7 @@ export const translations: Translations = {
       language: "Idioma",
       english: "Inglés",
       spanish: "Español",
-      theme: { // Added theme translations
+      theme: { 
         toggle: "Alternar tema",
         title: "Tema",
         light: "Claro",
@@ -260,7 +263,7 @@ export const translations: Translations = {
         comments: "Comentarios",
         admin: "Administrador",
         resolutionTimeDays: "Tiempo Resolución (días)",
-        actions: "Acciones", // This is technically "Estado Resolución" in content
+        actions: "Acciones",
       },
       status: {
         missingEstimates: "Fechas Estimadas Faltantes",
@@ -274,6 +277,9 @@ export const translations: Translations = {
       },
       notAvailable: "N/D",
       selectStatus: "Seleccionar estado",
+      filterBy: "Filtrar por {columnName}",
+      allStatuses: "Todos los Estados",
+      filterPlaceholder: "Filtrar {columnName}...",
     },
     uploadData: {
       title: "Cargar Datos desde CSV",
@@ -281,7 +287,7 @@ export const translations: Translations = {
       fileAcceptedToastTitle: "Archivo CSV Cargado",
       fileAcceptedToastDescription: "Por favor, revisa el mapeo de columnas.",
       columnMappingTitle: "Mapeo de Columnas",
-      columnMappingDescription: "Hemos intentado adivinar cómo se asignan las columnas de tu archivo CSV ({fileName}) a las columnas del sistema. Por favor, revisa y ajusta las asignaciones si es necesario.",
+      columnMappingDescription: "Revisa y ajusta cómo se asignan las columnas de tu archivo CSV ({fileName}) a las columnas del sistema.",
       csvColumn: "Columna CSV",
       mapToSystemColumn: "Mapear a Columna del Sistema",
       doNotImport: "No importar esta columna",
@@ -324,12 +330,12 @@ export const translations: Translations = {
         parseErrorToastDescription: "Formato de archivo CSV no válido.",
       },
       aiErrorToastTitle: "Error al obtener sugerencias de IA",
-      aiErrorToastDescription: "Algunas columnas no pudieron ser mapeadas automáticamente. Por favor, revísalas manualmente.",
+      aiErrorToastDescription: "Algunas columnas no pudieron ser mapeadas automáticamente. Por favor, revísalas manually.",
     },
     dataValidationReport: {
       title: "Reporte de Validación de Datos IA",
       inconsistenciesFound: "Inconsistencias Encontradas",
-      inconsistenciasFoundDescription: "Se detectaron los siguientes problemas potenciales en tus datos. Por favor, revísalos cuidadosamente.",
+      inconsistenciesFoundDescription: "Se detectaron los siguientes problemas potenciales en tus datos. Por favor, revísalos cuidadosamente.",
       noInconsistenciesFound: "No se Encontraron Inconsistencias",
       noInconsistenciesFoundDescription: "El análisis de IA se completó con éxito y no encontró inconsistencias en el conjunto de datos actual.",
       cell: "Celda",
