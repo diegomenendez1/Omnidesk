@@ -3,7 +3,7 @@
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"; // Added CardDescription
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import type { SystemColumn } from '@/app/upload-data/actions';
 
 interface ColumnMapperProps {
@@ -58,7 +58,7 @@ export function ColumnMapper({
                           <SelectItem value="DO_NOT_IMPORT">No importar esta columna</SelectItem>
                           {systemColumns.map((sysCol) => (
                             <SelectItem key={sysCol.name} value={sysCol.name}>
-                              {sysCol.description} ({sysCol.name})
+                              {sysCol.description}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -80,4 +80,3 @@ export function ColumnMapper({
     </Card>
   );
 }
-
