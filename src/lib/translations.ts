@@ -4,20 +4,26 @@ export type Locale = 'en' | 'es';
 type Translations = {
   [key in Locale]: {
     [namespace: string]: {
+      // Allowing for deeper nesting
       [key: string]: string | { [key: string]: string | { [key: string]: string } }; 
     };
   };
 };
 
 // Helper type for ensuring key validity (optional, for better DX)
+// This helper correctly infers paths for nested objects.
 type PathImpl<T, K extends keyof T> = K extends string
   ? T[K] extends Record<string, any>
     ? T[K] extends Array<any> // Check if it's an array to stop recursion
-      ? `${K}`
-      : `${K}.${PathImpl<T[K], Exclude<keyof T[K], keyof any[]>> & string}`
-    : `${K}`
+      ? `${K}` // Stop if it's an array (like statusOptions which are not nested translation keys)
+      : `${K}.${PathImpl<T[K], Exclude<keyof T[K], keyof any[]>> & string}` // Recurse for objects
+    : `${K}` // Base case for string values
   : never;
+
+// Create a Path type that works for the 'en' locale specifically or any other as base
 type Path<T> = PathImpl<T, keyof T>;
+
+// Apply to the 'en' translations to generate all valid keys
 export type TranslationKey = Path<Translations['en']>;
 
 
@@ -87,6 +93,7 @@ export const translations: Translations = {
       validating: "Validating...",
       validationComplete: "Data Validation Complete",
       validationFailed: "Data Validation Failed",
+      validationFailedDescription: "An unknown error occurred during data validation.",
       fieldUpdated: "Field updated",
       changeSavedFor: "Saved change for {field}",
       tableHeaders: {
@@ -116,6 +123,7 @@ export const translations: Translations = {
       selectStatus: "Select status",
       filterBy: "Filter by {columnName}",
       allStatuses: "All Statuses",
+      filterAllOption: "All",
       filterPlaceholder: "Filter {columnName}...",
     },
     uploadData: {
@@ -129,17 +137,18 @@ export const translations: Translations = {
       mapToSystemColumn: "Map to System Column",
       doNotImport: "Do not import this column",
       cancel: "Cancel",
-      confirmAndProcess: "Confirm Mapping & Process",
+      confirmAndProcess: "Confirm Mapping & Process Data",
       processing: "Processing...",
       noDataToProcess: "No data to process",
       incompleteMapping: "Incomplete Mapping",
       pleaseMapRequired: "Please map the following required system columns: {columns}",
       dataProcessed: "Data Processed",
-      tasksProcessedAndSaved: "{count} tasks processed and saved. Data available in Interactive Table.",
+      tasksProcessedAndSaved: "{count} tasks processed and saved. Redirecting to Interactive Table...",
       errorSavingLocally: "Error saving data locally",
       errorSavingLocallyDescription: "Could not save data for the interactive table. Preview is still available on this page.",
       previewTitle: "Preview of Processed Data (first 10 rows)",
       uploadAnotherFile: "Upload another file",
+      redirectingToTable: " Redirecting to Interactive Table...", // Used to replace part of a message
       systemColumns: {
         status: "TO Status",
         assignee: "Desarrollador Logístico",
@@ -250,6 +259,7 @@ export const translations: Translations = {
       validating: "Validando...",
       validationComplete: "Validación de Datos Completa",
       validationFailed: "Falló la Validación de Datos",
+      validationFailedDescription: "Ocurrió un error desconocido durante la validación de datos.",
       fieldUpdated: "Campo actualizado",
       changeSavedFor: "Cambio guardado para {field}",
       tableHeaders: {
@@ -279,6 +289,7 @@ export const translations: Translations = {
       selectStatus: "Seleccionar estado",
       filterBy: "Filtrar por {columnName}",
       allStatuses: "Todos los Estados",
+      filterAllOption: "Todos",
       filterPlaceholder: "Filtrar {columnName}...",
     },
     uploadData: {
@@ -292,17 +303,18 @@ export const translations: Translations = {
       mapToSystemColumn: "Mapear a Columna del Sistema",
       doNotImport: "No importar esta columna",
       cancel: "Cancelar",
-      confirmAndProcess: "Confirmar Mapeo y Procesar",
+      confirmAndProcess: "Confirmar Mapeo y Procesar Datos",
       processing: "Procesando...",
       noDataToProcess: "No hay datos para procesar",
       incompleteMapping: "Mapeo Incompleto",
       pleaseMapRequired: "Por favor, mapea las siguientes columnas requeridas del sistema: {columns}",
       dataProcessed: "Datos Procesados",
-      tasksProcessedAndSaved: "{count} tareas procesadas y guardadas. Datos disponibles en Tabla Interactiva.",
+      tasksProcessedAndSaved: "{count} tareas procesadas y guardadas. Redirigiendo a la Tabla Interactiva...",
       errorSavingLocally: "Error al guardar datos localmente",
       errorSavingLocallyDescription: "No se pudieron guardar los datos para la tabla interactiva. La vista previa sigue disponible en esta página.",
       previewTitle: "Vista Previa de Datos Procesados (primeras 10 filas)",
       uploadAnotherFile: "Cargar otro archivo",
+      redirectingToTable: " Redirigiendo a la Tabla Interactiva...",
       systemColumns: {
         status: "TO Status",
         assignee: "Desarrollador Logístico",
@@ -330,7 +342,7 @@ export const translations: Translations = {
         parseErrorToastDescription: "Formato de archivo CSV no válido.",
       },
       aiErrorToastTitle: "Error al obtener sugerencias de IA",
-      aiErrorToastDescription: "Algunas columnas no pudieron ser mapeadas automáticamente. Por favor, revísalas manually.",
+      aiErrorToastDescription: "Algunas columnas no pudieron ser mapeadas automáticamente. Por favor, revísalas manualmente.",
     },
     dataValidationReport: {
       title: "Reporte de Validación de Datos IA",
@@ -349,3 +361,5 @@ export const translations: Translations = {
     }
   },
 };
+
+    

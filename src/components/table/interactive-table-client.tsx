@@ -1,11 +1,11 @@
 
 "use client";
 
-import { useState, useTransition, type ChangeEvent, type KeyboardEvent, useEffect } from 'react';
+import { useState, useTransition, type ChangeEvent, type KeyboardEvent, useEffect, useMemo } from 'react';
 import type { Task, TaskStatus, TaskResolutionStatus } from '@/types';
 import { performDataValidation } from '@/app/table/actions';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input'; // Added Input
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -17,10 +17,12 @@ import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from '@/lib/utils';
 import { useLanguage } from '@/context/language-context';
 
-// Internal values, these will be used as keys for translation
 const resolutionStatusOptions: TaskResolutionStatus[] = ["Pendiente", "SFP", "Resuelto"];
 const statusOptions: TaskStatus[] = ["Missing Estimated Dates", "Missing POD", "Pending to Invoice Out of Time"];
 
+interface InteractiveTableClientProps {
+  initialData: Task[];
+}
 
 export function InteractiveTableClient({ initialData }: InteractiveTableClientProps) {
   const [tasks, setTasks] = useState<Task[]>(initialData);
@@ -31,7 +33,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
 
   const [editingCellKey, setEditingCellKey] = useState<string | null>(null);
   const [currentEditText, setCurrentEditText] = useState<string>("");
-  const [currentEditSelectValue, setCurrentEditSelectValue] = useState<TaskResolutionStatus | ''>("Pendiente");
+  const [currentEditSelectValue, setCurrentEditSelectValue] = useState<TaskResolutionStatus | '' | TaskStatus>("Pendiente");
   const [isSelectDropdownOpen, setIsSelectDropdownOpen] = useState(false);
 
   const [filters, setFilters] = useState<Partial<Record<keyof Task, string>>>({});
@@ -59,7 +61,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [t]); 
+  }, [t]);
 
   const handleValidateData = () => {
     startTransition(async () => {
@@ -72,14 +74,14 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
         setValidationResult(result);
         toast({
           title: t('interactiveTable.validationComplete'),
-          description: result.summary, 
+          description: result.summary,
         });
       } catch (error) {
         console.error("Validation failed:", error);
         setValidationResult(null);
         toast({
           title: t('interactiveTable.validationFailed'),
-          description: error instanceof Error ? error.message : "An unknown error occurred.",
+          description: error instanceof Error ? error.message : t('interactiveTable.validationFailedDescription'),
           variant: "destructive",
         });
       }
@@ -87,15 +89,15 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   };
 
   const startEdit = (task: Task, column: keyof Task) => {
-    const cellKey = `${task.id}-${String(column)}`;
+    const cellKey = `${task.id || task.taskReference}-${String(column)}`;
     setEditingCellKey(cellKey);
     const value = task[column];
 
     if (column === 'comments' || column === 'resolutionAdmin') {
       setCurrentEditText(String(value || ""));
     } else if (column === 'resolutionStatus') {
-      setCurrentEditSelectValue( (value as TaskResolutionStatus) || "Pendiente");
-      setIsSelectDropdownOpen(true); 
+      setCurrentEditSelectValue((value as TaskResolutionStatus) || "Pendiente");
+      setIsSelectDropdownOpen(true);
     }
   };
 
@@ -104,35 +106,34 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   };
 
   const saveInlineEdit = (taskId: string, column: keyof Task) => {
-    if (!editingCellKey || !editingCellKey.startsWith(taskId)) return;
+    if (!editingCellKey || (!editingCellKey.startsWith(taskId) && !(taskReferenceForId(taskId) && editingCellKey.startsWith(taskReferenceForId(taskId)!)))) return;
 
     setTasks(prevTasks =>
       prevTasks.map(task =>
-        task.id === taskId ? { ...task, [column]: currentEditText } : task
+        (task.id === taskId || task.taskReference === taskId) ? { ...task, [column]: currentEditText } : task
       )
     );
     setEditingCellKey(null);
     setCurrentEditText("");
-    toast({title: t('interactiveTable.fieldUpdated'), description: t('interactiveTable.changeSavedFor', {field: String(column)}) });
-  };
-  
-  const handleInlineSelectChange = (taskId: string, column: keyof Task, value: string) => {
-     setTasks(prevTasks =>
-      prevTasks.map(task =>
-        task.id === taskId ? { ...task, [column]: value } : task
-      )
-    );
-    setEditingCellKey(null); 
-    setCurrentEditSelectValue('' as TaskResolutionStatus);
-    setIsSelectDropdownOpen(false); // Ensure dropdown closes
-    toast({title: t('interactiveTable.fieldUpdated'), description: t('interactiveTable.changeSavedFor', {field: String(column)}) });
+    toast({ title: t('interactiveTable.fieldUpdated'), description: t('interactiveTable.changeSavedFor', { field: String(column) }) });
   };
 
+  const handleInlineSelectChange = (taskId: string, column: keyof Task, value: string) => {
+    setTasks(prevTasks =>
+      prevTasks.map(task =>
+        (task.id === taskId || task.taskReference === taskId) ? { ...task, [column]: value } : task
+      )
+    );
+    setEditingCellKey(null);
+    setCurrentEditSelectValue('');
+    setIsSelectDropdownOpen(false);
+    toast({ title: t('interactiveTable.fieldUpdated'), description: t('interactiveTable.changeSavedFor', { field: String(column) }) });
+  };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>, taskId: string, column: keyof Task) => {
     if (event.key === 'Enter') {
-       if (!event.shiftKey && event.currentTarget.tagName !== 'TEXTAREA') { 
-        event.preventDefault(); 
+      if (!event.shiftKey && event.currentTarget.tagName !== 'TEXTAREA') {
+        event.preventDefault();
         saveInlineEdit(taskId, column);
       }
     } else if (event.key === 'Escape') {
@@ -142,6 +143,9 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
       setIsSelectDropdownOpen(false);
     }
   };
+  
+  const taskReferenceForId = (id: string) => tasks.find(t => t.id === id)?.taskReference;
+
 
   const getStatusDisplay = (statusValue: TaskStatus) => {
     const keyMap: Record<TaskStatus, string> = {
@@ -166,27 +170,44 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     setFilters(prev => ({ ...prev, [columnKey]: value }));
   };
 
+  const getUniqueValuesForColumn = (columnKey: keyof Task): string[] => {
+    const values = new Set(
+      tasks.map(task => {
+        const val = task[columnKey];
+        return val === null || val === undefined ? t('interactiveTable.notAvailable') : String(val);
+      })
+    );
+    return Array.from(values).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+  };
+  
+  const uniqueTaskReferences = useMemo(() => getUniqueValuesForColumn('taskReference'), [tasks]);
+  const uniqueAssignees = useMemo(() => getUniqueValuesForColumn('assignee'), [tasks]);
+  const uniqueDelayDays = useMemo(() => getUniqueValuesForColumn('delayDays'), [tasks]);
+  const uniqueCustomerAccounts = useMemo(() => getUniqueValuesForColumn('customerAccount'), [tasks]);
+  const uniqueNetAmounts = useMemo(() => getUniqueValuesForColumn('netAmount'), [tasks]);
+  const uniqueTransportModes = useMemo(() => getUniqueValuesForColumn('transportMode'), [tasks]);
+  const uniqueResolutionAdmins = useMemo(() => getUniqueValuesForColumn('resolutionAdmin'), [tasks]);
+  const uniqueResolutionTimeDays = useMemo(() => getUniqueValuesForColumn('resolutionTimeDays'), [tasks]);
+
+
   const filteredTasks = tasks.filter(task => {
     return Object.entries(filters).every(([columnKeyStr, filterValue]) => {
       const columnKey = columnKeyStr as keyof Task;
-      if (!filterValue || filterValue === "ALL_STATUS") return true; 
+      if (!filterValue || filterValue === "") return true; // "" is now the "All" value for Selects
 
       const taskValue = task[columnKey];
+      const taskValueString = taskValue === null || taskValue === undefined ? t('interactiveTable.notAvailable') : String(taskValue);
 
-      if (taskValue === null || taskValue === undefined) {
-        // If filter is set but task value is null/undefined, it shouldn't match
-        return filterValue === ""; // or handle as "N/A" if you have such a filter value
+      if (columnKey === 'comments') { // Text search for comments
+        return taskValueString.toLowerCase().includes(filterValue.toLowerCase());
       }
-
-      if (columnKey === 'status' || columnKey === 'resolutionStatus') {
-        return taskValue === filterValue;
-      }
-      
-      return String(taskValue).toLowerCase().includes(filterValue.toLowerCase());
+      // Exact match for Select filters
+      return taskValueString === filterValue;
     });
   });
-
-  const inputFilterPlaceholder = (headerKey: string) => t('interactiveTable.filterPlaceholder', { columnName: t(headerKey as any) });
+  
+  const filterPlaceholder = (headerKey: string) => t('interactiveTable.filterBy', { columnName: t(headerKey as any) });
+  const allOptionLabel = t('interactiveTable.filterAllOption');
 
   return (
     <div className="space-y-4 w-full">
@@ -218,103 +239,102 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                   <TableHead className="text-right">{t('interactiveTable.tableHeaders.resolutionTimeDays')}</TableHead>
                   <TableHead className="text-left">{t('interactiveTable.tableHeaders.actions')}</TableHead>
                 </TableRow>
-                {/* Filter Row */}
                 <TableRow>
                   <TableCell className="p-1">
-                    <Input
-                      placeholder={inputFilterPlaceholder('interactiveTable.tableHeaders.toRef')}
-                      value={filters.taskReference || ''}
-                      onChange={(e) => handleFilterChange('taskReference', e.target.value)}
-                      className="h-8"
-                    />
+                    <Select value={filters.taskReference || ""} onValueChange={(value) => handleFilterChange('taskReference', value)}>
+                        <SelectTrigger className="h-8"><SelectValue placeholder={filterPlaceholder('interactiveTable.tableHeaders.toRef')} /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="">{allOptionLabel}</SelectItem>
+                            {uniqueTaskReferences.map(opt => (<SelectItem key={opt} value={opt}>{opt}</SelectItem>))}
+                        </SelectContent>
+                    </Select>
                   </TableCell>
                   <TableCell className="p-1">
-                    <Select value={filters.status || 'ALL_STATUS'} onValueChange={(value) => handleFilterChange('status', value === 'ALL_STATUS' ? '' : value)}>
-                      <SelectTrigger className="h-8">
-                        <SelectValue placeholder={t('interactiveTable.filterBy', { columnName: t('interactiveTable.tableHeaders.toStatus')})} />
-                      </SelectTrigger>
+                    <Select value={filters.status || ""} onValueChange={(value) => handleFilterChange('status', value)}>
+                      <SelectTrigger className="h-8"><SelectValue placeholder={filterPlaceholder('interactiveTable.tableHeaders.toStatus')} /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="ALL_STATUS">{t('interactiveTable.allStatuses')}</SelectItem>
-                        {statusOptions.map(opt => (
-                          <SelectItem key={opt} value={opt}>{getStatusDisplay(opt)}</SelectItem>
-                        ))}
+                        <SelectItem value="">{t('interactiveTable.allStatuses')}</SelectItem>
+                        {statusOptions.map(opt => (<SelectItem key={opt} value={opt}>{getStatusDisplay(opt)}</SelectItem>))}
                       </SelectContent>
                     </Select>
                   </TableCell>
                   <TableCell className="p-1">
-                    <Input
-                      placeholder={inputFilterPlaceholder('interactiveTable.tableHeaders.logisticDeveloper')}
-                      value={filters.assignee || ''}
-                      onChange={(e) => handleFilterChange('assignee', e.target.value)}
-                      className="h-8"
-                    />
+                     <Select value={filters.assignee || ""} onValueChange={(value) => handleFilterChange('assignee', value)}>
+                        <SelectTrigger className="h-8"><SelectValue placeholder={filterPlaceholder('interactiveTable.tableHeaders.logisticDeveloper')} /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="">{allOptionLabel}</SelectItem>
+                            {uniqueAssignees.map(opt => (<SelectItem key={opt} value={opt}>{opt}</SelectItem>))}
+                        </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell className="p-1">
+                     <Select value={filters.delayDays || ""} onValueChange={(value) => handleFilterChange('delayDays', value)}>
+                        <SelectTrigger className="h-8"><SelectValue placeholder={filterPlaceholder('interactiveTable.tableHeaders.delayDays')} /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="">{allOptionLabel}</SelectItem>
+                            {uniqueDelayDays.map(opt => (<SelectItem key={opt} value={opt}>{opt}</SelectItem>))}
+                        </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell className="p-1">
+                     <Select value={filters.customerAccount || ""} onValueChange={(value) => handleFilterChange('customerAccount', value)}>
+                        <SelectTrigger className="h-8"><SelectValue placeholder={filterPlaceholder('interactiveTable.tableHeaders.customerAccount')} /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="">{allOptionLabel}</SelectItem>
+                            {uniqueCustomerAccounts.map(opt => (<SelectItem key={opt} value={opt}>{opt}</SelectItem>))}
+                        </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell className="p-1">
+                     <Select value={filters.netAmount || ""} onValueChange={(value) => handleFilterChange('netAmount', value)}>
+                        <SelectTrigger className="h-8 w-[120px] text-right"><SelectValue placeholder={filterPlaceholder('interactiveTable.tableHeaders.amount')} /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="">{allOptionLabel}</SelectItem>
+                            {uniqueNetAmounts.map(opt => (<SelectItem key={opt} value={opt}>{formatCurrency(parseFloat(opt))}</SelectItem>))}
+                        </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell className="p-1">
+                     <Select value={filters.transportMode || ""} onValueChange={(value) => handleFilterChange('transportMode', value)}>
+                        <SelectTrigger className="h-8"><SelectValue placeholder={filterPlaceholder('interactiveTable.tableHeaders.transportMode')} /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="">{allOptionLabel}</SelectItem>
+                            {uniqueTransportModes.map(opt => (<SelectItem key={opt} value={opt}>{opt}</SelectItem>))}
+                        </SelectContent>
+                    </Select>
                   </TableCell>
                   <TableCell className="p-1">
                     <Input
-                      placeholder={inputFilterPlaceholder('interactiveTable.tableHeaders.delayDays')}
-                      value={filters.delayDays || ''}
-                      onChange={(e) => handleFilterChange('delayDays', e.target.value)}
-                      className="h-8"
-                    />
-                  </TableCell>
-                  <TableCell className="p-1">
-                    <Input
-                      placeholder={inputFilterPlaceholder('interactiveTable.tableHeaders.customerAccount')}
-                      value={filters.customerAccount || ''}
-                      onChange={(e) => handleFilterChange('customerAccount', e.target.value)}
-                      className="h-8"
-                    />
-                  </TableCell>
-                  <TableCell className="p-1">
-                    <Input
-                      placeholder={inputFilterPlaceholder('interactiveTable.tableHeaders.amount')}
-                      value={filters.netAmount || ''}
-                      onChange={(e) => handleFilterChange('netAmount', e.target.value)}
-                      className="h-8 text-right"
-                    />
-                  </TableCell>
-                  <TableCell className="p-1">
-                    <Input
-                      placeholder={inputFilterPlaceholder('interactiveTable.tableHeaders.transportMode')}
-                      value={filters.transportMode || ''}
-                      onChange={(e) => handleFilterChange('transportMode', e.target.value)}
-                      className="h-8"
-                    />
-                  </TableCell>
-                  <TableCell className="p-1">
-                     <Input
-                      placeholder={inputFilterPlaceholder('interactiveTable.tableHeaders.comments')}
+                      placeholder={filterPlaceholder('interactiveTable.tableHeaders.comments')}
                       value={filters.comments || ''}
                       onChange={(e) => handleFilterChange('comments', e.target.value)}
                       className="h-8"
                     />
                   </TableCell>
                   <TableCell className="p-1">
-                    <Input
-                      placeholder={inputFilterPlaceholder('interactiveTable.tableHeaders.admin')}
-                      value={filters.resolutionAdmin || ''}
-                      onChange={(e) => handleFilterChange('resolutionAdmin', e.target.value)}
-                      className="h-8"
-                    />
-                  </TableCell>
-                   <TableCell className="p-1">
-                    <Input
-                      placeholder={inputFilterPlaceholder('interactiveTable.tableHeaders.resolutionTimeDays')}
-                      value={filters.resolutionTimeDays || ''}
-                      onChange={(e) => handleFilterChange('resolutionTimeDays', e.target.value)}
-                      className="h-8 text-right"
-                    />
+                    <Select value={filters.resolutionAdmin || ""} onValueChange={(value) => handleFilterChange('resolutionAdmin', value)}>
+                        <SelectTrigger className="h-8"><SelectValue placeholder={filterPlaceholder('interactiveTable.tableHeaders.admin')} /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="">{allOptionLabel}</SelectItem>
+                            {uniqueResolutionAdmins.map(opt => (<SelectItem key={opt} value={opt}>{opt}</SelectItem>))}
+                        </SelectContent>
+                    </Select>
                   </TableCell>
                   <TableCell className="p-1">
-                     <Select value={filters.resolutionStatus || 'ALL_STATUS'} onValueChange={(value) => handleFilterChange('resolutionStatus', value === 'ALL_STATUS' ? '' : value)}>
-                      <SelectTrigger className="h-8">
-                        <SelectValue placeholder={t('interactiveTable.filterBy', { columnName: t('interactiveTable.tableHeaders.actions')})} />
-                      </SelectTrigger>
+                    <Select value={filters.resolutionTimeDays || ""} onValueChange={(value) => handleFilterChange('resolutionTimeDays', value)}>
+                        <SelectTrigger className="h-8 w-[120px] text-right"><SelectValue placeholder={filterPlaceholder('interactiveTable.tableHeaders.resolutionTimeDays')} /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="">{allOptionLabel}</SelectItem>
+                            {uniqueResolutionTimeDays.map(opt => (<SelectItem key={opt} value={opt}>{opt}</SelectItem>))}
+                        </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell className="p-1">
+                    <Select value={filters.resolutionStatus || ""} onValueChange={(value) => handleFilterChange('resolutionStatus', value)}>
+                      <SelectTrigger className="h-8"><SelectValue placeholder={filterPlaceholder('interactiveTable.tableHeaders.actions')} /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="ALL_STATUS">{t('interactiveTable.allStatuses')}</SelectItem>
-                        {resolutionStatusOptions.map(opt => (
-                          <SelectItem key={opt} value={opt}>{getResolutionStatusDisplay(opt)}</SelectItem>
-                        ))}
+                        <SelectItem value="">{t('interactiveTable.allStatuses')}</SelectItem>
+                        {resolutionStatusOptions.map(opt => (<SelectItem key={opt} value={opt}>{getResolutionStatusDisplay(opt)}</SelectItem>))}
                       </SelectContent>
                     </Select>
                   </TableCell>
@@ -322,12 +342,12 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
               </TableHeader>
               <TableBody>
                 {filteredTasks.map((task) => {
-                  const taskId = task.id || `task-${task.taskReference || Math.random().toString(36).substring(2, 9)}`;
+                  const taskId = task.id || task.taskReference || `task-${Math.random().toString(36).substring(2, 9)}`;
                   return (
                     <TableRow key={taskId}>
                       <TableCell>{task.taskReference || t('interactiveTable.notAvailable')}</TableCell>
                       <TableCell>
-                        <span className={`px-2 py-1 text-xs rounded-full ${
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                           task.status === "Pending to Invoice Out of Time" ? "bg-orange-100 text-orange-700 dark:bg-orange-700/20 dark:text-orange-300" :
                           task.status === "Missing POD" ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-700/20 dark:text-yellow-300" :
                           task.status === "Missing Estimated Dates" ? "bg-purple-100 text-purple-700 dark:bg-purple-700/20 dark:text-purple-300" :
@@ -376,23 +396,17 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                       <TableCell className="text-right">{task.resolutionTimeDays === null || task.resolutionTimeDays === undefined ? t('interactiveTable.notAvailable') : String(task.resolutionTimeDays)}</TableCell>
                       
                       <TableCell
-                        onClick={() => {
-                           if (editingCellKey !== `${taskId}-resolutionStatus`) {
-                             startEdit(task, 'resolutionStatus');
-                           }
-                        }}
+                        onClick={() => { if (editingCellKey !== `${taskId}-resolutionStatus`) { startEdit(task, 'resolutionStatus'); } }}
                         className="text-left cursor-pointer hover:bg-muted/50"
                       >
                         {editingCellKey === `${taskId}-resolutionStatus` ? (
                           <Select
-                            value={currentEditSelectValue || undefined}
+                            value={currentEditSelectValue as TaskResolutionStatus || "Pendiente"}
                             onValueChange={(value) => handleInlineSelectChange(taskId, 'resolutionStatus', value as TaskResolutionStatus)}
                             open={isSelectDropdownOpen}
                             onOpenChange={(openState) => {
                               setIsSelectDropdownOpen(openState);
-                              if (!openState && editingCellKey === `${taskId}-resolutionStatus`) { 
-                                setEditingCellKey(null); 
-                              }
+                              if (!openState && editingCellKey === `${taskId}-resolutionStatus`) { setEditingCellKey(null); }
                             }}
                           >
                             <SelectTrigger className="w-full text-sm" autoFocus>
@@ -405,10 +419,10 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                             </SelectContent>
                           </Select>
                         ) : (
-                          <span className={`px-2 py-1 text-xs rounded-full ${
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                             task.resolutionStatus === "Resuelto" ? "bg-green-100 text-green-700 dark:bg-green-700/20 dark:text-green-300" :
                             task.resolutionStatus === "SFP" ? "bg-blue-100 text-blue-700 dark:bg-blue-700/20 dark:text-blue-300" :
-                            task.resolutionStatus === "Pendiente" ? "bg-gray-100 text-gray-700 dark:bg-gray-700/20 dark:text-gray-300" : ""
+                            "bg-gray-100 text-gray-700 dark:bg-gray-700/20 dark:text-gray-300" // Pendiente or undefined
                           }`}>
                             {getResolutionStatusDisplay(task.resolutionStatus)}
                           </span>
@@ -429,3 +443,5 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     </div>
   );
 }
+
+    
