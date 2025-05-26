@@ -26,7 +26,8 @@ export function ColumnMapper({
       <CardHeader>
         <CardTitle>Asignación de Columnas</CardTitle>
         <CardDescription>
-          Revisa y ajusta cómo se asignan las columnas de tu archivo CSV a las columnas del sistema.
+          Revisa y ajusta cómo se asignan las columnas de tu archivo CSV ({csvHeaders.length > 0 ? "detectadas" : ""}) a las columnas del sistema.
+          Las columnas del sistema marcadas como requeridas deben ser mapeadas.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -36,43 +37,32 @@ export function ColumnMapper({
               <TableRow>
                 <TableHead className="text-left">Columna CSV</TableHead>
                 <TableHead className="text-left">Mapear a Columna del Sistema</TableHead>
-                <TableHead className="text-left">Requerida</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {csvHeaders.map((csvHeader) => {
-                const currentSystemColName = currentMappings[csvHeader];
-                const systemColDef = systemColumns.find(sc => sc.name === currentSystemColName);
-                return (
-                  <TableRow key={csvHeader}>
-                    <TableCell className="font-medium py-3 text-left">{csvHeader}</TableCell>
-                    <TableCell className="py-2 text-left">
-                      <Select
-                        value={currentMappings[csvHeader] || "DO_NOT_IMPORT"}
-                        onValueChange={(value) => onMappingChange(csvHeader, value === "DO_NOT_IMPORT" ? null : value)}
-                      >
-                        <SelectTrigger className="w-[280px] sm:w-[300px] md:w-[350px]">
-                          <SelectValue placeholder="Seleccionar columna del sistema" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="DO_NOT_IMPORT">No importar esta columna</SelectItem>
-                          {systemColumns.map((sysCol) => (
-                            <SelectItem key={sysCol.name} value={sysCol.name}>
-                              {sysCol.description}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell className="py-3 text-left">
-                        {systemColDef?.required ? 
-                            <span className="text-destructive font-medium">Sí</span> : 
-                            <span className="text-muted-foreground">No</span>
-                        }
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+              {csvHeaders.map((csvHeader) => (
+                <TableRow key={csvHeader}>
+                  <TableCell className="font-medium py-3 text-left">{csvHeader}</TableCell>
+                  <TableCell className="py-2 text-left">
+                    <Select
+                      value={currentMappings[csvHeader] || "DO_NOT_IMPORT"}
+                      onValueChange={(value) => onMappingChange(csvHeader, value === "DO_NOT_IMPORT" ? null : value)}
+                    >
+                      <SelectTrigger className="w-[280px] sm:w-[320px] md:w-[380px]">
+                        <SelectValue placeholder="Seleccionar columna del sistema" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="DO_NOT_IMPORT">No importar esta columna</SelectItem>
+                        {systemColumns.map((sysCol) => (
+                          <SelectItem key={sysCol.name} value={sysCol.name}>
+                            {sysCol.description}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
         </div>
