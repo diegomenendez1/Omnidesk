@@ -10,7 +10,7 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import { LanguageProvider } from '@/context/language-context';
 import { ThemeProvider } from '@/context/theme-context';
 import { AuthProvider, useAuth } from '@/context/auth-context';
-import { usePathname, redirect } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation'; // Import useRouter
 import { useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 
@@ -26,16 +26,26 @@ const geistMono = Geist_Mono({
 
 // AppContent component to handle auth logic and conditional rendering
 function AppContent({ children }: { children: React.ReactNode }) {
-  const auth = useAuth(); // Hook called at top level
-  const pathname = usePathname(); // Hook called at top level
+  const { user, isLoading } = useAuth(); // Hook called at top level
+  const pathname = usePathname();   // Hook called at top level
+  const router = useRouter();       // Hook called at top level
   
   useEffect(() => {
     // Update document title based on user authentication status
-    // This effect runs after all hooks in AppContent are processed.
-    document.title = auth.user ? 'OmniDeck - Your Team Workspace' : 'OmniDeck - Login';
-  }, [auth.user]);
+    document.title = user ? 'OmniDeck - Your Team Workspace' : 'OmniDeck - Login';
+  }, [user]);
 
-  if (auth.isLoading) {
+  useEffect(() => {
+    if (!isLoading) {
+      if (!user && pathname !== "/login") {
+        router.replace("/login");
+      } else if (user && pathname === "/login") {
+        router.replace("/dashboard");
+      }
+    }
+  }, [user, isLoading, pathname, router]);
+
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Loader2 className="h-16 w-16 animate-spin text-primary" />
@@ -44,23 +54,25 @@ function AppContent({ children }: { children: React.ReactNode }) {
   }
 
   // User is not authenticated
-  if (!auth.user) {
+  if (!user) {
     if (pathname !== '/login') {
-      redirect('/login'); // Side effect, called after hooks
-      return null; // Important: return null after redirect to prevent further rendering
+      // useEffect is handling the redirect to /login.
+      // Return null (or a loader) to prevent rendering protected content during the redirect.
+      return null; 
     }
-    // If on /login and not authenticated, render the login page
-    return <>{children}</>;
+    // User is not authenticated AND pathname IS /login
+    return <>{children}</>; // Render the login page
   }
 
-  // User is authenticated
-  // This 'if (auth.user)' is implicitly true if we reach here
+  // User IS authenticated (user is true)
   if (pathname === '/login') {
-    redirect('/dashboard'); // Side effect, called after hooks
-    return null; // Important: return null after redirect
+    // useEffect is handling the redirect to /dashboard.
+    // Return null (or a loader) to prevent rendering the login page during the redirect.
+    return null;
   }
   
-  // If authenticated and not on /login, render the main app layout
+  // User is authenticated AND pathname IS NOT /login
+  // Render the main app layout
   return (
     <SidebarProvider defaultOpen={true}>
       <div className="flex h-full overflow-hidden">
