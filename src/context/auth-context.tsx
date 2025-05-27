@@ -37,8 +37,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
 
   useEffect(() => {
-    console.log('Firebase App instance in AuthContext:', app);
-    console.log('Firebase Auth instance in AuthContext:', auth);
+    // console.log('Firebase App instance in AuthContext:', app);
+    // console.log('Firebase Auth instance in AuthContext:', auth);
 
     if (!auth) {
       console.error("Firebase auth instance is not available in AuthContext. Check firebase.ts and its configuration. Authentication will not work.");
@@ -47,7 +47,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
-      console.log('Auth state changed, Firebase user:', firebaseUser); 
+      // console.log('Auth state changed, Firebase user:', firebaseUser); 
       if (firebaseUser) {
         setUser({
           uid: firebaseUser.uid,
@@ -82,14 +82,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       case 'auth/requires-recent-login':
         return 'loginPage.error.requiresRecentLogin';
       default:
-        console.warn('Unhandled Firebase auth error code:', code);
+        // console.warn('Unhandled Firebase auth error code:', code);
         return 'loginPage.error.generic';
     }
   };
 
   const login = async (email: string, password?: string): Promise<{ success: boolean; error?: string }> => {
     if (!auth) {
-      console.error("Firebase auth not available for login in AuthContext.");
+      // console.error("Firebase auth not available for login in AuthContext.");
       return { success: false, error: 'loginPage.error.generic' };
     }
     if (!password) return { success: false, error: 'loginPage.error.passwordRequired' }; 
@@ -101,14 +101,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return { success: true };
     } catch (error: any) {
       setIsLoading(false);
-      console.error("Firebase login error:", error.code, error.message);
+      // console.error("Firebase login error:", error.code, error.message); // Removed this line
       return { success: false, error: mapAuthCodeToMessage(error.code) };
     }
   };
 
   const register = async (email: string, password?: string): Promise<{ success: boolean; error?: string }> => {
     if (!auth) {
-      console.error("Firebase auth not available for registration in AuthContext.");
+      // console.error("Firebase auth not available for registration in AuthContext.");
       return { success: false, error: 'loginPage.error.generic' };
     }
     if (!password) return { success: false, error: 'loginPage.error.passwordRequired' };
@@ -120,14 +120,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return { success: true };
     } catch (error: any) {
       setIsLoading(false);
-      console.error("Firebase registration error:", error.code, error.message);
+      // console.error("Firebase registration error:", error.code, error.message); // Removed this line
       return { success: false, error: mapAuthCodeToMessage(error.code) };
     }
   };
 
   const logout = async () => {
     if (!auth) {
-      console.error("Firebase auth not available for logout in AuthContext.");
+      // console.error("Firebase auth not available for logout in AuthContext.");
       setUser(null); 
       router.push('/login');
       return;
@@ -137,7 +137,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await signOut(auth);
       // onAuthStateChanged will set user to null, which then triggers redirection in AppContent
     } catch (error: any) {
-       console.error("Firebase logout error:", error.code, error.message);
+       // console.error("Firebase logout error:", error.code, error.message); // Optionally remove this too
        // Ensure user is cleared and loading is stopped even on error
        setUser(null);
        setIsLoading(false); 
