@@ -173,6 +173,14 @@ export interface Translations {
       };
       aiErrorToastTitle: string;
       aiErrorToastDescription: string;
+      backup: {
+        dialogTitle: string;
+        dialogDescription: string;
+        backupAndContinueButton: string;
+        continueWithoutBackupButton: string;
+        successTitle: string;
+        successDescription: string;
+      };
     };
     dataValidationReport: {
       title: string;
@@ -203,16 +211,16 @@ export interface Translations {
       registerLink: string;
       loginLink: string;
       error: {
-        invalidCredentials: string; // "Invalid email or password. Please check and try again."
-        userNotFound: string; // "No account found with that email."
-        wrongPassword: string; // "Incorrect password."
-        generic: string; // "An unexpected error occurred. Please try again."
-        invalidEmail: string; // "The email address is badly formatted."
-        userDisabled: string; // "This user account has been disabled."
-        emailInUse: string; // "This email address is already in use by another account."
-        weakPassword: string; // "Password should be at least 6 characters."
-        requiresRecentLogin: string; // "This operation is sensitive and requires recent authentication. Please log in again."
-        passwordRequired: string; // "Password is required."
+        invalidCredentials: string; 
+        userNotFound: string; 
+        wrongPassword: string; 
+        generic: string; 
+        invalidEmail: string; 
+        userDisabled: string; 
+        emailInUse: string; 
+        weakPassword: string; 
+        requiresRecentLogin: string; 
+        passwordRequired: string;
       }
     };
   };
@@ -370,6 +378,14 @@ export interface Translations {
       };
       aiErrorToastTitle: string;
       aiErrorToastDescription: string;
+      backup: {
+        dialogTitle: string;
+        dialogDescription: string;
+        backupAndContinueButton: string;
+        continueWithoutBackupButton: string;
+        successTitle: string;
+        successDescription: string;
+      };
     };
     dataValidationReport: {
       title: string;
@@ -400,16 +416,16 @@ export interface Translations {
       registerLink: string;
       loginLink: string;
       error: {
-        invalidCredentials: string; // "Email o contraseña inválidos. Por favor verifica e inténtalo de nuevo."
-        userNotFound: string; // "No existe una cuenta con ese email."
-        wrongPassword: string; // "Contraseña incorrecta."
-        generic: string; // "Ocurrió un error al autenticar. Por favor intenta de nuevo más tarde."
-        invalidEmail: string; // "La dirección de correo electrónico no tiene un formato válido."
-        userDisabled: string; // "Esta cuenta de usuario ha sido deshabilitada."
-        emailInUse: string; // "Esta dirección de correo electrónico ya está en uso por otra cuenta."
-        weakPassword: string; // "La contraseña debe tener al menos 6 caracteres."
-        requiresRecentLogin: string; // "Esta operación es sensible y requiere autenticación reciente. Por favor, inicia sesión de nuevo."
-        passwordRequired: string; // "La contraseña es requerida."
+        invalidCredentials: string; 
+        userNotFound: string; 
+        wrongPassword: string; 
+        generic: string; 
+        invalidEmail: string; 
+        userDisabled: string; 
+        emailInUse: string; 
+        weakPassword: string; 
+        requiresRecentLogin: string; 
+        passwordRequired: string;
       }
     };
   }
@@ -571,6 +587,14 @@ export const translations: Translations = {
       },
       aiErrorToastTitle: "Error getting AI suggestions",
       aiErrorToastDescription: "Some columns could not be mapped automatically. Please review them manually.",
+      backup: {
+        dialogTitle: "Backup Confirmation",
+        dialogDescription: "Existing data will be overwritten. Do you want to back up the current data before continuing?",
+        backupAndContinueButton: "Backup and Continue",
+        continueWithoutBackupButton: "Continue without Backup",
+        successTitle: "Backup Successful",
+        successDescription: "Data backed up to {filename}.",
+      },
     },
     dataValidationReport: {
       title: "AI Data Validation Report",
@@ -587,7 +611,7 @@ export const translations: Translations = {
       errorLoadingData: "Error Loading Data",
       errorLoadingDataDescription: "Could not load saved tasks.",
     },
-    loginPage: {
+    loginPage: { 
       titleLogin: "Login",
       descriptionLogin: "Enter your credentials to access your account.",
       titleRegister: "Register",
@@ -603,7 +627,7 @@ export const translations: Translations = {
       error: {
         invalidCredentials: "Invalid email or password. Please check and try again.",
         userNotFound: "No account found with that email.",
-        wrongPassword: "Incorrect password.", // Covered by invalidCredentials in Firebase, but good to have a specific key.
+        wrongPassword: "Incorrect password.", 
         generic: "An unexpected error occurred. Please try again later.",
         invalidEmail: "The email address is badly formatted.",
         userDisabled: "This user account has been disabled.",
@@ -768,6 +792,14 @@ export const translations: Translations = {
       },
       aiErrorToastTitle: "Error al obtener sugerencias de IA",
       aiErrorToastDescription: "Algunas columnas no pudieron ser mapeadas automáticamente. Por favor, revísalas manualmente.",
+      backup: {
+        dialogTitle: "Confirmación de Respaldo",
+        dialogDescription: "Los datos existentes serán sobrescritos. ¿Desea hacer un respaldo de los datos actuales antes de continuar?",
+        backupAndContinueButton: "Respaldar y Continuar",
+        continueWithoutBackupButton: "Continuar sin Respaldo",
+        successTitle: "Respaldo Exitoso",
+        successDescription: "Datos respaldados en {filename}.",
+      },
     },
     dataValidationReport: {
       title: "Reporte de Validación de Datos IA",
@@ -784,7 +816,7 @@ export const translations: Translations = {
       errorLoadingData: "Error al Cargar Datos",
       errorLoadingDataDescription: "No se pudieron cargar las tareas guardadas.",
     },
-    loginPage: {
+    loginPage: { 
       titleLogin: "Iniciar Sesión",
       descriptionLogin: "Ingresa tus credenciales para acceder a tu cuenta.",
       titleRegister: "Registrarse",
@@ -812,3 +844,4 @@ export const translations: Translations = {
     },
   }
 };
+
