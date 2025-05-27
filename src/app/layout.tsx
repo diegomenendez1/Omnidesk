@@ -1,7 +1,6 @@
 
 "use client"; // Root layout must be client component if using hooks like usePathname or context hooks
 
-import type { Metadata } from 'next'; // No longer used directly due to client component
 import './globals.css';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/app-sidebar';
@@ -10,10 +9,10 @@ import { Toaster } from "@/components/ui/toaster";
 import { Geist, Geist_Mono } from 'next/font/google';
 import { LanguageProvider } from '@/context/language-context';
 import { ThemeProvider } from '@/context/theme-context';
-import { AuthProvider, useAuth } from '@/context/auth-context'; // Import AuthProvider and useAuth
+import { AuthProvider, useAuth } from '@/context/auth-context';
 import { usePathname, redirect } from 'next/navigation';
-import { useEffect } from 'react'; // For metadata
-import { Loader2 } from 'lucide-react'; // For loading spinner
+import { useEffect } from 'react';
+import { Loader2 } from 'lucide-react';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -24,12 +23,6 @@ const geistMono = Geist_Mono({
   variable: '--font-geist-mono',
   subsets: ['latin'],
 });
-
-// Metadata can't be exported from client component directly.
-// export const metadata: Metadata = {
-// title: 'OmniDeck - Your Team Workspace',
-// description: 'Efficiently manage your team projects and data with OmniDeck.',
-// };
 
 function AppContent({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -49,20 +42,18 @@ function AppContent({ children }: { children: React.ReactNode }) {
 
   if (!user && pathname !== '/login') {
     redirect('/login');
-    return null; // Or a loading/redirecting indicator
+    return null; 
   }
 
   if (user && pathname === '/login') {
     redirect('/dashboard');
-    return null; // Or a loading/redirecting indicator
+    return null; 
   }
-
-  // Render children directly if on login page and not authenticated
+  
   if (!user && pathname === '/login') {
     return <>{children}</>;
   }
   
-  // Render main app layout if authenticated
   if (user) {
     return (
       <SidebarProvider defaultOpen={true}>
@@ -77,7 +68,6 @@ function AppContent({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Fallback for any other unhandled case (should not happen if logic is correct)
   return null; 
 }
 
