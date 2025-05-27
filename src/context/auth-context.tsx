@@ -18,6 +18,7 @@ interface User {
   uid: string;
   email: string | null;
   displayName: string | null;
+  name?: string; // Added to match usage in AppSidebar
 }
 
 interface AuthContextType {
@@ -36,23 +37,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
 
   useEffect(() => {
-    // For debugging, to see if Firebase was initialized correctly
     console.log('Firebase App instance in AuthContext:', app);
     console.log('Firebase Auth instance in AuthContext:', auth);
 
     if (!auth) {
       console.error("Firebase auth instance is not available in AuthContext. Check firebase.ts and its configuration. Authentication will not work.");
-      setIsLoading(false); // Stop loading, as auth cannot proceed
+      setIsLoading(false); 
       return;
     }
 
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
-      console.log('Auth state changed, Firebase user:', firebaseUser); // Debug log
+      console.log('Auth state changed, Firebase user:', firebaseUser); 
       if (firebaseUser) {
         setUser({
           uid: firebaseUser.uid,
           email: firebaseUser.email,
-          displayName: firebaseUser.displayName || firebaseUser.email, // Use email as fallback for displayName
+          displayName: firebaseUser.displayName || firebaseUser.email, 
+          name: firebaseUser.displayName || firebaseUser.email, // Populate name field
         });
       } else {
         setUser(null);
@@ -60,7 +61,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setIsLoading(false);
     });
 
-    // Cleanup subscription on unmount
     return () => unsubscribe();
   }, []);
 
@@ -71,9 +71,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       case 'auth/user-disabled':
         return 'loginPage.error.userDisabled';
       case 'auth/user-not-found':
-      case 'auth/invalid-credential': 
-        return 'loginPage.error.invalidCredentials';
-      case 'auth/wrong-password': // Typically covered by invalid-credential in newer SDK versions
+        return 'loginPage.error.userNotFound';
+      case 'auth/invalid-credential':
+      case 'auth/wrong-password': // Often combined into invalid-credential in newer SDKs
         return 'loginPage.error.invalidCredentials';
       case 'auth/email-already-in-use':
         return 'loginPage.error.emailInUse';
@@ -135,14 +135,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true); 
     try {
       await signOut(auth);
-      // onAuthStateChanged will set user to null
-      router.push('/login'); 
+      // onAuthStateChanged will set user to null, which then triggers redirection in AppContent
     } catch (error: any) {
        console.error("Firebase logout error:", error.code, error.message);
+       // Ensure user is cleared and loading is stopped even on error
        setUser(null);
        setIsLoading(false); 
-       router.push('/login');
+       router.push('/login'); // Explicit redirect as a fallback
     }
+    // isLoading will be set to false by onAuthStateChanged
   };
 
   return (

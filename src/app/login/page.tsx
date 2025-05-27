@@ -31,8 +31,10 @@ export default function LoginPage() {
         : await register(email, password);
 
       if (result.success) {
-        router.push("/dashboard"); // Redirect after successful login/registration
+        // Redirection is handled by AppContent in layout.tsx
+        // router.push("/dashboard"); 
       } else {
+        // result.error is now a translation key
         setError(result.error ? t(result.error as any) : t('loginPage.error.generic'));
       }
     } catch (err) {
@@ -81,7 +83,7 @@ export default function LoginPage() {
                 className="text-base"
               />
             </div>
-            {error && <p className="text-sm text-destructive text-center">{error}</p>}
+            {error && <p className="text-sm text-destructive text-center p-2 bg-destructive/10 rounded-md">{error}</p>}
             <Button type="submit" className="w-full text-lg py-3" disabled={isSubmitting}>
               {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : 
                (isLoginMode ? t('loginPage.loginButton') : t('loginPage.registerButton'))}
