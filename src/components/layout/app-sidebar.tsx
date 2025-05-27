@@ -17,10 +17,12 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useState, useEffect } from 'react';
 import { useLanguage } from '@/context/language-context';
+import { useAuth } from "@/context/auth-context"; // Import useAuth
 
 export function AppSidebar() {
   const pathname = usePathname();
   const { t } = useLanguage();
+  const { user } = useAuth(); // Get user from AuthContext
   const [currentActivePath, setCurrentActivePath] = useState<string | null>(null);
   const { state: sidebarState } = useSidebar();
   
@@ -50,6 +52,11 @@ export function AppSidebar() {
     { href: "/table", labelKey: "sidebar.interactiveTable", icon: Table2 },
     { href: "/upload-data", labelKey: "sidebar.uploadData", icon: UploadCloud },
   ];
+
+  // Do not render sidebar on login page or if user is not authenticated
+  if (!user || pathname === '/login') {
+    return null;
+  }
 
   return (
     <Sidebar collapsible="icon" variant="sidebar" className="border-r">
@@ -91,11 +98,11 @@ export function AppSidebar() {
         <div className="flex items-center gap-3 group-data-[collapsible=icon]:justify-center">
           <Avatar className="h-9 w-9">
             <AvatarImage src="https://placehold.co/100x100.png" alt="User Avatar" data-ai-hint="user avatar" />
-            <AvatarFallback>OD</AvatarFallback>
+            <AvatarFallback>{user?.name?.charAt(0)?.toUpperCase() || t('appName').charAt(0)}</AvatarFallback>
           </Avatar>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-            <span className="text-sm font-medium text-sidebar-foreground">{t('sidebar.adminUser')}</span>
-            <span className="text-xs text-muted-foreground">{t('sidebar.adminEmail')}</span>
+            <span className="text-sm font-medium text-sidebar-foreground">{user?.name || t('sidebar.adminUser')}</span>
+            <span className="text-xs text-muted-foreground">{user?.email || t('sidebar.adminEmail')}</span>
           </div>
         </div>
       </SidebarFooter>

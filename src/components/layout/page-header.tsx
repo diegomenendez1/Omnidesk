@@ -2,7 +2,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { Bell, Search, Globe, Sun, Moon, Laptop } from "lucide-react"; // Added theme icons
+import { Bell, Search, Globe, Sun, Moon, Laptop, LogOut } from "lucide-react"; // Added LogOut
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SidebarTrigger } from "@/components/ui/sidebar";
@@ -20,21 +20,23 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useState, useEffect } from 'react';
 import { useLanguage } from '@/context/language-context';
 import type { Locale } from '@/lib/translations';
-import { useTheme } from '@/context/theme-context'; // Import useTheme
-import type { Theme } from '@/context/theme-context'; // Import Theme type
+import { useTheme } from '@/context/theme-context';
+import { useAuth } from "@/context/auth-context"; // Import useAuth
 
 function getPageTitleKey(pathname: string | null): string {
   if (!pathname) return "pageHeader.appName";
   if (pathname === "/" || pathname.startsWith("/dashboard")) return "pageHeader.dashboard";
   if (pathname.startsWith("/table")) return "pageHeader.interactiveTable";
   if (pathname.startsWith("/upload-data")) return "pageHeader.uploadData";
+  if (pathname.startsWith("/login")) return "pageHeader.login"; // Added login page title
   return "pageHeader.appName";
 }
 
 export function PageHeader() {
   const pathname = usePathname();
   const { language, setLanguage, t } = useLanguage();
-  const { theme, setTheme } = useTheme(); // Use theme context
+  const { theme, setTheme } = useTheme();
+  const { user, logout } = useAuth(); // Get user and logout from AuthContext
   const [titleKey, setTitleKey] = useState<string>("pageHeader.appName");
   const [hydrated, setHydrated] = useState(false);
 
@@ -50,11 +52,20 @@ export function PageHeader() {
 
   const pageTitle = hydrated ? t(titleKey as any) : t('pageHeader.appName' as any);
 
+  // Don't render PageHeader on the login page if user is not authenticated
+  if (!user && pathname === '/login') {
+    return null;
+  }
+  
+  // Or if user is not yet loaded (optional, but good for consistency if isLoading is true elsewhere)
+  // if (isLoading) return null;
+
+
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-6 shadow-sm min-w-0">
-      <div className="flex items-center gap-2 flex-shrink min-w-0">
-        <SidebarTrigger />
-        <h1 className="text-xl font-semibold text-foreground truncate">
+    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-6 shadow-sm min-w-0"> {/* Added min-w-0 */}
+      <div className="flex items-center gap-2 flex-shrink min-w-0"> {/* Added flex-shrink and min-w-0 */}
+        <SidebarTrigger /> {/* Eliminada la clase md:hidden */}
+        <h1 className="text-xl font-semibold text-foreground truncate"> {/* Added truncate */}
           {pageTitle}
         </h1>
       </div>
@@ -123,17 +134,20 @@ export function PageHeader() {
             <Button variant="ghost" size="icon" className="rounded-full">
               <Avatar className="h-9 w-9">
                 <AvatarImage src="https://placehold.co/100x100.png" alt="User Avatar" data-ai-hint="user avatar" />
-                <AvatarFallback>OD</AvatarFallback>
+                <AvatarFallback>{user?.name?.charAt(0)?.toUpperCase() || 'U'}</AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>{t('pageHeader.myAccount')}</DropdownMenuLabel>
+            <DropdownMenuLabel>{user?.name || t('pageHeader.myAccount')}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem>{t('pageHeader.profile')}</DropdownMenuItem>
             <DropdownMenuItem>{t('pageHeader.settings')}</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>{t('pageHeader.logout')}</DropdownMenuItem>
+            <DropdownMenuItem onClick={logout}>
+              <LogOut className="mr-2 h-4 w-4" />
+              {t('pageHeader.logout')}
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

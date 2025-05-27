@@ -1,30 +1,385 @@
 
 export type Locale = 'en' | 'es';
 
-type Translations = {
-  [key in Locale]: {
-    [namespace: string]: {
-      // Allowing for deeper nesting
-      [key: string]: string | { [key: string]: string | { [key: string]: string } }; 
-    };
-  };
-};
-
-// Helper type for ensuring key validity (optional, for better DX)
-// This helper correctly infers paths for nested objects.
+// Helper type for ensuring key validity
 type PathImpl<T, K extends keyof T> = K extends string
   ? T[K] extends Record<string, any>
-    ? T[K] extends Array<any> // Check if it's an array to stop recursion
-      ? `${K}` // Stop if it's an array (like statusOptions which are not nested translation keys)
-      : `${K}.${PathImpl<T[K], Exclude<keyof T[K], keyof any[]>> & string}` // Recurse for objects
-    : `${K}` // Base case for string values
+    ? T[K] extends Array<any> 
+      ? `${K}` 
+      : `${K}.${PathImpl<T[K], Exclude<keyof T[K], keyof any[]>> & string}`
+    : `${K}`
   : never;
 
-// Create a Path type that works for the 'en' locale specifically or any other as base
 type Path<T> = PathImpl<T, keyof T>;
 
-// Apply to the 'en' translations to generate all valid keys
-export type TranslationKey = Path<Translations['en']>;
+// Example base for TranslationKey type generation (assuming 'en' has all keys)
+type TranslationNamespaces = Translations['en'];
+export type TranslationKey = Path<TranslationNamespaces>;
+
+
+export interface Translations {
+  [key: string]: any; // Allow any structure for now
+  en: {
+    appName: string;
+    pageHeader: {
+      searchPlaceholder: string;
+      notifications: string;
+      myAccount: string;
+      profile: string;
+      settings: string;
+      logout: string; // Added
+      dashboard: string;
+      interactiveTable: string;
+      uploadData: string;
+      language: string;
+      english: string;
+      spanish: string;
+      login: string; // Added
+      theme: { 
+        toggle: string;
+        title: string;
+        light: string;
+        dark: string;
+        system: string;
+      };
+    };
+    sidebar: {
+      dashboard: string;
+      interactiveTable: string;
+      uploadData: string;
+      adminUser: string;
+      adminEmail: string;
+    };
+    dashboard: {
+      totalTasks: string;
+      activeProjects: string;
+      tasksCompleted: string;
+      teamMembers: string;
+      acrossAllProjects: string;
+      fromLastWeek: string;
+      thisMonth: string;
+      activeUsers: string;
+      taskProgressOverview: string;
+      taskDistributionByStatus: string;
+      projectSpotlight: string;
+      highlightingKeyProject: string;
+      projectPhoenixTitle: string;
+      projectPhoenixDescription: string;
+      progress: string;
+      deadline: string;
+      recentActivity: string;
+      latestUpdates: string;
+      activityCompletedTask: string;
+      activityUpdatedStatus: string;
+      activityAddedNewTask: string;
+      hoursAgo: string;
+      daysAgo: string;
+      todo: string;
+      inProgress: string;
+      completed: string;
+      blocked: string;
+    };
+    interactiveTable: {
+      title: string;
+      validateWithAI: string;
+      validating: string;
+      validationComplete: string;
+      validationFailed: string;
+      validationFailedDescription: string;
+      fieldUpdated: string;
+      changeSavedFor: string;
+      tableHeaders: {
+        toRef: string;
+        toStatus: string;
+        logisticDeveloper: string;
+        delayDays: string;
+        customerAccount: string;
+        amount: string;
+        transportMode: string;
+        comments: string;
+        admin: string;
+        resolutionTimeDays: string;
+        history: string; // Added
+        actions: string; 
+      };
+      status: { 
+        missingEstimates: string;
+        missingPOD: string;
+        pendingInvoice: string;
+      };
+      resolutionStatus: { 
+        pendiente: string;
+        sfp: string;
+        resuelto: string;
+      };
+      notAvailable: string;
+      selectStatus: string;
+      filterBy: string;
+      allStatuses: string;
+      filterAllOption: string; 
+      filterActionPlaceholder: string;
+      viewHistoryTooltip: string; // Added
+      viewingHistory: string; // Added
+      historyFeaturePlaceholder: string; // Added
+    };
+    uploadData: {
+      title: string;
+      description: string;
+      fileAcceptedToastTitle: string;
+      fileAcceptedToastDescription: string;
+      columnMappingTitle: string;
+      columnMappingDescription: string;
+      csvColumn: string;
+      mapToSystemColumn: string;
+      doNotImport: string;
+      cancel: string;
+      confirmAndProcess: string;
+      processing: string;
+      noDataToProcess: string;
+      incompleteMapping: string;
+      pleaseMapRequired: string;
+      dataProcessed: string;
+      tasksProcessedAndSaved: string;
+      errorSavingLocally: string;
+      errorSavingLocallyDescription: string;
+      previewTitle: string;
+      uploadAnotherFile: string;
+      redirectingToTable: string;
+      systemColumns: {
+        status: string;
+        assignee: string;
+        taskReference: string;
+        delayDays: string;
+        customerAccount: string;
+        netAmount: string;
+        transportMode: string;
+        comments: string;
+        resolutionAdmin: string;
+        resolutionStatus: string;
+        resolutionTimeDays: string;
+      };
+      fileUploader: {
+        dropzoneActive: string;
+        dropzoneInactive: string;
+        processingFile: string;
+        previewFor: string;
+        showingFirstNRows: string;
+        invalidFileToastTitle: string;
+        invalidFileToastDescription: string;
+        emptyFileToastTitle: string;
+        emptyFileToastDescription: string;
+        parseErrorToastTitle: string;
+        parseErrorToastDescription: string;
+      };
+      aiErrorToastTitle: string;
+      aiErrorToastDescription: string;
+    };
+    dataValidationReport: {
+      title: string;
+      inconsistenciesFound: string;
+      inconsistenciesFoundDescription: string;
+      noInconsistenciesFound: string;
+      noInconsistenciesFoundDescription: string;
+      cell: string;
+      description: string;
+    };
+    localStorage: {
+      loadedData: string;
+      loadedTasksDescription: string;
+      errorLoadingData: string;
+      errorLoadingDataDescription: string;
+    };
+    loginPage: { // Added
+      title: string;
+      description: string;
+      emailLabel: string;
+      passwordLabel: string;
+      loginButton: string;
+      invalidCredentials: string;
+      loginFailed: string;
+    };
+  };
+  es: {
+    appName: string;
+    pageHeader: {
+      searchPlaceholder: string;
+      notifications: string;
+      myAccount: string;
+      profile: string;
+      settings: string;
+      logout: string; // Added
+      dashboard: string;
+      interactiveTable: string;
+      uploadData: string;
+      language: string;
+      english: string;
+      spanish: string;
+      login: string; // Added
+      theme: { 
+        toggle: string;
+        title: string;
+        light: string;
+        dark: string;
+        system: string;
+      };
+    };
+    sidebar: {
+      dashboard: string;
+      interactiveTable: string;
+      uploadData: string;
+      adminUser: string;
+      adminEmail: string;
+    };
+    dashboard: {
+      totalTasks: string;
+      activeProjects: string;
+      tasksCompleted: string;
+      teamMembers: string;
+      acrossAllProjects: string;
+      fromLastWeek: string;
+      thisMonth: string;
+      activeUsers: string;
+      taskProgressOverview: string;
+      taskDistributionByStatus: string;
+      projectSpotlight: string;
+      highlightingKeyProject: string;
+      projectPhoenixTitle: string;
+      projectPhoenixDescription: string;
+      progress: string;
+      deadline: string;
+      recentActivity: string;
+      latestUpdates: string;
+      activityCompletedTask: string;
+      activityUpdatedStatus: string;
+      activityAddedNewTask: string;
+      hoursAgo: string;
+      daysAgo: string;
+      todo: string;
+      inProgress: string;
+      completed: string;
+      blocked: string;
+    };
+    interactiveTable: {
+      title: string;
+      validateWithAI: string;
+      validating: string;
+      validationComplete: string;
+      validationFailed: string;
+      validationFailedDescription: string;
+      fieldUpdated: string;
+      changeSavedFor: string;
+      tableHeaders: {
+        toRef: string;
+        toStatus: string;
+        logisticDeveloper: string;
+        delayDays: string;
+        customerAccount: string;
+        amount: string;
+        transportMode: string;
+        comments: string;
+        admin: string;
+        resolutionTimeDays: string;
+        history: string; // Added
+        actions: string;
+      };
+      status: {
+        missingEstimates: string;
+        missingPOD: string;
+        pendingInvoice: string;
+      };
+      resolutionStatus: {
+        pendiente: string;
+        sfp: string;
+        resuelto: string;
+      };
+      notAvailable: string;
+      selectStatus: string;
+      filterBy: string;
+      allStatuses: string;
+      filterAllOption: string;
+      filterActionPlaceholder: string;
+      viewHistoryTooltip: string; // Added
+      viewingHistory: string; // Added
+      historyFeaturePlaceholder: string; // Added
+    };
+    uploadData: {
+      title: string;
+      description: string;
+      fileAcceptedToastTitle: string;
+      fileAcceptedToastDescription: string;
+      columnMappingTitle: string;
+      columnMappingDescription: string;
+      csvColumn: string;
+      mapToSystemColumn: string;
+      doNotImport: string;
+      cancel: string;
+      confirmAndProcess: string;
+      processing: string;
+      noDataToProcess: string;
+      incompleteMapping: string;
+      pleaseMapRequired: string;
+      dataProcessed: string;
+      tasksProcessedAndSaved: string;
+      errorSavingLocally: string;
+      errorSavingLocallyDescription: string;
+      previewTitle: string;
+      uploadAnotherFile: string;
+      redirectingToTable: string;
+      systemColumns: {
+        status: string;
+        assignee: string;
+        taskReference: string;
+        delayDays: string;
+        customerAccount: string;
+        netAmount: string;
+        transportMode: string;
+        comments: string;
+        resolutionAdmin: string;
+        resolutionStatus: string;
+        resolutionTimeDays: string;
+      };
+      fileUploader: {
+        dropzoneActive: string;
+        dropzoneInactive: string;
+        processingFile: string;
+        previewFor: string;
+        showingFirstNRows: string;
+        invalidFileToastTitle: string;
+        invalidFileToastDescription: string;
+        emptyFileToastTitle: string;
+        emptyFileToastDescription: string;
+        parseErrorToastTitle: string;
+        parseErrorToastDescription: string;
+      };
+      aiErrorToastTitle: string;
+      aiErrorToastDescription: string;
+    };
+    dataValidationReport: {
+      title: string;
+      inconsistenciesFound: string;
+      inconsistenciesFoundDescription: string;
+      noInconsistenciesFound: string;
+      noInconsistenciesFoundDescription: string;
+      cell: string;
+      description: string;
+    };
+    localStorage: {
+      loadedData: string;
+      loadedTasksDescription: string;
+      errorLoadingData: string;
+      errorLoadingDataDescription: string;
+    };
+    loginPage: { // Added
+      title: string;
+      description: string;
+      emailLabel: string;
+      passwordLabel: string;
+      loginButton: string;
+      invalidCredentials: string;
+      loginFailed: string;
+    };
+  }
+}
 
 
 export const translations: Translations = {
@@ -43,6 +398,7 @@ export const translations: Translations = {
       language: "Language",
       english: "English",
       spanish: "Español",
+      login: "Login",
       theme: { 
         toggle: "Toggle theme",
         title: "Theme",
@@ -124,7 +480,7 @@ export const translations: Translations = {
       selectStatus: "Select status",
       filterBy: "Filter by {columnName}",
       allStatuses: "All Statuses",
-      filterAllOption: "All",
+      filterAllOption: "All", 
       filterActionPlaceholder: "Filter...",
       viewHistoryTooltip: "View history",
       viewingHistory: "Viewing history for task {taskId}",
@@ -152,19 +508,19 @@ export const translations: Translations = {
       errorSavingLocallyDescription: "Could not save data for the interactive table. Preview is still available on this page.",
       previewTitle: "Preview of Processed Data (first 10 rows)",
       uploadAnotherFile: "Upload another file",
-      redirectingToTable: " Redirecting to Interactive Table...", // Used to replace part of a message
+      redirectingToTable: " Redirecting to Interactive Table...",
       systemColumns: {
         status: "TO Status",
-        assignee: "Desarrollador Logístico",
+        assignee: "Logistic Developer",
         taskReference: "TO Ref.",
-        delayDays: "Dias de atraso",
+        delayDays: "Delay Days",
         customerAccount: "Customer Acc.",
-        netAmount: "Monto $",
+        netAmount: "Amount $",
         transportMode: "Transport Mode",
-        comments: "Comentarios",
-        resolutionAdmin: "Administrador",
-        resolutionStatus: "Estado de Resolución",
-        resolutionTimeDays: "Tiempo Resolución (días)",
+        comments: "Comments",
+        resolutionAdmin: "Administrator",
+        resolutionStatus: "Resolution Status",
+        resolutionTimeDays: "Resolution Time (days)",
       },
       fileUploader: {
         dropzoneActive: "Drop CSV file here...",
@@ -196,7 +552,16 @@ export const translations: Translations = {
       loadedTasksDescription: "{count} tasks have been loaded from the last import.",
       errorLoadingData: "Error Loading Data",
       errorLoadingDataDescription: "Could not load saved tasks.",
-    }
+    },
+    loginPage: {
+      title: "Login",
+      description: "Enter your credentials to access your account.",
+      emailLabel: "Email",
+      passwordLabel: "Password",
+      loginButton: "Login",
+      invalidCredentials: "Invalid email or password.",
+      loginFailed: "Login failed. Please try again.",
+    },
   },
   es: {
     appName: "OmniDeck",
@@ -213,6 +578,7 @@ export const translations: Translations = {
       language: "Idioma",
       english: "Inglés",
       spanish: "Español",
+      login: "Iniciar Sesión",
       theme: { 
         toggle: "Alternar tema",
         title: "Tema",
@@ -366,10 +732,15 @@ export const translations: Translations = {
       loadedTasksDescription: "Se han cargado {count} tareas desde la última importación.",
       errorLoadingData: "Error al Cargar Datos",
       errorLoadingDataDescription: "No se pudieron cargar las tareas guardadas.",
-    }
-  },
+    },
+    loginPage: {
+      title: "Iniciar Sesión",
+      description: "Ingresa tus credenciales para acceder a tu cuenta.",
+      emailLabel: "Correo Electrónico",
+      passwordLabel: "Contraseña",
+      loginButton: "Iniciar Sesión",
+      invalidCredentials: "Correo electrónico o contraseña no válidos.",
+      loginFailed: "Falló el inicio de sesión. Por favor, inténtalo de nuevo.",
+    },
+  }
 };
-
-    
-
-    
