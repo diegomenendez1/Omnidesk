@@ -4,7 +4,7 @@
 import type { ReactNode } from 'react';
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { app, auth } from '@/lib/firebase'; // Import Firebase app and auth instances
+import app, { auth } from '@/lib/firebase'; // Corrected import
 import { 
   onAuthStateChanged, 
   signInWithEmailAndPassword, 
@@ -52,7 +52,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser({
           uid: firebaseUser.uid,
           email: firebaseUser.email,
-          displayName: firebaseUser.displayName,
+          displayName: firebaseUser.displayName || firebaseUser.email, // Use email as fallback for displayName
         });
       } else {
         setUser(null);
@@ -80,7 +80,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       case 'auth/weak-password':
         return 'loginPage.error.weakPassword';
       case 'auth/requires-recent-login':
-        return 'loginPage.error.requiresRecentLogin'; // Example, add if needed
+        return 'loginPage.error.requiresRecentLogin';
       default:
         console.warn('Unhandled Firebase auth error code:', code);
         return 'loginPage.error.generic';
@@ -92,12 +92,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.error("Firebase auth not available for login in AuthContext.");
       return { success: false, error: 'loginPage.error.generic' };
     }
-    if (!password) return { success: false, error: 'loginPage.error.passwordRequired' }; // Add this key to translations
+    if (!password) return { success: false, error: 'loginPage.error.passwordRequired' }; 
     
     setIsLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // onAuthStateChanged will handle setting the user state
       setIsLoading(false);
       return { success: true };
     } catch (error: any) {
@@ -129,24 +128,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = async () => {
     if (!auth) {
       console.error("Firebase auth not available for logout in AuthContext.");
-      setUser(null); // Clear user state locally even if Firebase signout might fail
+      setUser(null); 
       router.push('/login');
       return;
     }
-    setIsLoading(true); // Optional: set loading during logout
+    setIsLoading(true); 
     try {
       await signOut(auth);
       // onAuthStateChanged will set user to null
-      // No need to setIsLoading(false) here, onAuthStateChanged will do it.
       router.push('/login'); 
     } catch (error: any) {
        console.error("Firebase logout error:", error.code, error.message);
-       // Even if signout fails, clear local state and redirect
        setUser(null);
-       setIsLoading(false); // Explicitly set loading to false on error
+       setIsLoading(false); 
        router.push('/login');
     }
-    // setIsLoading(false) might be better placed after router.push or in onAuthStateChanged
   };
 
   return (
