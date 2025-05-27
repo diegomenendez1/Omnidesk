@@ -8,10 +8,10 @@ import { getAuth, type Auth } from "firebase/auth";
 // FIREBASE PROJECT CONFIGURATION FROM THE FIREBASE CONSOLE.
 // GO TO: Firebase Console -> Project Settings -> General -> Your apps -> Web app
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY_HERE", // Replace with your actual API Key
-  authDomain: "omnidesk-3v8d2.firebaseapp.com", // Replace if different, but usually based on projectId
-  projectId: "omnidesk-3v8d2", // Ensure this is your correct Firebase Project ID
-  storageBucket: "omnidesk-3v8d2.storage.app", // Replace if different, usually based on projectId
+  apiKey: "YOUR_API_KEY_HERE", // Replace with your actual API Key from Firebase Console
+  authDomain: "YOUR_AUTH_DOMAIN_HERE", // e.g., your-project-id.firebaseapp.com
+  projectId: "YOUR_PROJECT_ID_HERE", // e.g., omnidesk-3v8d2 or your actual project ID
+  storageBucket: "YOUR_STORAGE_BUCKET_HERE", // e.g., your-project-id.appspot.com
   messagingSenderId: "YOUR_MESSAGING_SENDER_ID_HERE", // Replace
   appId: "YOUR_APP_ID_HERE" // Replace
 };
