@@ -107,6 +107,7 @@ export const translations: Translations = {
         comments: "Comments",
         admin: "Administrator",
         resolutionTimeDays: "Resolution Time (days)",
+        history: "History",
         actions: "Actions", 
       },
       status: { 
@@ -125,6 +126,9 @@ export const translations: Translations = {
       allStatuses: "All Statuses",
       filterAllOption: "All",
       filterActionPlaceholder: "Filter...",
+      viewHistoryTooltip: "View history",
+      viewingHistory: "Viewing history for task {taskId}",
+      historyFeaturePlaceholder: "History feature is not yet implemented.",
     },
     uploadData: {
       title: "Upload Data from CSV",
@@ -273,6 +277,7 @@ export const translations: Translations = {
         comments: "Comentarios",
         admin: "Administrador",
         resolutionTimeDays: "Tiempo Resolución (días)",
+        history: "Historial",
         actions: "Acciones",
       },
       status: {
@@ -291,6 +296,9 @@ export const translations: Translations = {
       allStatuses: "Todos los Estados",
       filterAllOption: "Todos",
       filterActionPlaceholder: "Filtrar...",
+      viewHistoryTooltip: "Ver historial",
+      viewingHistory: "Viendo historial para tarea {taskId}",
+      historyFeaturePlaceholder: "La función de historial aún no está implementada.",
     },
     uploadData: {
       title: "Cargar Datos desde CSV",

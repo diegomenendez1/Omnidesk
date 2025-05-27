@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card, CardContent } from '@/components/ui/card';
 import { DataValidationReport } from './data-validation-report';
 import type { ValidateDataConsistencyOutput } from '@/types';
-import { ScanSearch, ArrowUp, ArrowDown, Filter as FilterIcon } from 'lucide-react';
+import { ScanSearch, ArrowUp, ArrowDown, Filter as FilterIcon, History } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from '@/lib/utils';
 import { useLanguage } from '@/context/language-context';
@@ -72,7 +72,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [t]); 
+  }, [t]); // toast and t are stable, so this runs once on mount essentially
 
   const handleValidateData = () => {
     startTransition(async () => {
@@ -148,7 +148,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     );
     setEditingCellKey(null);
     setCurrentEditSelectValue('');
-    setIsSelectDropdownOpen(false);
+    setIsSelectDropdownOpen(false); // Close dropdown after selection
     toast({ title: t('interactiveTable.fieldUpdated'), description: t('interactiveTable.changeSavedFor', { field: t(`interactiveTable.tableHeaders.${column}` as any, String(column))}) });
   };
 
@@ -197,10 +197,11 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     const values = new Set<string>();
     tasks.forEach(task => {
       const val = task[columnKey];
-      const stringVal = (val === null || val === undefined) 
+      let stringVal = (val === null || val === undefined) 
                         ? t('interactiveTable.notAvailable') 
                         : String(val);
       
+      // Filter out empty strings if they are not 'N/A'
       if (stringVal.trim() !== "" || stringVal === t('interactiveTable.notAvailable')) { 
         values.add(stringVal);
       }
@@ -220,15 +221,20 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   const uniqueDelayDays = useMemo(() => getUniqueValuesForColumn('delayDays'), [tasks, t]);
   const uniqueCustomerAccounts = useMemo(() => getUniqueValuesForColumn('customerAccount'), [tasks, t]);
   const uniqueNetAmounts = useMemo(() => {
-    // Special handling for netAmount to ensure numeric sorting for display in filter
     const numericValues = new Set<string>();
     tasks.forEach(task => {
         if (task.netAmount !== null && task.netAmount !== undefined) {
             numericValues.add(String(task.netAmount));
+        } else {
+             numericValues.add(t('interactiveTable.notAvailable'));
         }
     });
-    return Array.from(numericValues).sort((a,b) => parseFloat(a) - parseFloat(b));
-  }, [tasks]);
+    return Array.from(numericValues).sort((a,b) => {
+        if (a === t('interactiveTable.notAvailable')) return 1;
+        if (b === t('interactiveTable.notAvailable')) return -1;
+        return parseFloat(a) - parseFloat(b);
+    });
+  }, [tasks, t]);
   const uniqueTransportModes = useMemo(() => getUniqueValuesForColumn('transportMode'), [tasks, t]);
   const uniqueResolutionAdmins = useMemo(() => getUniqueValuesForColumn('resolutionAdmin'), [tasks, t]);
   const uniqueResolutionTimeDays = useMemo(() => getUniqueValuesForColumn('resolutionTimeDays'), [tasks, t]);
@@ -237,7 +243,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   const filteredTasks = useMemo(() => tasks.filter(task => {
     return Object.entries(filters).every(([columnKeyStr, filterValue]) => {
       const columnKey = columnKeyStr as keyof Task;
-      if (filterValue === undefined) return true;
+      if (filterValue === undefined || filterValue === ALL_FILTER_VALUE) return true;
 
       const taskValue = task[columnKey];
       let taskValueString: string;
@@ -274,15 +280,14 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
         const valA = a[key];
         const valB = b[key];
 
-        if ((valA === null || typeof valA === 'undefined') && (valB !== null && typeof valB !== 'undefined')) return 1;
-        if ((valB === null || typeof valB === 'undefined') && (valA !== null && typeof valA !== 'undefined')) return -1;
+        if ((valA === null || typeof valA === 'undefined') && (valB !== null && typeof valB !== 'undefined')) return sortConfig.direction === 'ascending' ? 1 : -1;
+        if ((valB === null || typeof valB === 'undefined') && (valA !== null && typeof valA !== 'undefined')) return sortConfig.direction === 'ascending' ? -1 : 1;
         if ((valA === null || typeof valA === 'undefined') && (valB === null || typeof valB === 'undefined')) return 0;
   
         let comparison = 0;
         if (typeof valA === 'number' && typeof valB === 'number') {
           comparison = valA - valB;
         } else {
-          // Ensure consistent string comparison for all other types
           comparison = String(valA).toLowerCase().localeCompare(String(valB).toLowerCase());
         }
   
@@ -325,7 +330,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
               <SelectItem value={ALL_FILTER_VALUE}>{allOptionLabel}</SelectItem>
               {uniqueValues.map(opt => (
                 <SelectItem key={opt} value={opt}>
-                  {columnKey === 'netAmount' ? formatCurrency(parseFloat(opt)) : opt}
+                  {columnKey === 'netAmount' ? formatCurrency(opt === t('interactiveTable.notAvailable') ? null : parseFloat(opt)) : opt}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -333,6 +338,14 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
         </PopoverContent>
       </Popover>
     );
+  };
+
+  const handleViewHistory = (taskId: string) => {
+    toast({
+      title: t('interactiveTable.viewingHistory', { taskId }),
+      description: t('interactiveTable.historyFeaturePlaceholder'),
+    });
+    console.log("View history for task:", taskId);
   };
 
 
@@ -485,6 +498,13 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                     </div>
                   </TableHead>
 
+                  <TableHead className="group text-center w-20"> {/* History Column */}
+                    <div className="flex items-center justify-center py-3">
+                       {t('interactiveTable.tableHeaders.history')}
+                    </div>
+                  </TableHead>
+
+
                   <TableHead className="group text-left"> 
                      <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1 cursor-pointer flex-grow py-3 pr-2" onClick={() => requestSort('resolutionStatus')}>
@@ -499,7 +519,10 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-60 p-2" align="start">
-                          <Select value={filters.resolutionStatus || ALL_FILTER_VALUE} onValueChange={(value) => handleFilterChange('resolutionStatus', value as TaskResolutionStatus)}>
+                          <Select 
+                            value={filters.resolutionStatus || ALL_FILTER_VALUE} 
+                            onValueChange={(value) => handleFilterChange('resolutionStatus', value as TaskResolutionStatus)}
+                          >
                             <SelectTrigger className="h-8"><SelectValue placeholder={filterActionPlaceholder} /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value={ALL_FILTER_VALUE}>{t('interactiveTable.allStatuses')}</SelectItem>
@@ -567,6 +590,18 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                       
                       <TableCell className="text-right">{task.resolutionTimeDays === null || task.resolutionTimeDays === undefined ? t('interactiveTable.notAvailable') : String(task.resolutionTimeDays)}</TableCell>
                       
+                       <TableCell className="text-center">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => handleViewHistory(taskId)}
+                          title={t('interactiveTable.viewHistoryTooltip')}
+                        >
+                          <History className="h-4 w-4" />
+                          <span className="sr-only">{t('interactiveTable.viewHistoryTooltip')}</span>
+                        </Button>
+                      </TableCell>
+
                       <TableCell
                         onClick={() => { if (editingCellKey !== `${taskId}-resolutionStatus`) { startEdit(task, 'resolutionStatus'); } }}
                         className="text-left cursor-pointer hover:bg-muted/50"
@@ -578,7 +613,9 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                             open={isSelectDropdownOpen}
                             onOpenChange={(openState) => {
                               setIsSelectDropdownOpen(openState);
-                              if (!openState && editingCellKey === `${taskId}-resolutionStatus`) { setEditingCellKey(null); }
+                              if (!openState && editingCellKey === `${taskId}-resolutionStatus`) { 
+                                setEditingCellKey(null); 
+                              }
                             }}
                           >
                             <SelectTrigger className="w-full text-sm h-8" autoFocus>
@@ -620,3 +657,4 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     
 
     
+
