@@ -33,12 +33,13 @@ function getPageTitleKey(pathname: string | null): string {
 }
 
 export function PageHeader() {
-  const pathname = usePathname();
-  const { language, setLanguage, t } = useLanguage();
-  const { theme, setTheme } = useTheme();
-  const { user, logout } = useAuth(); // Get user and logout from AuthContext
-  const [titleKey, setTitleKey] = useState<string>("pageHeader.appName");
-  const [hydrated, setHydrated] = useState(false);
+  const pathname = usePathname(); // Hook at top
+  const { language, setLanguage, t } = useLanguage(); // Hook at top
+  const { theme, setTheme } = useTheme(); // Hook at top
+  const { user, logout } = useAuth(); // Hook at top
+  
+  const [titleKey, setTitleKey] = useState<string>("pageHeader.appName"); // Hook at top
+  const [hydrated, setHydrated] = useState(false); // Hook at top
 
   useEffect(() => {
     setHydrated(true);
@@ -52,14 +53,21 @@ export function PageHeader() {
 
   const pageTitle = hydrated ? t(titleKey as any) : t('pageHeader.appName' as any);
 
-  // Don't render PageHeader on the login page if user is not authenticated
+  // AppContent in layout.tsx handles redirection.
+  // If user is not authenticated and not on /login, AppContent will redirect.
+  // If user is not authenticated and is on /login, AppContent renders LoginPage,
+  // and this PageHeader might not be rendered if AppContent decides so.
+  // This check is a safeguard or for contexts where PageHeader might be used outside AppContent's direct control.
   if (!user && pathname === '/login') {
-    return null;
+    return null; // Don't render header on login page if not authenticated (AppContent handles this primarily)
   }
-  
-  // Or if user is not yet loaded (optional, but good for consistency if isLoading is true elsewhere)
-  // if (isLoading) return null;
-
+  // If there's no user and we're not on the login page, AppContent would have redirected.
+  // If user is null and path is not /login, this component shouldn't be rendered by AppContent.
+  // This implies if we reach here, either user exists, or (less likely) AppContent logic needs review.
+  // However, to be safe, if somehow rendered without a user on a protected page, don't show it.
+  if (!user) { 
+      return null;
+  }
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-6 shadow-sm min-w-0"> {/* Added min-w-0 */}

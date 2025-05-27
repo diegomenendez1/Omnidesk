@@ -24,7 +24,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true); // Start with loading true
   const router = useRouter();
-  const pathname = usePathname();
+  const pathname = usePathname(); // Called unconditionally
 
   useEffect(() => {
     // Simulate checking auth state on mount (e.g., from localStorage or a token)
@@ -52,7 +52,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setIsLoading(false);
       return true;
     }
-    setError(t('loginPage.invalidCredentials')); // Ensure t is available or handle error differently
+    // setError(t('loginPage.invalidCredentials')); // Error handling should be in the login form
     setIsLoading(false);
     return false;
   };
@@ -60,21 +60,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = () => {
     setUser(null);
     // localStorage.removeItem('authUser'); // Optional: clear persisted session
-    // No need to setIsLoading(true) here as it's an immediate state change
-    if (pathname !== '/login') {
-      router.push('/login');
-    }
+    setIsLoading(false); // Set loading to false after logout
+    // No need to check pathname here, AppContent will handle redirect
+    router.push('/login');
   };
-  
-  // Helper for login error, assuming t is not directly available here
-  // This is a placeholder for actual error handling if t is not in scope.
-  // Ideally, login errors are handled in the LoginPage component.
-  const setError = (message: string) => {
-    // This function is conceptual. Error state should be managed by the login form.
-    console.error("Login error (AuthContext):", message);
-  };
-  const t = (key: string) => key; // Placeholder t function
-
 
   return (
     <AuthContext.Provider value={{ user, isLoading, login, logout }}>

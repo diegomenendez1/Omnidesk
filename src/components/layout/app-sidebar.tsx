@@ -19,15 +19,21 @@ import { useState, useEffect } from 'react';
 import { useLanguage } from '@/context/language-context';
 import { useAuth } from "@/context/auth-context"; // Import useAuth
 
+const navItems = [
+  { href: "/dashboard", labelKey: "sidebar.dashboard", icon: LayoutDashboard },
+  { href: "/table", labelKey: "sidebar.interactiveTable", icon: Table2 },
+  { href: "/upload-data", labelKey: "sidebar.uploadData", icon: UploadCloud },
+];
+
 export function AppSidebar() {
-  const pathname = usePathname();
-  const { t } = useLanguage();
-  const { user } = useAuth(); // Get user from AuthContext
-  const [currentActivePath, setCurrentActivePath] = useState<string | null>(null);
-  const { state: sidebarState } = useSidebar();
+  const pathname = usePathname(); // Hook at top
+  const { t } = useLanguage(); // Hook at top
+  const { user } = useAuth(); // Hook at top
+  const { state: sidebarState } = useSidebar(); // Hook at top
   
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [hydrated, setHydrated] = useState(false);
+  const [currentActivePath, setCurrentActivePath] = useState<string | null>(null); // Hook at top
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false); // Hook at top
+  const [hydrated, setHydrated] = useState(false); // Hook at top
 
   useEffect(() => { 
     setHydrated(true); 
@@ -47,14 +53,9 @@ export function AppSidebar() {
   
   const logoText = hydrated ? (isSidebarCollapsed ? "OD" : t('appName')) : t('appName');
 
-  const navItems = [
-    { href: "/dashboard", labelKey: "sidebar.dashboard", icon: LayoutDashboard },
-    { href: "/table", labelKey: "sidebar.interactiveTable", icon: Table2 },
-    { href: "/upload-data", labelKey: "sidebar.uploadData", icon: UploadCloud },
-  ];
-
-  // Do not render sidebar on login page or if user is not authenticated
-  if (!user || pathname === '/login') {
+  // AppSidebar should not render if there's no user (handled by AppContent in layout.tsx)
+  // but as a failsafe or if AppSidebar is used elsewhere, this check is good.
+  if (!user) {
     return null;
   }
 

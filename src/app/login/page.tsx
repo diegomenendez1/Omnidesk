@@ -15,7 +15,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false); // Renamed from isLoading to avoid conflict
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
   const { login } = useAuth();
   const { t } = useLanguage();
@@ -27,12 +27,13 @@ export default function LoginPage() {
     try {
       const success = await login(email, password);
       if (success) {
-        router.push("/dashboard");
+        router.push("/dashboard"); // Redirect after successful login
       } else {
         setError(t('loginPage.invalidCredentials'));
       }
     } catch (err) {
       setError(t('loginPage.loginFailed'));
+      console.error("Login error:", err);
     } finally {
       setIsSubmitting(false);
     }

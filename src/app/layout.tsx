@@ -26,16 +26,16 @@ const geistMono = Geist_Mono({
 
 // AppContent component to handle auth logic and conditional rendering
 function AppContent({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuth();
-  const pathname = usePathname();
-
+  const auth = useAuth(); // Hook called at top level
+  const pathname = usePathname(); // Hook called at top level
+  
   useEffect(() => {
     // Update document title based on user authentication status
     // This effect runs after all hooks in AppContent are processed.
-    document.title = user ? 'OmniDeck - Your Team Workspace' : 'OmniDeck - Login';
-  }, [user]);
+    document.title = auth.user ? 'OmniDeck - Your Team Workspace' : 'OmniDeck - Login';
+  }, [auth.user]);
 
-  if (isLoading) {
+  if (auth.isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Loader2 className="h-16 w-16 animate-spin text-primary" />
@@ -44,9 +44,9 @@ function AppContent({ children }: { children: React.ReactNode }) {
   }
 
   // User is not authenticated
-  if (!user) {
+  if (!auth.user) {
     if (pathname !== '/login') {
-      redirect('/login');
+      redirect('/login'); // Side effect, called after hooks
       return null; // Important: return null after redirect to prevent further rendering
     }
     // If on /login and not authenticated, render the login page
@@ -54,27 +54,24 @@ function AppContent({ children }: { children: React.ReactNode }) {
   }
 
   // User is authenticated
-  if (user) {
-    if (pathname === '/login') {
-      redirect('/dashboard');
-      return null; // Important: return null after redirect
-    }
-    // If authenticated and not on /login, render the main app layout
-    return (
-      <SidebarProvider defaultOpen={true}>
-        <div className="flex h-full overflow-hidden">
-          <AppSidebar />
-          <MainContentArea>
-            {children}
-          </MainContentArea>
-        </div>
-        <Toaster />
-      </SidebarProvider>
-    );
+  // This 'if (auth.user)' is implicitly true if we reach here
+  if (pathname === '/login') {
+    redirect('/dashboard'); // Side effect, called after hooks
+    return null; // Important: return null after redirect
   }
-
-  // Fallback, should ideally not be reached if logic above is correct
-  return null;
+  
+  // If authenticated and not on /login, render the main app layout
+  return (
+    <SidebarProvider defaultOpen={true}>
+      <div className="flex h-full overflow-hidden">
+        <AppSidebar />
+        <MainContentArea>
+          {children}
+        </MainContentArea>
+      </div>
+      <Toaster />
+    </SidebarProvider>
+  );
 }
 
 
