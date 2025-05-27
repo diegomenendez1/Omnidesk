@@ -2,6 +2,8 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAnalytics, isSupported } from "firebase/analytics";
+import { getAuth } from "firebase/auth"; // Import getAuth
+
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
 
@@ -26,6 +28,8 @@ if (!getApps().length) {
   app = getApp(); // if already initialized, use that one
 }
 
+const auth = getAuth(app); // Initialize Firebase Auth and get a reference to the service
+
 let analytics;
 // Check if Analytics is supported in the current environment before initializing
 if (typeof window !== 'undefined') { // Analytics is client-side
@@ -38,4 +42,4 @@ if (typeof window !== 'undefined') { // Analytics is client-side
   });
 }
 
-export { app, analytics };
+export { app, auth, analytics }; // Export auth

@@ -3,70 +3,122 @@
 
 import type { ReactNode } from 'react';
 import { createContext, useContext, useState, useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
+import { auth } from '@/lib/firebase'; // Import Firebase auth instance
+import { 
+  onAuthStateChanged, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut,
+  type User as FirebaseUser // Rename to avoid conflict with our User interface
+} from 'firebase/auth';
 
-interface User {
-  id: string;
-  email: string;
-  name?: string;
+interface User { // Our simplified User interface
+  uid: string;
+  email: string | null;
+  displayName: string | null;
 }
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  login: (email: string, password?: string) => Promise<boolean>;
-  logout: () => void;
+  login: (email: string, password?: string) => Promise<{ success: boolean; error?: string }>;
+  register: (email: string, password?: string) => Promise<{ success: boolean; error?: string }>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true); // Start with loading true
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
-  const pathname = usePathname(); // Called unconditionally
 
   useEffect(() => {
-    // Simulate checking auth state on mount (e.g., from localStorage or a token)
-    // In a real app, you'd verify a token or session here.
-    // For this prototype, just simulate a delay.
-    const timer = setTimeout(() => {
-      // const storedUser = localStorage.getItem('authUser');
-      // if (storedUser) {
-      //   setUser(JSON.parse(storedUser));
-      // }
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
+      if (firebaseUser) {
+        setUser({
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+          displayName: firebaseUser.displayName,
+        });
+      } else {
+        setUser(null);
+      }
       setIsLoading(false);
-    }, 500); // Simulate initial auth check delay
-    return () => clearTimeout(timer);
+    });
+
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
   }, []);
 
-  const login = async (email: string, password?: string): Promise<boolean> => {
+  const login = async (email: string, password?: string): Promise<{ success: boolean; error?: string }> => {
+    if (!password) return { success: false, error: 'Password is required.' };
     setIsLoading(true);
-    // Simulate API call for login
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    // Basic validation for prototype purposes
-    if (email && password) { // In a real app, validate against backend
-      const simulatedUser: User = { id: Date.now().toString(), email: email, name: email.split('@')[0] || "User" };
-      setUser(simulatedUser);
-      // localStorage.setItem('authUser', JSON.stringify(simulatedUser)); // Optional: persist session
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      // onAuthStateChanged will handle setting the user state
       setIsLoading(false);
-      return true;
+      return { success: true };
+    } catch (error: any) {
+      setIsLoading(false);
+      console.error("Firebase login error:", error.code, error.message);
+      return { success: false, error: mapAuthCodeToMessage(error.code) };
     }
-    // setError(t('loginPage.invalidCredentials')); // Error handling should be in the login form
-    setIsLoading(false);
-    return false;
   };
 
-  const logout = () => {
-    setUser(null);
-    // localStorage.removeItem('authUser'); // Optional: clear persisted session
-    setIsLoading(false); // Set loading to false after logout
-    // No need to check pathname here, AppContent will handle redirect
-    router.push('/login');
+  const register = async (email: string, password?: string): Promise<{ success: boolean; error?: string }> => {
+    if (!password) return { success: false, error: 'Password is required.' };
+    setIsLoading(true);
+    try {
+      await createUserWithEmailAndPassword(auth, email, password);
+      // onAuthStateChanged will handle setting the user state
+      // Firebase automatically signs in the user after registration
+      setIsLoading(false);
+      return { success: true };
+    } catch (error: any) {
+      setIsLoading(false);
+      console.error("Firebase registration error:", error.code, error.message);
+      return { success: false, error: mapAuthCodeToMessage(error.code) };
+    }
   };
+
+  const logout = async () => {
+    setIsLoading(true);
+    try {
+      await signOut(auth);
+      // onAuthStateChanged will set user to null
+      router.push('/login'); // Ensure redirect after state is cleared
+    } catch (error: any) {
+       console.error("Firebase logout error:", error.code, error.message);
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
+  const mapAuthCodeToMessage = (code: string): string => {
+    switch (code) {
+      case 'auth/invalid-email':
+        return 'loginPage.error.invalidEmail';
+      case 'auth/user-disabled':
+        return 'loginPage.error.userDisabled';
+      case 'auth/user-not-found':
+      case 'auth/invalid-credential': // Covers wrong password too for signIn
+        return 'loginPage.error.invalidCredentials';
+      case 'auth/wrong-password':
+        return 'loginPage.error.invalidCredentials'; // Often paired with user-not-found for security
+      case 'auth/email-already-in-use':
+        return 'loginPage.error.emailInUse';
+      case 'auth/weak-password':
+        return 'loginPage.error.weakPassword';
+      default:
+        return 'loginPage.error.generic';
+    }
+  };
+
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );

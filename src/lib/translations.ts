@@ -27,14 +27,14 @@ export interface Translations {
       myAccount: string;
       profile: string;
       settings: string;
-      logout: string; // Added
+      logout: string; 
       dashboard: string;
       interactiveTable: string;
       uploadData: string;
       language: string;
       english: string;
       spanish: string;
-      login: string; // Added
+      login: string; 
       theme: { 
         toggle: string;
         title: string;
@@ -99,7 +99,7 @@ export interface Translations {
         comments: string;
         admin: string;
         resolutionTimeDays: string;
-        history: string; // Added
+        history: string; 
         actions: string; 
       };
       status: { 
@@ -118,9 +118,9 @@ export interface Translations {
       allStatuses: string;
       filterAllOption: string; 
       filterActionPlaceholder: string;
-      viewHistoryTooltip: string; // Added
-      viewingHistory: string; // Added
-      historyFeaturePlaceholder: string; // Added
+      viewHistoryTooltip: string; 
+      viewingHistory: string; 
+      historyFeaturePlaceholder: string; 
     };
     uploadData: {
       title: string;
@@ -189,14 +189,28 @@ export interface Translations {
       errorLoadingData: string;
       errorLoadingDataDescription: string;
     };
-    loginPage: { // Added
-      title: string;
-      description: string;
+    loginPage: { 
+      titleLogin: string;
+      descriptionLogin: string;
+      titleRegister: string;
+      descriptionRegister: string;
       emailLabel: string;
       passwordLabel: string;
       loginButton: string;
-      invalidCredentials: string;
-      loginFailed: string;
+      registerButton: string;
+      noAccount: string;
+      hasAccount: string;
+      registerLink: string;
+      loginLink: string;
+      error: {
+        invalidCredentials: string;
+        loginFailed: string; // Kept for generic, might be replaced by more specific ones
+        generic: string;
+        invalidEmail: string;
+        userDisabled: string;
+        emailInUse: string;
+        weakPassword: string;
+      }
     };
   };
   es: {
@@ -207,14 +221,14 @@ export interface Translations {
       myAccount: string;
       profile: string;
       settings: string;
-      logout: string; // Added
+      logout: string; 
       dashboard: string;
       interactiveTable: string;
       uploadData: string;
       language: string;
       english: string;
       spanish: string;
-      login: string; // Added
+      login: string; 
       theme: { 
         toggle: string;
         title: string;
@@ -279,7 +293,7 @@ export interface Translations {
         comments: string;
         admin: string;
         resolutionTimeDays: string;
-        history: string; // Added
+        history: string; 
         actions: string;
       };
       status: {
@@ -298,9 +312,9 @@ export interface Translations {
       allStatuses: string;
       filterAllOption: string;
       filterActionPlaceholder: string;
-      viewHistoryTooltip: string; // Added
-      viewingHistory: string; // Added
-      historyFeaturePlaceholder: string; // Added
+      viewHistoryTooltip: string; 
+      viewingHistory: string; 
+      historyFeaturePlaceholder: string; 
     };
     uploadData: {
       title: string;
@@ -369,14 +383,28 @@ export interface Translations {
       errorLoadingData: string;
       errorLoadingDataDescription: string;
     };
-    loginPage: { // Added
-      title: string;
-      description: string;
+    loginPage: { 
+      titleLogin: string;
+      descriptionLogin: string;
+      titleRegister: string;
+      descriptionRegister: string;
       emailLabel: string;
       passwordLabel: string;
       loginButton: string;
-      invalidCredentials: string;
-      loginFailed: string;
+      registerButton: string;
+      noAccount: string;
+      hasAccount: string;
+      registerLink: string;
+      loginLink: string;
+      error: {
+        invalidCredentials: string;
+        loginFailed: string; 
+        generic: string;
+        invalidEmail: string;
+        userDisabled: string;
+        emailInUse: string;
+        weakPassword: string;
+      }
     };
   }
 }
@@ -554,13 +582,27 @@ export const translations: Translations = {
       errorLoadingDataDescription: "Could not load saved tasks.",
     },
     loginPage: {
-      title: "Login",
-      description: "Enter your credentials to access your account.",
+      titleLogin: "Login",
+      descriptionLogin: "Enter your credentials to access your account.",
+      titleRegister: "Register",
+      descriptionRegister: "Create a new account to get started.",
       emailLabel: "Email",
       passwordLabel: "Password",
       loginButton: "Login",
-      invalidCredentials: "Invalid email or password.",
-      loginFailed: "Login failed. Please try again.",
+      registerButton: "Register",
+      noAccount: "Don't have an account?",
+      hasAccount: "Already have an account?",
+      registerLink: "Register here",
+      loginLink: "Login here",
+      error: {
+        invalidCredentials: "Invalid email or password.",
+        loginFailed: "Login failed. Please try again.",
+        generic: "An unexpected error occurred. Please try again.",
+        invalidEmail: "The email address is badly formatted.",
+        userDisabled: "This user account has been disabled.",
+        emailInUse: "This email address is already in use by another account.",
+        weakPassword: "Password should be at least 6 characters.",
+      }
     },
   },
   es: {
@@ -734,13 +776,27 @@ export const translations: Translations = {
       errorLoadingDataDescription: "No se pudieron cargar las tareas guardadas.",
     },
     loginPage: {
-      title: "Iniciar Sesión",
-      description: "Ingresa tus credenciales para acceder a tu cuenta.",
+      titleLogin: "Iniciar Sesión",
+      descriptionLogin: "Ingresa tus credenciales para acceder a tu cuenta.",
+      titleRegister: "Registrarse",
+      descriptionRegister: "Crea una nueva cuenta para comenzar.",
       emailLabel: "Correo Electrónico",
       passwordLabel: "Contraseña",
       loginButton: "Iniciar Sesión",
-      invalidCredentials: "Correo electrónico o contraseña no válidos.",
-      loginFailed: "Falló el inicio de sesión. Por favor, inténtalo de nuevo.",
+      registerButton: "Registrarse",
+      noAccount: "¿No tienes una cuenta?",
+      hasAccount: "¿Ya tienes una cuenta?",
+      registerLink: "Regístrate aquí",
+      loginLink: "Inicia sesión aquí",
+      error: {
+        invalidCredentials: "Correo electrónico o contraseña no válidos.",
+        loginFailed: "Falló el inicio de sesión. Por favor, inténtalo de nuevo.",
+        generic: "Ocurrió un error inesperado. Por favor, inténtalo de nuevo.",
+        invalidEmail: "La dirección de correo electrónico no tiene un formato válido.",
+        userDisabled: "Esta cuenta de usuario ha sido deshabilitada.",
+        emailInUse: "Esta dirección de correo electrónico ya está en uso por otra cuenta.",
+        weakPassword: "La contraseña debe tener al menos 6 caracteres.",
+      }
     },
   }
 };
