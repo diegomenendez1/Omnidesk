@@ -15,7 +15,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); // Renamed from isLoading to avoid conflict
   const router = useRouter();
   const { login } = useAuth();
   const { t } = useLanguage();
@@ -23,11 +23,9 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setIsLoading(true);
+    setIsSubmitting(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      const success = await login(email, password); // login is now async
+      const success = await login(email, password);
       if (success) {
         router.push("/dashboard");
       } else {
@@ -36,7 +34,7 @@ export default function LoginPage() {
     } catch (err) {
       setError(t('loginPage.loginFailed'));
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -74,8 +72,8 @@ export default function LoginPage() {
               />
             </div>
             {error && <p className="text-sm text-destructive text-center">{error}</p>}
-            <Button type="submit" className="w-full text-lg py-3" disabled={isLoading}>
-              {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : t('loginPage.loginButton')}
+            <Button type="submit" className="w-full text-lg py-3" disabled={isSubmitting}>
+              {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : t('loginPage.loginButton')}
             </Button>
           </form>
         </CardContent>

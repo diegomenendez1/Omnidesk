@@ -24,11 +24,14 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 });
 
+// AppContent component to handle auth logic and conditional rendering
 function AppContent({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   const pathname = usePathname();
 
   useEffect(() => {
+    // Update document title based on user authentication status
+    // This effect runs after all hooks in AppContent are processed.
     document.title = user ? 'OmniDeck - Your Team Workspace' : 'OmniDeck - Login';
   }, [user]);
 
@@ -40,21 +43,23 @@ function AppContent({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!user && pathname !== '/login') {
-    redirect('/login');
-    return null; 
-  }
-
-  if (user && pathname === '/login') {
-    redirect('/dashboard');
-    return null; 
-  }
-  
-  if (!user && pathname === '/login') {
+  // User is not authenticated
+  if (!user) {
+    if (pathname !== '/login') {
+      redirect('/login');
+      return null; // Important: return null after redirect to prevent further rendering
+    }
+    // If on /login and not authenticated, render the login page
     return <>{children}</>;
   }
-  
+
+  // User is authenticated
   if (user) {
+    if (pathname === '/login') {
+      redirect('/dashboard');
+      return null; // Important: return null after redirect
+    }
+    // If authenticated and not on /login, render the main app layout
     return (
       <SidebarProvider defaultOpen={true}>
         <div className="flex h-full overflow-hidden">
@@ -68,7 +73,8 @@ function AppContent({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return null; 
+  // Fallback, should ideally not be reached if logic above is correct
+  return null;
 }
 
 

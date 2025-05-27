@@ -2,11 +2,10 @@
 import { redirect } from 'next/navigation';
 
 export default function HomePage() {
-  // The AuthGuard in RootLayout will handle redirecting to /login if not authenticated
-  // or to /dashboard if authenticated.
-  // If user is authenticated, this redirect will be caught by RootLayout's logic if it tries to go to /login.
-  // If not authenticated, RootLayout redirects to /login before this page is fully processed.
-  // Defaulting to dashboard, RootLayout handles the auth check.
+  // The AppContent component in RootLayout will handle redirecting
+  // to /login if not authenticated or allowing access to /dashboard if authenticated.
+  // This page primarily serves as an entry point that gets rerouted.
   redirect('/dashboard');
-  // return null; 
+  // Return null or an empty fragment as redirect will prevent rendering of this component.
+  return null; 
 }

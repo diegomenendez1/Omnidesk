@@ -3,19 +3,18 @@
 
 import type { ReactNode } from 'react';
 import { createContext, useContext, useState, useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation'; // Import useRouter
+import { useRouter, usePathname } from 'next/navigation';
 
 interface User {
   id: string;
   email: string;
   name?: string;
-  // Add other user properties as needed
 }
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  login: (email: string, password?: string) => Promise<boolean>; // Made login async and accept password
+  login: (email: string, password?: string) => Promise<boolean>;
   logout: () => void;
 }
 
@@ -27,49 +26,55 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Simulate checking auth state on mount (e.g., from localStorage or a token)
   useEffect(() => {
-    setIsLoading(true);
+    // Simulate checking auth state on mount (e.g., from localStorage or a token)
     // In a real app, you'd verify a token or session here.
-    // For now, we'll assume no persistent session for simplicity in this prototype.
-    // If you had a way to check, you might do:
-    // const checkSession = async () => {
-    //   const storedUser = localStorage.getItem('authUser'); // Example
-    //   if (storedUser) {
-    //     setUser(JSON.parse(storedUser));
-    //   }
-    //   setIsLoading(false);
-    // };
-    // checkSession();
-    // For this prototype, just simulate a delay and set user to null
-     const timeoutId = setTimeout(() => {
-      setUser(null); // Default to not logged in
+    // For this prototype, just simulate a delay.
+    const timer = setTimeout(() => {
+      // const storedUser = localStorage.getItem('authUser');
+      // if (storedUser) {
+      //   setUser(JSON.parse(storedUser));
+      // }
       setIsLoading(false);
-    }, 500); // Simulate a small delay for auth check
-
-    return () => clearTimeout(timeoutId);
+    }, 500); // Simulate initial auth check delay
+    return () => clearTimeout(timer);
   }, []);
 
   const login = async (email: string, password?: string): Promise<boolean> => {
-    // Simulate login - in a real app, this would call your backend/Firebase
-    // For now, any non-empty email/password logs in.
-    // Password check is very basic for simulation.
-    if (email) { // Basic check for demo
-      const simulatedUser: User = { id: '1', email: email, name: email.split('@')[0] };
+    setIsLoading(true);
+    // Simulate API call for login
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Basic validation for prototype purposes
+    if (email && password) { // In a real app, validate against backend
+      const simulatedUser: User = { id: Date.now().toString(), email: email, name: email.split('@')[0] || "User" };
       setUser(simulatedUser);
-      // localStorage.setItem('authUser', JSON.stringify(simulatedUser)); // Example persistence
+      // localStorage.setItem('authUser', JSON.stringify(simulatedUser)); // Optional: persist session
+      setIsLoading(false);
       return true;
     }
+    setError(t('loginPage.invalidCredentials')); // Ensure t is available or handle error differently
+    setIsLoading(false);
     return false;
   };
 
   const logout = () => {
     setUser(null);
-    // localStorage.removeItem('authUser'); // Example persistence
-    if (pathname !== '/login') { // Avoid redirect loop if already on login
-        router.push('/login');
+    // localStorage.removeItem('authUser'); // Optional: clear persisted session
+    // No need to setIsLoading(true) here as it's an immediate state change
+    if (pathname !== '/login') {
+      router.push('/login');
     }
   };
+  
+  // Helper for login error, assuming t is not directly available here
+  // This is a placeholder for actual error handling if t is not in scope.
+  // Ideally, login errors are handled in the LoginPage component.
+  const setError = (message: string) => {
+    // This function is conceptual. Error state should be managed by the login form.
+    console.error("Login error (AuthContext):", message);
+  };
+  const t = (key: string) => key; // Placeholder t function
+
 
   return (
     <AuthContext.Provider value={{ user, isLoading, login, logout }}>
