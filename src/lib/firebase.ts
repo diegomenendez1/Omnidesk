@@ -1,45 +1,36 @@
 
-// Import the functions you need from the SDKs you need
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAnalytics, isSupported } from "firebase/analytics";
-import { getAuth } from "firebase/auth"; // Import getAuth
+// src/lib/firebase.ts
+import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
+import { getAuth, type Auth } from "firebase/auth";
+// Add other Firebase services like Firestore if needed
+// import { getFirestore, type Firestore } from "firebase/firestore";
 
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+// IMPORTANT: REPLACE THESE WITH YOUR PROJECT'S ACTUAL FIREBASE CONFIGURATION
+// You can find this in your Firebase project console:
+// Project settings > General > Your apps > Web app > Firebase SDK snippet > Config
 const firebaseConfig = {
-  apiKey: "AIzaSyCxy16sIrioO8RGHj2h48A8fIKraxQrAIE",
+  apiKey: "AIzaSyCxy16sIrioO8RGHj2h48A8fIKraxQrAIE", // <<< THIS IS LIKELY INVALID
   authDomain: "allnews-9dc1b.firebaseapp.com",
-  databaseURL: "https://allnews-9dc1b.firebaseio.com",
+  databaseURL: "https://allnews-9dc1b.firebaseio.com", // Only if using Realtime Database
   projectId: "allnews-9dc1b",
-  storageBucket: "allnews-9dc1b.firebasestorage.app",
-  messagingSenderId: "636092770413",
+  storageBucket: "allnews-9dc1b.appspot.com", // Only if using Storage
+  messagingSenderId: "636092770413", // Only if using Messaging
   appId: "1:636092770413:web:e8472bcc7e82d78b307764",
-  measurementId: "G-4EFNK5F5SL"
+  measurementId: "G-4EFNK5F5SL" // Only if using Analytics
 };
 
-// Initialize Firebase
-let app;
+let app: FirebaseApp;
+let auth: Auth;
+// let db: Firestore; // Example for Firestore
+
 if (!getApps().length) {
   app = initializeApp(firebaseConfig);
 } else {
-  app = getApp(); // if already initialized, use that one
+  app = getApps()[0];
 }
 
-const auth = getAuth(app); // Initialize Firebase Auth and get a reference to the service
+auth = getAuth(app);
+// db = getFirestore(app); // Example for Firestore
 
-let analytics;
-// Check if Analytics is supported in the current environment before initializing
-if (typeof window !== 'undefined') { // Analytics is client-side
-  isSupported().then((supported) => {
-    if (supported) {
-      analytics = getAnalytics(app);
-    }
-  }).catch(err => {
-    console.error("Failed to initialize Firebase Analytics", err);
-  });
-}
-
-export { app, auth, analytics }; // Export auth
+export { app, auth };
+// export { app, auth, db }; // If using Firestore
