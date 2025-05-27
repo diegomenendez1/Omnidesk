@@ -1,36 +1,27 @@
+// Import the functions you need from the SDKs you need
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
 
-// src/lib/firebase.ts
-import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
-import { getAuth, type Auth } from "firebase/auth";
-// Add other Firebase services like Firestore if needed
-// import { getFirestore, type Firestore } from "firebase/firestore";
-
-// IMPORTANT: REPLACE THESE WITH YOUR PROJECT'S ACTUAL FIREBASE CONFIGURATION
-// You can find this in your Firebase project console:
-// Project settings > General > Your apps > Web app > Firebase SDK snippet > Config
+// Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyCxy16sIrioO8RGHj2h48A8fIKraxQrAIE", // <<< THIS IS LIKELY INVALID
-  authDomain: "allnews-9dc1b.firebaseapp.com",
-  databaseURL: "https://allnews-9dc1b.firebaseio.com", // Only if using Realtime Database
-  projectId: "allnews-9dc1b",
-  storageBucket: "allnews-9dc1b.appspot.com", // Only if using Storage
-  messagingSenderId: "636092770413", // Only if using Messaging
-  appId: "1:636092770413:web:e8472bcc7e82d78b307764",
-  measurementId: "G-4EFNK5F5SL" // Only if using Analytics
+  apiKey: "AIzaSyCf_DFUGCItEDfAaroaG5hZRk84cqjyhTA",
+  authDomain: "omnidesk-3v8d2.firebaseapp.com",
+  projectId: "omnidesk-3v8d2",
+  storageBucket: "omnidesk-3v8d2.firebasestorage.app",
+  messagingSenderId: "916221398039",
+  appId: "1:916221398039:web:a6a43640cc5dc3282aa052"
 };
 
-let app: FirebaseApp;
-let auth: Auth;
-// let db: Firestore; // Example for Firestore
-
+// Initialize Firebase
+let app;
 if (!getApps().length) {
   app = initializeApp(firebaseConfig);
 } else {
-  app = getApps()[0];
+  app = getApp(); // if already initialized, use that one
 }
 
-auth = getAuth(app);
-// db = getFirestore(app); // Example for Firestore
+const auth = getAuth(app);
 
 export { app, auth };
-// export { app, auth, db }; // If using Firestore
