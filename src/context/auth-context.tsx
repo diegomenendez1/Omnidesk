@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { ReactNode } from 'react';
@@ -15,6 +16,8 @@ import type { TranslationKey } from '@/lib/translations';
 
 // Helper function to get owner email from environment variable or use a default
 const getOwnerEmail = (): string => {
+  // For client-side, process.env is not directly available like in Node.js for .env files.
+  // NEXT_PUBLIC_ variables are inlined at build time.
   let ownerEmail = process.env.NEXT_PUBLIC_OWNER_EMAIL;
   if (!ownerEmail) {
     console.warn("AuthContext: NEXT_PUBLIC_OWNER_EMAIL is not set. Falling back to default 'owner@example.com' for role simulation.");
@@ -46,7 +49,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  // const router = useRouter(); // Not used directly in provider, but good to keep for future
+  const router = useRouter();
   
   console.log("AuthContext: Initializing Provider. isLoading:", isLoading);
 
@@ -61,9 +64,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
       console.log('AuthContext: onAuthStateChanged triggered. Firebase user UID:', firebaseUser ? firebaseUser.uid : 'null'); 
       if (firebaseUser) {
-        // Simulate role fetching - REPLACE THIS WITH ACTUAL FIRESTORE CALL
         const role: User['role'] = firebaseUser.email === OWNER_EMAIL_FOR_SIMULATION ? 'owner' : 'user';
-
         const appUser: User = {
           uid: firebaseUser.uid,
           email: firebaseUser.email,
@@ -85,18 +86,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.log("AuthContext: Unsubscribing from onAuthStateChanged.");
       unsubscribe();
     };
-  }, []); // auth instance should be stable
+  }, []); // auth instance should be stable, router is stable
 
   const mapAuthCodeToMessage = (code: string): TranslationKey => {
+    console.log("AuthContext mapAuthCodeToMessage received code:", code);
     switch (code) {
       case 'auth/invalid-email':
         return 'loginPage.error.invalidEmail' as TranslationKey;
       case 'auth/user-disabled':
         return 'loginPage.error.userDisabled' as TranslationKey;
-      case 'auth/user-not-found': // Often covered by invalid-credential in v9+
+      case 'auth/user-not-found': 
       case 'auth/invalid-credential': 
         return 'loginPage.error.invalidCredentials' as TranslationKey;
-      case 'auth/wrong-password': // Often covered by invalid-credential in v9+
+      case 'auth/wrong-password': 
         return 'loginPage.error.wrongPassword' as TranslationKey;
       case 'auth/email-already-in-use':
         return 'loginPage.error.emailInUse' as TranslationKey;
@@ -104,9 +106,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return 'loginPage.error.weakPassword' as TranslationKey;
       case 'auth/requires-recent-login':
         return 'loginPage.error.requiresRecentLogin' as TranslationKey;
-      case 'auth/api-key-not-valid.-please-pass-a-valid-api-key.':
       case 'auth/network-request-failed':
         return 'loginPage.error.networkError' as TranslationKey;
+      case 'auth/api-key-not-valid': // Specific case for invalid API key
+      case 'auth/api-key-not-valid.-please-pass-a-valid-api-key.': // Handle variations
+        return 'loginPage.error.apiKeyInvalid' as TranslationKey;
       default:
         console.warn("AuthContext: Unmapped Firebase error code:", code);
         return 'loginPage.error.generic' as TranslationKey;
@@ -127,7 +131,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       console.log("AuthContext: signInWithEmailAndPassword call successful for", email, ". Waiting for onAuthStateChanged.");
-      // Success is handled by onAuthStateChanged setting the user and isLoading to false
       return { success: true };
     } catch (error: any) {
       // setIsLoading(false); // Let onAuthStateChanged handle this if auth state truly didn't change
@@ -150,7 +153,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       await createUserWithEmailAndPassword(auth, email, password);
       console.log("AuthContext: createUserWithEmailAndPassword call successful for", email, ". Waiting for onAuthStateChanged.");
-      // Success is handled by onAuthStateChanged
       return { success: true };
     } catch (error: any) {
       // setIsLoading(false);
@@ -165,6 +167,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(null); 
       // if(isLoading) setIsLoading(false); // Let onAuthStateChanged handle this
       // Redirection will be handled by AppContent in layout.tsx
+      router.replace("/login"); // Explicitly redirect on logout
       return;
     }
     console.log("AuthContext: Attempting logout.");
@@ -176,7 +179,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
        console.error("AuthContext: Firebase logout error:", error); 
        setUser(null); // Force local state update in case of unexpected Firebase error
        // if(isLoading) setIsLoading(false); // Ensure loading state is false
-       // Redirection will be handled by AppContent
+       router.replace("/login"); // Explicitly redirect on logout error
     }
   };
 

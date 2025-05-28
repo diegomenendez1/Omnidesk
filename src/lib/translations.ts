@@ -35,7 +35,7 @@ export interface Translations {
       english: string;
       spanish: string;
       login: string; 
-      admin: { // Added admin namespace
+      admin: {
         userManagement: string;
         addNewUser: string;
         nameLabel: string;
@@ -236,7 +236,8 @@ export interface Translations {
         weakPassword: string; 
         requiresRecentLogin: string; 
         passwordRequired: string;
-        networkError: string; // Added networkError
+        networkError: string;
+        apiKeyInvalid: string; // New key for invalid API key
       }
     };
   };
@@ -256,7 +257,7 @@ export interface Translations {
       english: string;
       spanish: string;
       login: string;
-      admin: { // Added admin namespace
+      admin: { 
         userManagement: string;
         addNewUser: string;
         nameLabel: string;
@@ -457,7 +458,8 @@ export interface Translations {
         weakPassword: string; 
         requiresRecentLogin: string; 
         passwordRequired: string;
-        networkError: string; // Added networkError
+        networkError: string;
+        apiKeyInvalid: string; // New key for invalid API key
       }
     };
   }
@@ -616,8 +618,8 @@ export const translations: Translations = {
         transportMode: "Transport Mode",
         comments: "Comments",
         resolutionAdmin: "Administrator",
-        resolutionStatus: "Resolution Status",
-        resolutionTimeDays: "Resolution Time (days)",
+        resolutionStatus: "Estado de Resolución", // Corrected key for consistency, was "Estado Resolución"
+        resolutionTimeDays: "Tiempo Resolución (días)",
       },
       fileUploader: {
         dropzoneActive: "Drop CSV file here...",
@@ -683,6 +685,7 @@ export const translations: Translations = {
         requiresRecentLogin: "This operation is sensitive and requires recent authentication. Please log in again.",
         passwordRequired: "Password is required.",
         networkError: "A network error occurred. Please check your connection and try again.",
+        apiKeyInvalid: "Firebase API Key is not valid. Please check your Firebase project configuration.",
       }
     },
   },
@@ -837,7 +840,7 @@ export const translations: Translations = {
         transportMode: "Transport Mode",
         comments: "Comentarios",
         resolutionAdmin: "Administrador",
-        resolutionStatus: "Estado de Resolución",
+        resolutionStatus: "Estado de Resolución", // Corrected key for consistency
         resolutionTimeDays: "Tiempo Resolución (días)",
       },
       fileUploader: {
@@ -904,6 +907,7 @@ export const translations: Translations = {
         requiresRecentLogin: "Esta operación es sensible y requiere autenticación reciente. Por favor, inicia sesión de nuevo.",
         passwordRequired: "La contraseña es requerida.",
         networkError: "Ocurrió un error de red. Por favor, verifica tu conexión e inténtalo de nuevo.",
+        apiKeyInvalid: "La clave API de Firebase no es válida. Por favor, revisa la configuración de tu proyecto Firebase.",
       }
     },
   }
