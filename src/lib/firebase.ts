@@ -5,25 +5,22 @@ import { getAuth, type Auth } from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
 
 // Your web app's Firebase configuration
-// ATENCIÓN: ¡¡¡DEBES REEMPLAZAR ESTOS VALORES CON LOS DE TU PROYECTO FIREBASE REAL!!!
-// Si estos valores no son correctos, NINGÚN servicio de Firebase funcionará.
+// ATENCIÓN: Estos valores DEBEN ser los de tu proyecto Firebase real.
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY_HERE", // <-- ¡REEMPLAZA ESTO!
-  authDomain: "YOUR_AUTH_DOMAIN_HERE", // e.g., omnidesk-3v8d2.firebaseapp.com
-  projectId: "YOUR_PROJECT_ID_HERE", // e.g., omnidesk-3v8d2
-  storageBucket: "YOUR_STORAGE_BUCKET_HERE", // e.g., omnidesk-3v8d2.appspot.com
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID_HERE",
-  appId: "YOUR_APP_ID_HERE"
+  apiKey: "AIzaSyCf_DFUGCItEDfAaroaG5hZRk84cqjyhTA",
+  authDomain: "omnidesk-3v8d2.firebaseapp.com",
+  projectId: "omnidesk-3v8d2",
+  storageBucket: "omnidesk-3v8d2.appspot.com", // Corregido según solicitud previa para terminar en .appspot.com
+  messagingSenderId: "916221398039",
+  appId: "1:916221398039:web:a6a43640cc5dc3282aa052"
 };
 
 // Initialize Firebase
 let app: FirebaseApp;
 if (!getApps().length) {
   app = initializeApp(firebaseConfig);
-  console.log("Firebase app initialized.");
 } else {
   app = getApp();
-  console.log("Firebase app already initialized.");
 }
 
 const auth: Auth = getAuth(app);
