@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Table2, UploadCloud } from "lucide-react";
+import { LayoutDashboard, Table2, UploadCloud, Users } from "lucide-react"; // Added Users icon
 import {
   Sidebar,
   SidebarHeader,
@@ -17,27 +17,29 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useState, useEffect } from 'react';
 import { useLanguage } from '@/context/language-context';
-import { useAuth } from "@/context/auth-context"; // Import useAuth
+import { useAuth } from "@/context/auth-context";
 
-const navItems = [
+const navItemsBase = [
   { href: "/dashboard", labelKey: "sidebar.dashboard", icon: LayoutDashboard },
   { href: "/table", labelKey: "sidebar.interactiveTable", icon: Table2 },
   { href: "/upload-data", labelKey: "sidebar.uploadData", icon: UploadCloud },
 ];
 
-export function AppSidebar() {
-  const pathname = usePathname(); // Hook at top
-  const { t } = useLanguage(); // Hook at top
-  const { user } = useAuth(); // Hook at top
-  const { state: sidebarState } = useSidebar(); // Hook at top
-  
-  const [currentActivePath, setCurrentActivePath] = useState<string | null>(null); // Hook at top
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false); // Hook at top
-  const [hydrated, setHydrated] = useState(false); // Hook at top
+const adminNavItems = [
+  { href: "/admin/users", labelKey: "sidebar.userManagement", icon: Users },
+];
 
-  useEffect(() => { 
-    setHydrated(true); 
-  }, []);
+export function AppSidebar() {
+  const pathname = usePathname();
+  const { t } = useLanguage();
+  const { user } = useAuth();
+  const { state: sidebarState } = useSidebar();
+  
+  const [currentActivePath, setCurrentActivePath] = useState<string | null>(null);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => { setHydrated(true); }, []);
 
   useEffect(() => { 
     if (hydrated) {
@@ -53,11 +55,14 @@ export function AppSidebar() {
   
   const logoText = hydrated ? (isSidebarCollapsed ? "OD" : t('appName')) : t('appName');
 
-  // AppSidebar should not render if there's no user (handled by AppContent in layout.tsx)
-  // but as a failsafe or if AppSidebar is used elsewhere, this check is good.
   if (!user) {
     return null;
   }
+
+  const displayedNavItems = [
+    ...navItemsBase,
+    ...(user?.role === 'owner' || user?.role === 'admin' ? adminNavItems : [])
+  ];
 
   return (
     <Sidebar collapsible="icon" variant="sidebar" className="border-r">
@@ -68,7 +73,7 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent className="p-2">
         <SidebarMenu>
-          {navItems.map((item) => {
+          {displayedNavItems.map((item) => {
             const isActive = hydrated && currentActivePath
               ? currentActivePath === item.href ||
                 (item.href === "/dashboard" && currentActivePath === "/") ||
