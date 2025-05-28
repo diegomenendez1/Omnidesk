@@ -1,5 +1,5 @@
 
-"use client"; // Root layout must be client component if using hooks like usePathname or context hooks
+"use client"; 
 
 import './globals.css';
 import { SidebarProvider } from '@/components/ui/sidebar';
@@ -10,7 +10,7 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import { LanguageProvider } from '@/context/language-context';
 import { ThemeProvider } from '@/context/theme-context';
 import { AuthProvider, useAuth } from '@/context/auth-context';
-import { usePathname, useRouter } from 'next/navigation'; // Import useRouter
+import { usePathname, useRouter } from 'next/navigation'; 
 import { useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 
@@ -24,14 +24,12 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 });
 
-// AppContent component to handle auth logic and conditional rendering
 function AppContent({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuth(); // Hook called at top level
-  const pathname = usePathname();   // Hook called at top level
-  const router = useRouter();       // Hook called at top level
+  const { user, isLoading } = useAuth(); 
+  const pathname = usePathname();   
+  const router = useRouter();       
   
   useEffect(() => {
-    // Update document title based on user authentication status
     document.title = user ? 'OmniDeck - Your Team Workspace' : 'OmniDeck - Login';
   }, [user]);
 
@@ -40,7 +38,7 @@ function AppContent({ children }: { children: React.ReactNode }) {
       if (!user && pathname !== "/login") {
         router.replace("/login");
       } else if (user && pathname === "/login") {
-        router.replace("/dashboard"); // Use /dashboard as main screen
+        router.replace("/dashboard"); 
       }
     }
   }, [user, isLoading, pathname, router]);
@@ -53,37 +51,35 @@ function AppContent({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // User is not authenticated
-  if (!user) {
-    if (pathname !== '/login') {
-      // useEffect is handling the redirect to /login.
-      // Return null (or a loader) to prevent rendering protected content during the redirect.
-      return null; 
-    }
-    // User is not authenticated AND pathname IS /login
-    return <>{children}</>; // Render the login page
+  if (!user && pathname !== "/login") {
+    // Redirect is being handled by useEffect, return null to avoid rendering protected content
+    return null; 
   }
-
-  // User IS authenticated (user is true)
-  if (pathname === '/login') {
-    // useEffect is handling the redirect to /dashboard.
-    // Return null (or a loader) to prevent rendering the login page during the redirect.
+  if (user && pathname === "/login") {
+    // Redirect is being handled by useEffect, return null to avoid rendering login page
     return null;
   }
   
-  // User is authenticated AND pathname IS NOT /login
-  // Render the main app layout
-  return (
-    <SidebarProvider defaultOpen={true}>
-      <div className="flex h-full overflow-hidden">
-        <AppSidebar />
-        <MainContentArea>
-          {children}
-        </MainContentArea>
-      </div>
-      <Toaster />
-    </SidebarProvider>
-  );
+  if (!user && pathname === "/login") {
+    return <>{children}</>; // Render the login page
+  }
+  
+  if (user) { // User is authenticated AND pathname IS NOT /login
+    return (
+      <SidebarProvider defaultOpen={true}>
+        <div className="flex h-full overflow-hidden">
+          <AppSidebar />
+          <MainContentArea>
+            {children}
+          </MainContentArea>
+        </div>
+        <Toaster />
+      </SidebarProvider>
+    );
+  }
+  
+  // Fallback, should ideally not be reached if logic above is exhaustive
+  return null; 
 }
 
 

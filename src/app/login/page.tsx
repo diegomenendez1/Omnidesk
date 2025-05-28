@@ -17,7 +17,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoginMode, setIsLoginMode] = useState(true); // true for Login, false for Register
-  const router = useRouter();
+  const router = useRouter(); // router is used by AppContent for redirection, keep for potential future use here.
   const { login, register } = useAuth();
   const { t } = useLanguage();
 
@@ -31,16 +31,14 @@ export default function LoginPage() {
         : await register(email, password);
 
       if (result.success) {
-        // Redirection is handled by AppContent in layout.tsx
-        // router.push("/dashboard"); 
+        // Redirection is handled by AppContent in layout.tsx after auth state changes.
+        // No explicit router.push() here.
       } else {
-        // result.error is now a translation key
         setError(result.error ? t(result.error as any) : t('loginPage.error.generic'));
       }
     } catch (err) {
-      // This catch is less likely to be hit if AuthContext handles specific Firebase errors
       setError(t('loginPage.error.generic'));
-      console.error("Form submission error:", err);
+      // console.error("Form submission error:", err); // Already handled in AuthContext
     } finally {
       setIsSubmitting(false);
     }
