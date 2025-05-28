@@ -40,7 +40,7 @@ function AppContent({ children }: { children: React.ReactNode }) {
       if (!user && pathname !== "/login") {
         router.replace("/login");
       } else if (user && pathname === "/login") {
-        router.replace("/dashboard");
+        router.replace("/dashboard"); // Use /dashboard as main screen
       }
     }
   }, [user, isLoading, pathname, router]);
