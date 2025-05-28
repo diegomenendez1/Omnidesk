@@ -12,13 +12,13 @@ import {
   signOut,
   type User as FirebaseUser 
 } from 'firebase/auth';
-import type { Locale } from '@/lib/translations'; // Assuming translations.ts exports Locale
+import type { Locale } from '@/lib/translations';
 
 interface User {
   uid: string;
   email: string | null;
   displayName: string | null;
-  name?: string; // Added to match usage in AppSidebar
+  name?: string;
 }
 
 interface AuthContextType {
@@ -34,26 +34,25 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const router = useRouter();
+  // useRouter should not be used directly in context that might be used server-side
+  // Redirection logic is better handled in components that consume the context (like AppContent)
 
   useEffect(() => {
-    // console.log('Firebase App instance in AuthContext:', app);
-    // console.log('Firebase Auth instance in AuthContext:', auth);
-
     if (!auth) {
-      console.error("Firebase auth instance is not available in AuthContext. Check firebase.ts and its configuration. Authentication will not work.");
+      console.error("Firebase auth instance is not available in AuthContext. Authentication will not work.");
       setIsLoading(false); 
       return;
     }
+    // console.log("AuthContext: Subscribing to onAuthStateChanged");
 
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
-      // console.log('Auth state changed, Firebase user:', firebaseUser); 
+      console.log('AuthContext: onAuthStateChanged triggered. Firebase user:', firebaseUser); 
       if (firebaseUser) {
         setUser({
           uid: firebaseUser.uid,
           email: firebaseUser.email,
           displayName: firebaseUser.displayName || firebaseUser.email, 
-          name: firebaseUser.displayName || firebaseUser.email, // Populate name field
+          name: firebaseUser.displayName || firebaseUser.email,
         });
       } else {
         setUser(null);
@@ -61,7 +60,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setIsLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      // console.log("AuthContext: Unsubscribing from onAuthStateChanged");
+      unsubscribe();
+    }
   }, []);
 
   const mapAuthCodeToMessage = (code: string): string => {
@@ -71,10 +73,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       case 'auth/user-disabled':
         return 'loginPage.error.userDisabled';
       case 'auth/user-not-found':
-        return 'loginPage.error.userNotFound';
-      case 'auth/invalid-credential':
-      case 'auth/wrong-password': // Often combined into invalid-credential in newer SDKs
-        return 'loginPage.error.invalidCredentials';
+      case 'auth/invalid-credential': // Often covers user-not-found and wrong-password
+        return 'loginPage.error.invalidCredentials'; // Combined for simplicity
+      // case 'auth/wrong-password': // Covered by invalid-credential in newer SDKs
+      //   return 'loginPage.error.wrongPassword';
       case 'auth/email-already-in-use':
         return 'loginPage.error.emailInUse';
       case 'auth/weak-password':
@@ -82,68 +84,64 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       case 'auth/requires-recent-login':
         return 'loginPage.error.requiresRecentLogin';
       default:
-        // console.warn('Unhandled Firebase auth error code:', code);
         return 'loginPage.error.generic';
     }
   };
 
   const login = async (email: string, password?: string): Promise<{ success: boolean; error?: string }> => {
     if (!auth) {
-      // console.error("Firebase auth not available for login in AuthContext.");
       return { success: false, error: 'loginPage.error.generic' };
     }
     if (!password) return { success: false, error: 'loginPage.error.passwordRequired' }; 
     
     setIsLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      setIsLoading(false);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      console.log('AuthContext: Firebase signInWithEmailAndPassword successful:', userCredential);
+      // setIsLoading(false); // REMOVED: Let onAuthStateChanged handle setting isLoading to false
       return { success: true };
     } catch (error: any) {
-      setIsLoading(false);
-      // console.error("Firebase login error:", error.code, error.message); // Removed this line
+      setIsLoading(false); // Set isLoading to false ONLY on error
+      // console.error("Firebase login error:", error.code, error.message); 
       return { success: false, error: mapAuthCodeToMessage(error.code) };
     }
   };
 
   const register = async (email: string, password?: string): Promise<{ success: boolean; error?: string }> => {
     if (!auth) {
-      // console.error("Firebase auth not available for registration in AuthContext.");
       return { success: false, error: 'loginPage.error.generic' };
     }
     if (!password) return { success: false, error: 'loginPage.error.passwordRequired' };
     
     setIsLoading(true);
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
-      setIsLoading(false);
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      console.log('AuthContext: Firebase createUserWithEmailAndPassword successful:', userCredential);
+      // setIsLoading(false); // REMOVED: Let onAuthStateChanged handle setting isLoading to false
       return { success: true };
     } catch (error: any) {
-      setIsLoading(false);
-      // console.error("Firebase registration error:", error.code, error.message); // Removed this line
+      setIsLoading(false); // Set isLoading to false ONLY on error
+      // console.error("Firebase registration error:", error.code, error.message); 
       return { success: false, error: mapAuthCodeToMessage(error.code) };
     }
   };
 
   const logout = async () => {
     if (!auth) {
-      // console.error("Firebase auth not available for logout in AuthContext.");
       setUser(null); 
-      router.push('/login');
+      setIsLoading(false);
       return;
     }
     setIsLoading(true); 
     try {
       await signOut(auth);
-      // onAuthStateChanged will set user to null, which then triggers redirection in AppContent
+      console.log('AuthContext: Firebase signOut successful.');
+      // onAuthStateChanged will set user to null and isLoading to false
     } catch (error: any) {
-       // console.error("Firebase logout error:", error.code, error.message); // Optionally remove this too
-       // Ensure user is cleared and loading is stopped even on error
        setUser(null);
        setIsLoading(false); 
-       router.push('/login'); // Explicit redirect as a fallback
+       console.error("AuthContext: Firebase logout error:", error);
     }
-    // isLoading will be set to false by onAuthStateChanged
   };
 
   return (
