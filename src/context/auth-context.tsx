@@ -13,33 +13,15 @@ import {
   type User as FirebaseUser 
 } from 'firebase/auth';
 import type { TranslationKey } from '@/lib/translations'; 
-import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { doc, getDoc, serverTimestamp, setDoc, collection, getDocs } from 'firebase/firestore';
+import type { User as AppUserType } from '@/types'; // Renamed to avoid conflict
+import { getUserDataAction } from '@/app/admin/users/actions'; // Import server action
 
-// Helper function to get owner email from environment variable or use a default
-const getOwnerEmail = (): string | undefined => {
-  // For client-side, process.env is not directly available like in Node.js for .env files.
-  // NEXT_PUBLIC_ variables are inlined at build time.
-  const ownerEmail = process.env.NEXT_PUBLIC_OWNER_EMAIL;
-  if (!ownerEmail) {
-    console.warn("AuthContext: NEXT_PUBLIC_OWNER_EMAIL is not set. Owner role assignment will rely on Firestore or default to 'user'.");
-  }
-  return ownerEmail;
-};
 
-const OWNER_EMAIL_FOR_SIMULATION = getOwnerEmail();
-
-export interface User {
-  uid: string;
-  email: string | null;
-  displayName: string | null;
-  name?: string; 
-  role?: 'owner' | 'admin' | 'user';
-  createdAt?: any; // Firestore Timestamp
-  createdBy?: string;
-}
+const OWNER_EMAIL_FOR_SIMULATION = process.env.NEXT_PUBLIC_OWNER_EMAIL;
 
 interface AuthContextType {
-  user: User | null;
+  user: AppUserType | null;
   isLoading: boolean;
   login: (email: string, password?: string) => Promise<{ success: boolean; error?: TranslationKey | string }>;
   register: (email: string, password?: string) => Promise<{ success: boolean; error?: TranslationKey | string }>;
@@ -48,36 +30,10 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Server Action (simulated or to be imported if defined elsewhere)
-async function getUserDataAction(uid: string): Promise<User | null> {
-  try {
-    const userDocRef = doc(db, "users", uid);
-    const userDocSnap = await getDoc(userDocRef);
-    if (userDocSnap.exists()) {
-      const data = userDocSnap.data();
-      // Ensure createdAt is handled correctly if it's a Firestore Timestamp
-      return {
-        uid: uid,
-        email: data.email,
-        name: data.name,
-        role: data.role,
-        createdAt: data.createdAt, // This might be a Firestore Timestamp object
-        createdBy: data.createdBy,
-      } as User;
-    } else {
-      console.log(`AuthContext: No user data found in Firestore for UID: ${uid}`);
-      return null;
-    }
-  } catch (error) {
-    console.error("AuthContext: Error fetching user data from Firestore:", error);
-    return null;
-  }
-}
-
-
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AppUserType | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
   
   useEffect(() => {
     if (!auth) {
@@ -90,50 +46,65 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       console.log('AuthContext: onAuthStateChanged triggered. Firebase user UID:', firebaseUser ? firebaseUser.uid : 'null'); 
       if (firebaseUser) {
-        let roleToSet: User['role'] = 'user'; // Default role
-        let firestoreUserData: Partial<User> = {};
+        let roleToSet: AppUserType['role'] = 'user'; // Default role
+        let firestoreUserData: Partial<AppUserType> = {};
 
         // 1. Check if this user is the designated owner by email (from .env)
         if (OWNER_EMAIL_FOR_SIMULATION && firebaseUser.email === OWNER_EMAIL_FOR_SIMULATION) {
           console.log(`AuthContext: User ${firebaseUser.email} identified as OWNER based on NEXT_PUBLIC_OWNER_EMAIL.`);
           roleToSet = 'owner';
-          // Optionally, ensure owner record exists in Firestore
+          // Ensure owner record exists in Firestore and has the correct role
           const ownerDocRef = doc(db, "users", firebaseUser.uid);
-          const ownerDocSnap = await getDoc(ownerDocRef);
-          if (!ownerDocSnap.exists()) {
-            try {
-              await setDoc(ownerDocRef, {
-                email: firebaseUser.email,
-                role: 'owner',
-                name: firebaseUser.displayName || firebaseUser.email,
-                createdAt: serverTimestamp(),
-                createdBy: firebaseUser.uid, // Owner created themselves
-              });
-              console.log(`AuthContext: Created Firestore record for initial owner ${firebaseUser.email}`);
-            } catch (e) {
-              console.error("AuthContext: Error creating Firestore record for initial owner:", e);
-            }
-          }
-        } else {
-          // 2. If not the owner by .env email, try to fetch role from Firestore
-          const fetchedUserData = await getUserDataAction(firebaseUser.uid);
-          if (fetchedUserData && fetchedUserData.role) {
-            console.log(`AuthContext: User ${firebaseUser.email} role '${fetchedUserData.role}' fetched from Firestore.`);
-            roleToSet = fetchedUserData.role;
-            firestoreUserData = fetchedUserData;
-          } else {
-            console.log(`AuthContext: User ${firebaseUser.email} has no specific role in Firestore or data fetch failed, defaulting to 'user'.`);
-            // If user exists in Auth but not in Firestore users collection (e.g. first login after manual creation, or if user doc was deleted)
-            // We might want to create a default user document here for them.
-            // For now, they just get 'user' role in the context.
+          try {
+            await setDoc(ownerDocRef, {
+              email: firebaseUser.email,
+              role: 'owner',
+              name: firebaseUser.displayName || firebaseUser.email,
+              createdAt: serverTimestamp(), // Will only set on creation
+              createdBy: firebaseUser.uid, // Owner created themselves
+            }, { merge: true }); // Use merge to update if exists, or create if not
+            console.log(`AuthContext: Ensured Firestore record for owner ${firebaseUser.email} with role 'owner'.`);
+            firestoreUserData.role = 'owner'; // Reflect this immediately
+          } catch (e) {
+            console.error("AuthContext: Error ensuring Firestore record for initial owner:", e);
           }
         }
         
-        const appUser: User = {
+        // 2. Fetch role and other data from Firestore if not already set by owner logic
+        if (!firestoreUserData.role) { // Only fetch if role wasn't set by owner logic above
+            const fetchedUserData = await getUserDataAction(firebaseUser.uid);
+            if (fetchedUserData) {
+                firestoreUserData = fetchedUserData; // Get all data including name, createdBy etc.
+                if (fetchedUserData.role) {
+                    console.log(`AuthContext: User ${firebaseUser.email} role '${fetchedUserData.role}' fetched from Firestore.`);
+                    roleToSet = fetchedUserData.role;
+                } else {
+                    console.log(`AuthContext: User ${firebaseUser.email} found in Firestore but has no role field. Defaulting to 'user'.`);
+                }
+            } else {
+                console.log(`AuthContext: No user data found in Firestore for UID: ${firebaseUser.uid}. Role will default to 'user' unless owner.`);
+                 // If not the owner and no Firestore record, create one with default 'user' role during their first actual login via onAuthStateChanged
+                if (roleToSet === 'user') { // Only if not already determined as owner
+                    try {
+                        await setDoc(doc(db, "users", firebaseUser.uid), {
+                            email: firebaseUser.email,
+                            role: 'user',
+                            name: firebaseUser.displayName || firebaseUser.email,
+                            createdAt: serverTimestamp(),
+                            createdBy: firebaseUser.uid, // Self-created or system
+                        }, { merge: true });
+                        console.log(`AuthContext: Created default Firestore record for user ${firebaseUser.email} with role 'user'.`);
+                    } catch (e) {
+                        console.error("AuthContext: Error creating default Firestore record for user:", e);
+                    }
+                }
+            }
+        }
+        
+        const appUser: AppUserType = {
           uid: firebaseUser.uid,
           email: firebaseUser.email,
-          displayName: firebaseUser.displayName || firebaseUser.email,
-          name: firebaseUser.displayName || firebaseUser.email,
+          name: firestoreUserData.name || firebaseUser.displayName || firebaseUser.email, // Prioritize Firestore name
           role: roleToSet,
           createdAt: firestoreUserData.createdAt,
           createdBy: firestoreUserData.createdBy,
@@ -153,7 +124,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.log("AuthContext: Unsubscribing from onAuthStateChanged.");
       unsubscribe();
     };
-  }, []); // `auth` instance is stable
+  }, []); 
 
   const mapAuthCodeToMessage = (code: string): TranslationKey => {
     console.log("AuthContext mapAuthCodeToMessage received code:", code);
@@ -200,7 +171,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       //isLoading and user state will be updated by onAuthStateChanged
       return { success: true };
     } catch (error: any) {
-      console.error("AuthContext: Firebase login error:", error.code, error.message, error); 
+      console.error("AuthContext: Firebase login error:", error.code, error.message); 
       return { success: false, error: mapAuthCodeToMessage(error.code) };
     }
   };
@@ -219,10 +190,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       console.log("AuthContext: createUserWithEmailAndPassword call successful for", email, ". Waiting for onAuthStateChanged.");
       
-      // After successful Firebase Auth registration, create user document in Firestore
-      // For a new registration, assign 'user' role by default unless it's the owner email
       const newFirebaseUser = userCredential.user;
-      let roleForNewUser: User['role'] = 'user';
+      let roleForNewUser: AppUserType['role'] = 'user';
       if (OWNER_EMAIL_FOR_SIMULATION && newFirebaseUser.email === OWNER_EMAIL_FOR_SIMULATION) {
         roleForNewUser = 'owner';
       }
@@ -233,17 +202,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           role: roleForNewUser,
           name: newFirebaseUser.displayName || newFirebaseUser.email,
           createdAt: serverTimestamp(),
-          createdBy: newFirebaseUser.uid, // User created themselves or was created by system if owner logic
+          createdBy: newFirebaseUser.uid, 
         });
         console.log(`AuthContext: Firestore record created for new user ${newFirebaseUser.email} with role ${roleForNewUser}`);
       } catch (firestoreError) {
         console.error("AuthContext: Error creating Firestore record during registration:", firestoreError);
-        // Decide if this should fail the whole registration or just log. For now, log.
       }
       
       return { success: true };
     } catch (error: any) {
-      console.error("AuthContext: Firebase registration error:", error.code, error.message, error); 
+      console.error("AuthContext: Firebase registration error:", error.code, error.message); 
       return { success: false, error: mapAuthCodeToMessage(error.code) };
     }
   };
@@ -252,16 +220,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!auth) {
       console.warn("AuthContext logout: Firebase auth instance not available. Forcing local logout.");
       setUser(null); 
-      // Redirection will be handled by AppContent in layout.tsx
+      router.replace('/login');
       return;
     }
     console.log("AuthContext: Attempting logout.");
     try {
       await signOut(auth);
-      console.log("AuthContext: signOut successful. User should be null via onAuthStateChanged.");
+      setUser(null); // Explicitly set user to null
+      console.log("AuthContext: signOut successful. User set to null. Redirecting to /login.");
+      router.replace('/login'); // Manually redirect after state is set
     } catch (error: any) {
        console.error("AuthContext: Firebase logout error:", error); 
        setUser(null); 
+       router.replace('/login');
     }
   };
 
@@ -279,3 +250,17 @@ export const useAuth = (): AuthContextType => {
   }
   return context;
 };
+
+// Simulating User type from @/types for standalone context logic
+// This should be consistent with your actual @/types/index.ts
+// interface AppUserType {
+//   uid: string;
+//   email: string | null;
+//   displayName?: string | null; // Keep displayName for Firebase compat
+//   name?: string; 
+//   role?: 'owner' | 'admin' | 'user';
+//   createdAt?: any; // Firestore Timestamp
+//   createdBy?: string;
+// }
+
+    
