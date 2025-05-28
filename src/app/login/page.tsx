@@ -10,14 +10,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useAuth } from "@/context/auth-context";
 import { useLanguage } from "@/context/language-context";
 import { Loader2 } from "lucide-react";
+import type { TranslationKey } from "@/lib/translations";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<TranslationKey | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoginMode, setIsLoginMode] = useState(true); // true for Login, false for Register
-  const router = useRouter(); // router is used by AppContent for redirection, keep for potential future use here.
+  const router = useRouter(); 
   const { login, register } = useAuth();
   const { t } = useLanguage();
 
@@ -32,13 +33,11 @@ export default function LoginPage() {
 
       if (result.success) {
         // Redirection is handled by AppContent in layout.tsx after auth state changes.
-        // No explicit router.push() here.
       } else {
-        setError(result.error ? t(result.error as any) : t('loginPage.error.generic'));
+        setError(result.error ? result.error : t('loginPage.error.generic' as TranslationKey));
       }
     } catch (err) {
-      setError(t('loginPage.error.generic'));
-      // console.error("Form submission error:", err); // Already handled in AuthContext
+      setError(t('loginPage.error.generic' as TranslationKey) as TranslationKey);
     } finally {
       setIsSubmitting(false);
     }
@@ -81,7 +80,7 @@ export default function LoginPage() {
                 className="text-base"
               />
             </div>
-            {error && <p className="text-sm text-destructive text-center p-2 bg-destructive/10 rounded-md">{error}</p>}
+            {error && <p className="text-sm text-destructive text-center p-2 bg-destructive/10 rounded-md">{t(error)}</p>}
             <Button type="submit" className="w-full text-lg py-3" disabled={isSubmitting}>
               {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : 
                (isLoginMode ? t('loginPage.loginButton') : t('loginPage.registerButton'))}

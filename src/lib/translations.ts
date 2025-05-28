@@ -35,6 +35,20 @@ export interface Translations {
       english: string;
       spanish: string;
       login: string; 
+      admin: { // Added admin namespace
+        userManagement: string;
+        addNewUser: string;
+        nameLabel: string;
+        emailLabel: string;
+        passwordLabel: string;
+        roleLabel: string;
+        roleOwner: string;
+        roleAdmin: string;
+        roleUser: string;
+        addUserButton: string;
+        userAddedSuccessfully: string;
+        errorAddingUser: string;
+      };
       theme: { 
         toggle: string;
         title: string;
@@ -49,6 +63,7 @@ export interface Translations {
       uploadData: string;
       adminUser: string;
       adminEmail: string;
+      userManagement: string; 
     };
     dashboard: {
       totalTasks: string;
@@ -221,6 +236,7 @@ export interface Translations {
         weakPassword: string; 
         requiresRecentLogin: string; 
         passwordRequired: string;
+        networkError: string; // Added networkError
       }
     };
   };
@@ -239,7 +255,21 @@ export interface Translations {
       language: string;
       english: string;
       spanish: string;
-      login: string; 
+      login: string;
+      admin: { // Added admin namespace
+        userManagement: string;
+        addNewUser: string;
+        nameLabel: string;
+        emailLabel: string;
+        passwordLabel: string;
+        roleLabel: string;
+        roleOwner: string;
+        roleAdmin: string;
+        roleUser: string;
+        addUserButton: string;
+        userAddedSuccessfully: string;
+        errorAddingUser: string;
+      }; 
       theme: { 
         toggle: string;
         title: string;
@@ -254,6 +284,7 @@ export interface Translations {
       uploadData: string;
       adminUser: string;
       adminEmail: string;
+      userManagement: string;
     };
     dashboard: {
       totalTasks: string;
@@ -426,6 +457,7 @@ export interface Translations {
         weakPassword: string; 
         requiresRecentLogin: string; 
         passwordRequired: string;
+        networkError: string; // Added networkError
       }
     };
   }
@@ -449,6 +481,20 @@ export const translations: Translations = {
       english: "English",
       spanish: "Español",
       login: "Login",
+      admin: {
+        userManagement: "User Management",
+        addNewUser: "Add New User",
+        nameLabel: "Name",
+        emailLabel: "Email",
+        passwordLabel: "Password",
+        roleLabel: "Role",
+        roleOwner: "Owner",
+        roleAdmin: "Administrator",
+        roleUser: "User",
+        addUserButton: "Add User",
+        userAddedSuccessfully: "User added successfully!",
+        errorAddingUser: "Error adding user.",
+      },
       theme: { 
         toggle: "Toggle theme",
         title: "Theme",
@@ -463,6 +509,7 @@ export const translations: Translations = {
       uploadData: "Upload Data",
       adminUser: "Admin User",
       adminEmail: "admin@omnideck.com",
+      userManagement: "User Management",
     },
     dashboard: {
       totalTasks: "Total Tasks",
@@ -513,7 +560,7 @@ export const translations: Translations = {
         comments: "Comments",
         admin: "Administrator",
         resolutionTimeDays: "Resolution Time (days)",
-        history: "History",
+        history: "History", 
         actions: "Actions", 
       },
       status: { 
@@ -553,7 +600,7 @@ export const translations: Translations = {
       incompleteMapping: "Incomplete Mapping",
       pleaseMapRequired: "Please map the following required system columns: {columns}",
       dataProcessed: "Data Processed",
-      tasksProcessedAndSaved: "{count} tasks processed and saved. Redirecting to Interactive Table...",
+      tasksProcessedAndSaved: "{count} tasks processed and saved to local storage.",
       errorSavingLocally: "Error saving data locally",
       errorSavingLocallyDescription: "Could not save data for the interactive table. Preview is still available on this page.",
       previewTitle: "Preview of Processed Data (first 10 rows)",
@@ -626,7 +673,7 @@ export const translations: Translations = {
       loginLink: "Login here",
       error: {
         invalidCredentials: "Invalid email or password. Please check and try again.",
-        userNotFound: "No account found with that email.",
+        userNotFound: "No account found with that email.", 
         wrongPassword: "Incorrect password.", 
         generic: "An unexpected error occurred. Please try again later.",
         invalidEmail: "The email address is badly formatted.",
@@ -634,7 +681,8 @@ export const translations: Translations = {
         emailInUse: "This email address is already in use by another account.",
         weakPassword: "Password should be at least 6 characters.",
         requiresRecentLogin: "This operation is sensitive and requires recent authentication. Please log in again.",
-        passwordRequired: "Password is required."
+        passwordRequired: "Password is required.",
+        networkError: "A network error occurred. Please check your connection and try again.",
       }
     },
   },
@@ -654,6 +702,20 @@ export const translations: Translations = {
       english: "Inglés",
       spanish: "Español",
       login: "Iniciar Sesión",
+      admin: {
+        userManagement: "Gestión de Usuarios",
+        addNewUser: "Añadir Nuevo Usuario",
+        nameLabel: "Nombre",
+        emailLabel: "Correo Electrónico",
+        passwordLabel: "Contraseña",
+        roleLabel: "Rol",
+        roleOwner: "Propietario",
+        roleAdmin: "Administrador",
+        roleUser: "Usuario",
+        addUserButton: "Añadir Usuario",
+        userAddedSuccessfully: "¡Usuario añadido con éxito!",
+        errorAddingUser: "Error al añadir usuario.",
+      },
       theme: { 
         toggle: "Alternar tema",
         title: "Tema",
@@ -668,6 +730,7 @@ export const translations: Translations = {
       uploadData: "Cargar Datos",
       adminUser: "Usuario Admin",
       adminEmail: "admin@omnideck.com",
+      userManagement: "Gestión de Usuarios",
     },
     dashboard: {
       totalTasks: "Tareas Totales",
@@ -718,7 +781,7 @@ export const translations: Translations = {
         comments: "Comentarios",
         admin: "Administrador",
         resolutionTimeDays: "Tiempo Resolución (días)",
-        history: "Historial",
+        history: "Historial", 
         actions: "Acciones",
       },
       status: {
@@ -758,7 +821,7 @@ export const translations: Translations = {
       incompleteMapping: "Mapeo Incompleto",
       pleaseMapRequired: "Por favor, mapea las siguientes columnas requeridas del sistema: {columns}",
       dataProcessed: "Datos Procesados",
-      tasksProcessedAndSaved: "{count} tareas procesadas y guardadas. Redirigiendo a la Tabla Interactiva...",
+      tasksProcessedAndSaved: "{count} tareas procesadas y guardadas en el almacenamiento local.",
       errorSavingLocally: "Error al guardar datos localmente",
       errorSavingLocallyDescription: "No se pudieron guardar los datos para la tabla interactiva. La vista previa sigue disponible en esta página.",
       previewTitle: "Vista Previa de Datos Procesados (primeras 10 filas)",
@@ -768,10 +831,10 @@ export const translations: Translations = {
         status: "TO Status",
         assignee: "Desarrollador Logístico",
         taskReference: "TO Ref.",
-        delayDays: "Días de atraso",
+        delayDays: "Dias de atraso",
         customerAccount: "Customer Acc.",
         netAmount: "Monto $",
-        transportMode: "Modo de Transporte",
+        transportMode: "Transport Mode",
         comments: "Comentarios",
         resolutionAdmin: "Administrador",
         resolutionStatus: "Estado de Resolución",
@@ -826,22 +889,22 @@ export const translations: Translations = {
       loginButton: "Iniciar Sesión",
       registerButton: "Registrarse",
       noAccount: "¿No tienes una cuenta?",
-      hasAccount: "¿Ya tienes una cuenta?",
+      hasAccount: "Ya tienes una cuenta?",
       registerLink: "Regístrate aquí",
       loginLink: "Inicia sesión aquí",
       error: {
-        invalidCredentials: "Email o contraseña inválidos. Por favor verifica e inténtalo de nuevo.",
-        userNotFound: "No existe una cuenta con ese email.",
-        wrongPassword: "Contraseña incorrecta.",
-        generic: "Ocurrió un error al autenticar. Por favor intenta de nuevo más tarde.",
+        invalidCredentials: "Correo o contraseña inválidos. Por favor verifica e inténtalo de nuevo.",
+        userNotFound: "No existe una cuenta con ese correo.", 
+        wrongPassword: "Contraseña incorrecta.", 
+        generic: "Ocurrió un error inesperado. Por favor, inténtalo de nuevo más tarde.",
         invalidEmail: "La dirección de correo electrónico no tiene un formato válido.",
         userDisabled: "Esta cuenta de usuario ha sido deshabilitada.",
         emailInUse: "Esta dirección de correo electrónico ya está en uso por otra cuenta.",
         weakPassword: "La contraseña debe tener al menos 6 caracteres.",
         requiresRecentLogin: "Esta operación es sensible y requiere autenticación reciente. Por favor, inicia sesión de nuevo.",
-        passwordRequired: "La contraseña es requerida."
+        passwordRequired: "La contraseña es requerida.",
+        networkError: "Ocurrió un error de red. Por favor, verifica tu conexión e inténtalo de nuevo.",
       }
     },
   }
 };
-
