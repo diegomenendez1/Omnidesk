@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { ReactNode } from 'react';
@@ -14,12 +13,24 @@ import {
 } from 'firebase/auth';
 import type { Locale, TranslationKey } from '@/lib/translations'; 
 
-interface User {
+// Helper function to get owner email from environment variable or use a default
+const getOwnerEmail = (): string => {
+  let ownerEmail = process.env.NEXT_PUBLIC_OWNER_EMAIL;
+  if (!ownerEmail) {
+    console.warn("AuthContext: NEXT_PUBLIC_OWNER_EMAIL is not set. Falling back to default 'owner@example.com' for role simulation.");
+    ownerEmail = "owner@example.com"; // Default if not set
+  }
+  return ownerEmail;
+};
+
+const OWNER_EMAIL_FOR_SIMULATION = getOwnerEmail();
+
+export interface User {
   uid: string;
   email: string | null;
   displayName: string | null;
   name?: string; 
-  role?: 'owner' | 'admin' | 'user'; // Added role
+  role?: 'owner' | 'admin' | 'user';
 }
 
 interface AuthContextType {
@@ -32,15 +43,12 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// TEMPORARY: Designate an owner email for simulation
-const OWNER_EMAIL_FOR_SIMULATION = "owner@example.com"; // Replace with your actual owner email for testing
-
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true); // Start true, onAuthStateChanged will set to false
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter(); 
 
-  console.log("AuthProvider: Initializing, isLoading:", isLoading);
+  console.log("AuthContext: Initializing. isLoading:", isLoading, "User:", user);
 
   useEffect(() => {
     if (!auth) {
@@ -49,23 +57,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
     console.log("AuthContext: Setting up onAuthStateChanged listener.");
+    
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
       console.log('AuthContext: onAuthStateChanged triggered. Firebase user UID:', firebaseUser ? firebaseUser.uid : 'null'); 
       if (firebaseUser) {
         // Simulate role fetching - REPLACE THIS WITH ACTUAL FIRESTORE CALL
-        let role: User['role'] = 'user'; // Default role
-        if (firebaseUser.email === OWNER_EMAIL_FOR_SIMULATION) {
-          role = 'owner';
-        }
+        // For now, assign 'owner' role if email matches OWNER_EMAIL_FOR_SIMULATION, else 'user'
         // In a real app, you'd fetch the role from Firestore here:
         // const userDoc = await getDoc(doc(firestore, "users", firebaseUser.uid));
         // if (userDoc.exists()) { role = userDoc.data().role; }
+        const role: User['role'] = firebaseUser.email === OWNER_EMAIL_FOR_SIMULATION ? 'owner' : 'user';
 
         const appUser: User = {
           uid: firebaseUser.uid,
           email: firebaseUser.email,
-          displayName: firebaseUser.displayName || firebaseUser.email, 
-          name: firebaseUser.displayName || firebaseUser.email,
+          displayName: firebaseUser.displayName || firebaseUser.email, // Use email as fallback for displayName
+          name: firebaseUser.displayName || firebaseUser.email, // Similarly for name
           role: role 
         };
         setUser(appUser);
@@ -74,56 +81,61 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(null);
         console.log('AuthContext: User set to null in context.');
       }
-      setIsLoading(false); // Auth state resolved, set loading to false
+      setIsLoading(false);
       console.log('AuthContext: isLoading set to false by onAuthStateChanged.');
     });
 
     return () => {
       console.log("AuthContext: Unsubscribing from onAuthStateChanged.");
       unsubscribe();
-    }
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // auth dependency removed as it's stable, router not needed here
+  }, []); // `auth` instance is stable, so it doesn't need to be in dependency array
 
   const mapAuthCodeToMessage = (code: string): TranslationKey => {
     switch (code) {
       case 'auth/invalid-email':
-        return 'loginPage.error.invalidEmail';
+        return 'loginPage.error.invalidEmail' as TranslationKey;
       case 'auth/user-disabled':
-        return 'loginPage.error.userDisabled';
-      case 'auth/user-not-found': // Firebase v9+ often returns invalid-credential for this
-      case 'auth/invalid-credential':
-        return 'loginPage.error.invalidCredentials';
+        return 'loginPage.error.userDisabled' as TranslationKey;
+      case 'auth/user-not-found':
+      case 'auth/invalid-credential': // Firebase v9+ uses this for both user-not-found and wrong-password
+        return 'loginPage.error.invalidCredentials' as TranslationKey;
+      case 'auth/wrong-password': // Kept for clarity, though invalid-credential is more common now
+        return 'loginPage.error.wrongPassword' as TranslationKey;
       case 'auth/email-already-in-use':
-        return 'loginPage.error.emailInUse';
+        return 'loginPage.error.emailInUse' as TranslationKey;
       case 'auth/weak-password':
-        return 'loginPage.error.weakPassword';
+        return 'loginPage.error.weakPassword' as TranslationKey;
       case 'auth/requires-recent-login':
-        return 'loginPage.error.requiresRecentLogin';
+        return 'loginPage.error.requiresRecentLogin' as TranslationKey;
+      case 'auth/api-key-not-valid.-please-pass-a-valid-api-key.': // Specific for this error
+      case 'auth/network-request-failed':
+        return 'loginPage.error.networkError' as TranslationKey;
       default:
         console.warn("AuthContext: Unmapped Firebase error code:", code);
-        return 'loginPage.error.generic';
+        return 'loginPage.error.generic' as TranslationKey;
     }
   };
 
   const login = async (email: string, password?: string): Promise<{ success: boolean; error?: TranslationKey | string }> => {
     if (!auth) {
+      // This console.error is important for developers to see if auth isn't initialized.
       console.error("AuthContext login: Firebase auth instance is not available.");
-      return { success: false, error: 'loginPage.error.generic' };
+      return { success: false, error: 'loginPage.error.generic' as TranslationKey };
     }
     if (!password) { 
-      return { success: false, error: 'loginPage.error.passwordRequired' };
+      return { success: false, error: 'loginPage.error.passwordRequired' as TranslationKey };
     }
     
-    // Do NOT set AuthContext.isLoading here. LoginPage handles its own submission loading state.
     console.log("AuthContext: Attempting login for", email);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // onAuthStateChanged will handle setting user and AuthContext.isLoading to false if successful
-      console.log("AuthContext: signInWithEmailAndPassword successful for", email);
+      // onAuthStateChanged will handle setting user and isLoading to false if successful
+      console.log("AuthContext: signInWithEmailAndPassword call successful for", email, ". Waiting for onAuthStateChanged.");
       return { success: true };
     } catch (error: any) {
-      console.error("AuthContext: Firebase login error:", error.code, error.message);
+      // Removed console.error for Firebase login error, user message is handled by UI
       return { success: false, error: mapAuthCodeToMessage(error.code) };
     }
   };
@@ -131,21 +143,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const register = async (email: string, password?: string): Promise<{ success: boolean; error?: TranslationKey | string }> => {
     if (!auth) {
       console.error("AuthContext register: Firebase auth instance is not available.");
-      return { success: false, error: 'loginPage.error.generic' };
+      return { success: false, error: 'loginPage.error.generic' as TranslationKey };
     }
     if (!password) { 
-      return { success: false, error: 'loginPage.error.passwordRequired' };
+      return { success: false, error: 'loginPage.error.passwordRequired' as TranslationKey };
     }
     
-    // Do NOT set AuthContext.isLoading here. LoginPage handles its own submission loading state.
     console.log("AuthContext: Attempting registration for", email);
     try {
       await createUserWithEmailAndPassword(auth, email, password);
-      // onAuthStateChanged will handle setting user and AuthContext.isLoading to false if successful
-      console.log("AuthContext: createUserWithEmailAndPassword successful for", email);
+      console.log("AuthContext: createUserWithEmailAndPassword call successful for", email, ". Waiting for onAuthStateChanged.");
       return { success: true };
     } catch (error: any) {
-      console.error("AuthContext: Firebase registration error:", error.code, error.message);
+      // Removed console.error for Firebase registration error, user message is handled by UI
       return { success: false, error: mapAuthCodeToMessage(error.code) };
     }
   };
@@ -154,23 +164,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!auth) {
       console.warn("AuthContext logout: Firebase auth instance not available. Forcing local logout.");
       setUser(null); 
-      // AuthContext.isLoading should be handled by onAuthStateChanged eventually setting user to null
-      // but for immediate UI update if auth is broken:
       if(isLoading) setIsLoading(false); 
       router.replace("/login"); 
       return;
     }
     console.log("AuthContext: Attempting logout.");
-    // Do NOT set AuthContext.isLoading here. Let onAuthStateChanged handle it.
     try {
       await signOut(auth);
-      console.log("AuthContext: signOut successful.");
-      // onAuthStateChanged will set user to null and isLoading to false
-      // router.replace("/login") will be handled by AppContent due to user becoming null
+      console.log("AuthContext: signOut successful. User should be null via onAuthStateChanged.");
+      // onAuthStateChanged will set user to null. AppContent will redirect.
     } catch (error: any) {
-       setUser(null); // Ensure user is cleared locally on error
-       console.error("AuthContext: Firebase logout error:", error);
-       router.replace("/login"); // Fallback redirection
+       console.error("AuthContext: Firebase logout error:", error); // Keep this log as it's unexpected
+       setUser(null); 
+       if(isLoading) setIsLoading(false); 
+       router.replace("/login"); 
     }
   };
 
