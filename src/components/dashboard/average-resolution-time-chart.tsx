@@ -31,11 +31,13 @@ const ADMIN_COLORS = [
   "hsl(var(--chart-3) / 0.7)",
 ];
 
-const DataLabel = ({ x, y, value, unit }: { x?: number; y?: number; value?: number | null; unit?: string }) => {
+const DataLabel = ({ x, y, value, unitSuffixKey }: { x?: number; y?: number; value?: number | null; unitSuffixKey?: string }) => {
+  const { t } = useLanguage();
   if (x === undefined || y === undefined || value === undefined || value === null) return null;
+  const unit = unitSuffixKey ? ` ${t(unitSuffixKey as any)}` : "";
   return (
-    <text x={x} y={y} dy={-4} fill="hsl(var(--foreground))" fontSize={10} textAnchor="middle">
-      {`${value.toFixed(1)}${unit || ''}`}
+    <text x={x} y={y} dy={-4} fill="hsl(var(--foreground))" fontSize={12} textAnchor="middle">
+      {`${value.toFixed(2)}${unit}`}
     </text>
   );
 };
@@ -45,26 +47,34 @@ export function AverageResolutionTimeChart({ data, teamAverageDays }: AverageRes
 
   const chartConfig = useMemo(() => {
     const config: any = {
+      averageDays: { // General key for bars
+        label: t('dashboard.averageResolutionTimeChart.yAxisLabel'),
+      },
       teamAverage: {
         label: t('dashboard.averageResolutionTimeChart.teamAverageLabel'),
-        color: "hsl(var(--foreground))",
+        color: "hsl(var(--foreground))", // Solid distinct color for team average line
       },
     };
-    // Admins will be dynamically added if needed or can rely on default Bar naming
+     data.forEach((item, index) => {
+        if (item.adminName) {
+            config[item.adminName] = {
+                label: item.adminName,
+                color: ADMIN_COLORS[index % ADMIN_COLORS.length]
+            };
+        }
+    });
     return config;
-  }, [t]);
+  }, [t, data]);
 
-  if (!data || data.length === 0) {
-    return <p className="text-center text-muted-foreground py-10">{t('dashboard.averageResolutionTimeChart.noData')}</p>;
-  }
-  
   const validData = data.filter(d => d.averageDays !== null);
-  if (validData.length === 0 && teamAverageDays === null) {
+  if (validData.length === 0) {
+    // This condition is if NO admin has resolved tasks.
+    // If some admins have data and others don't, those without data just won't have a bar.
     return <p className="text-center text-muted-foreground py-10">{t('dashboard.averageResolutionTimeChart.noResolvedTasks')}</p>;
   }
 
 
-  const chartMargin = { top: 20, right: 30, left: 20, bottom: 20 };
+  const chartMargin = { top: 20, right: 30, left: 20, bottom: 50 }; // Increased bottom for legend
 
   return (
     <ChartContainer config={chartConfig} className="min-h-[350px] w-full">
@@ -77,63 +87,62 @@ export function AverageResolutionTimeChart({ data, teamAverageDays }: AverageRes
             axisLine={false}
             stroke="hsl(var(--muted-foreground))"
             fontSize={12}
+            interval={0}
+            angle={-30}
+            textAnchor="end"
           />
           <YAxis
             stroke="hsl(var(--muted-foreground))"
             fontSize={12}
             tickLine={false}
             axisLine={false}
-            label={{ value: t('dashboard.averageResolutionTimeChart.yAxisLabel'), angle: -90, position: 'insideLeft', offset: -5, style: { textAnchor: 'middle', fontSize: '12px', fill: 'hsl(var(--muted-foreground))' } }}
-            domain={[0, 'dataMax + 5']} // Add some padding to Y axis
+            label={{ value: t('dashboard.averageResolutionTimeChart.yAxisLabel'), angle: -90, position: 'insideLeft', offset: -10, style: { textAnchor: 'middle', fontSize: '12px', fill: 'hsl(var(--muted-foreground))' } }}
+            domain={[0, 'dataMax + 5']} 
           />
           <Tooltip
             content={<ChartTooltipContent
               formatter={(value, name, item) => {
+                // 'name' will be 'averageDays' from the Bar's dataKey
+                // 'item.payload.adminName' is the specific admin for this bar
                 const adminName = item.payload.adminName;
+                const adminConfig = chartConfig[adminName] || {};
                 return (
                   <div className="flex items-center gap-2">
-                    <span style={{color: item.fill || ADMIN_COLORS[data.findIndex(d => d.adminName === adminName) % ADMIN_COLORS.length]}}>●</span>
-                     {t('dashboard.averageResolutionTimeChart.adminLabel', {adminName})}: <span className="font-bold">{typeof value === 'number' ? `${value.toFixed(1)} ${t('dashboard.averageResolutionTimeChart.avgDaysSuffix')}` : t('interactiveTable.notAvailable')}</span>
+                    <span style={{color: adminConfig.color || item.color || item.payload.fill}}>●</span>
+                     {adminName}: <span className="font-bold">{typeof value === 'number' ? `${value.toFixed(2)} ${t('dashboard.averageResolutionTimeChart.avgDaysSuffix')}` : t('interactiveTable.notAvailable')}</span>
                   </div>
                 );
               }}
             />}
             cursor={{ fill: "hsl(var(--muted))" }}
           />
-          <Legend content={<ChartLegendContent />} verticalAlign="top" wrapperStyle={{paddingBottom: '10px'}} />
+          <Legend 
+            content={<ChartLegendContent />} 
+            verticalAlign="bottom" 
+            wrapperStyle={{paddingTop: '20px'}} 
+          />
           
-          {data.map((entry, index) => (
-             <Bar
-                key={entry.adminName}
-                dataKey="averageDays"
-                name={entry.adminName}
-                fill={ADMIN_COLORS[index % ADMIN_COLORS.length]}
-                radius={[4, 4, 0, 0]}
-                barSize={Math.max(20, 100 / data.length)}
-              >
-              {/* We only want to render the bar for this specific admin in this iteration */}
-              {/* To achieve this, the 'data' prop of BarChart should be an array of these single-admin objects */}
-              {/* Or, more simply, ensure 'dataKey' correctly points to the value for the current admin. */}
-              {/* The current structure of 'data' as AdminResolutionTimeDataPoint[] is fine. */}
-              {/* Recharts Bar will pick the 'averageDays' from the object where adminName matches. */}
-              <LabelList dataKey="averageDays" content={<DataLabel unit={` ${t('dashboard.averageResolutionTimeChart.avgDaysSuffix')}`} />} />
-
-            </Bar>
-          ))}
+          <Bar dataKey="averageDays" nameKey="adminName" radius={[4, 4, 0, 0]}>
+             {data.map((entry, index) => (
+                 // Each Bar needs a unique fill, name is for legend
+                <Bar key={entry.adminName} dataKey="averageDays" fill={ADMIN_COLORS[index % ADMIN_COLORS.length]} name={entry.adminName} />
+            ))}
+            <LabelList dataKey="averageDays" content={<DataLabel unitSuffixKey="dashboard.averageResolutionTimeChart.avgDaysSuffix" />} />
+          </Bar>
 
           {teamAverageDays !== null && (
             <ReferenceLine
               y={teamAverageDays}
+              stroke="hsl(var(--primary))" // Prominent color for team average
+              strokeWidth={2}
+              ifOverflow="extendDomain"
               label={{
-                value: `${t('dashboard.averageResolutionTimeChart.teamAverageLabel')}: ${teamAverageDays.toFixed(1)} ${t('dashboard.averageResolutionTimeChart.avgDaysSuffix')}`,
+                value: `${t('dashboard.averageResolutionTimeChart.teamAverageLabel')}: ${teamAverageDays.toFixed(2)} ${t('dashboard.averageResolutionTimeChart.avgDaysSuffix')}`,
                 position: "insideTopRight",
-                fill: "hsl(var(--foreground))",
+                fill: "hsl(var(--primary))",
                 fontSize: 10,
                 dy: -5, 
               }}
-              stroke="hsl(var(--foreground))"
-              strokeDasharray="3 3"
-              strokeWidth={2}
             />
           )}
         </BarChart>

@@ -4,17 +4,18 @@
 import { useEffect, useState, useCallback } from 'react';
 import { MetricCard } from '@/components/dashboard/metric-card';
 import { SampleStatsChart } from '@/components/dashboard/sample-stats-chart';
-import { Users, Activity, CheckCircle2, Briefcase, ListChecks, TrendingUp, Clock3 } from 'lucide-react'; // Added TrendingUp, Clock3
+import { Users, Activity, CheckCircle2, Briefcase, ListChecks, TrendingUp, Clock3 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Image from 'next/image';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useLanguage } from '@/context/language-context';
 import type { Task, TaskStatus, TaskResolutionStatus } from '@/types'; 
 import { PROTECTED_RESOLUTION_STATUSES } from '@/types'; 
-import { AdminWeeklyProgressChart, type AdminWeeklyChartDataPoint } from '@/components/dashboard/admin-weekly-progress-chart';
+// Renamed chart component and its data type
+import { OverallAdminProgressChart, type OverallAdminProgressDataPoint } from '@/components/dashboard/overall-admin-progress-chart'; 
 import { AverageResolutionTimeChart, type AdminResolutionTimeDataPoint } from '@/components/dashboard/average-resolution-time-chart';
-import { getWeeksInRange, parseWeekIdentifier, calculateBusinessDays } from '@/lib/utils'; 
-import { parseISO, isValid, startOfISOWeek, endOfISOWeek } from 'date-fns';
+import { calculateBusinessDays } from '@/lib/utils'; 
+import { parseISO, isValid } from 'date-fns';
 
 
 interface TaskOverviewData {
@@ -34,182 +35,99 @@ const STATUS_TRANSLATION_KEYS: Record<TaskStatus, string> = {
   "Pending to Invoice Out of Time": "interactiveTable.status.pendingInvoice",
 };
 
+const GOAL_PERCENTAGE = 50; // Define a goal percentage for overall progress
+
 export default function DashboardPage() {
   const { t } = useLanguage();
   const [taskOverviewData, setTaskOverviewData] = useState<TaskOverviewData[]>([]);
   const [totalTasks, setTotalTasks] = useState<number>(0);
   const [tasksCompletedCount, setTasksCompletedCount] = useState<number>(0);
-  const [adminWeeklyProgressData, setAdminWeeklyProgressData] = useState<AdminWeeklyChartDataPoint[]>([]);
-  const [activeAdmins, setActiveAdmins] = useState<string[]>([]);
+  
+  // State for the new Overall Admin Progress chart
+  const [overallAdminProgressData, setOverallAdminProgressData] = useState<OverallAdminProgressDataPoint[]>([]);
+  const [teamAverageProgress, setTeamAverageProgress] = useState<number | null>(null);
+  const [adminsForProgressChart, setAdminsForProgressChart] = useState<string[]>([]);
+
+
   const [averageResolutionTimeData, setAverageResolutionTimeData] = useState<AdminResolutionTimeDataPoint[]>([]);
   const [teamAverageResolutionTime, setTeamAverageResolutionTime] = useState<number | null>(null);
 
 
-  const calculateAdminWeeklyProgress = useCallback((tasks: Task[]): { chartData: AdminWeeklyChartDataPoint[], admins: string[] } => {
-    console.log("AdminWeeklyProgress: Starting calculation...");
+  const calculateOverallAdminProgress = useCallback((tasks: Task[]): {
+    chartData: OverallAdminProgressDataPoint[];
+    teamAveragePercent: number | null;
+    allAdmins: string[];
+  } => {
+    console.log("OverallAdminProgress: Starting calculation...");
     if (!tasks || tasks.length === 0) {
-        console.log("AdminWeeklyProgress: No tasks provided to calculateAdminWeeklyProgress.");
-        return { chartData: [], admins: [] };
-    }
-    console.log(`AdminWeeklyProgress: Total tasks loaded for calculation: ${tasks.length}`);
-
-    const relevantTasks = tasks.filter(task => task.resolutionAdmin && task.createdAt);
-    console.log(`AdminWeeklyProgress: Relevant tasks (with resolutionAdmin & createdAt): ${relevantTasks.length}`);
-    if (relevantTasks.length === 0) {
-      console.log("AdminWeeklyProgress: No relevant tasks found (missing resolutionAdmin or createdAt).");
-      return { chartData: [], admins: [] };
+      console.log("OverallAdminProgress: No tasks provided.");
+      return { chartData: [], teamAveragePercent: null, allAdmins: [] };
     }
 
-    const admins = Array.from(new Set(relevantTasks.map(task => task.resolutionAdmin!))).sort();
-    console.log(`AdminWeeklyProgress: Identified admins: ${admins.join(', ')}`);
-    if (admins.length === 0) {
-        console.log("AdminWeeklyProgress: No admins identified from relevant tasks.");
-        return { chartData: [], admins: [] };
-    }
-    
-    let minDate: Date | null = null;
-    let maxDate: Date | null = null;
+    const adminStats: Record<string, { assigned: number; resolved: number }> = {};
+    const allAdminsSet = new Set<string>();
 
-    relevantTasks.forEach(task => {
-      // console.log(`AdminWeeklyProgress: Processing task for dates - ID: ${task.id || task.taskReference}, CreatedAt: ${task.createdAt}, ResolvedAt: ${task.resolvedAt}`);
-      try {
-        if (task.createdAt) {
-            const createdAtDate = parseISO(task.createdAt); 
-            if (isValid(createdAtDate)) {
-              if (minDate === null || createdAtDate < minDate) minDate = createdAtDate;
-              if (maxDate === null || createdAtDate > maxDate) maxDate = createdAtDate;
-            } else {
-               console.warn(`AdminWeeklyProgress: Invalid createdAt date for task ${task.id || task.taskReference}: ${task.createdAt}`);
+    tasks.forEach(task => {
+      if (task.resolutionAdmin) {
+        allAdminsSet.add(task.resolutionAdmin);
+        if (!adminStats[task.resolutionAdmin]) {
+          adminStats[task.resolutionAdmin] = { assigned: 0, resolved: 0 };
+        }
+        adminStats[task.resolutionAdmin].assigned++;
+
+        if (task.resolutionStatus && PROTECTED_RESOLUTION_STATUSES.includes(task.resolutionStatus as TaskResolutionStatus) && task.resolvedAt) {
+          try {
+            if (isValid(parseISO(task.resolvedAt))) {
+               adminStats[task.resolutionAdmin].resolved++;
             }
+          } catch {
+            // Invalid resolvedAt date
+          }
         }
-
-        if (task.resolvedAt) {
-          const resolvedAtDate = parseISO(task.resolvedAt);
-           if (isValid(resolvedAtDate)) {
-             if (minDate === null || resolvedAtDate < minDate) minDate = resolvedAtDate;
-             if (maxDate === null || resolvedAtDate > maxDate) maxDate = resolvedAtDate;
-           } else {
-             console.warn(`AdminWeeklyProgress: Invalid resolvedAt date for task ${task.id || task.taskReference}: ${task.resolvedAt}`);
-           }
-        }
-      } catch (e) {
-        console.warn(`AdminWeeklyProgress: Error parsing dates for task ${task.id || task.taskReference}:`, e);
       }
     });
-    // console.log(`AdminWeeklyProgress: Initial minDate: ${minDate?.toISOString()}, maxDate: ${maxDate?.toISOString()}`);
 
-
-     if (minDate === null || maxDate === null) {
-      console.log("AdminWeeklyProgress: No valid date range found from tasks. MinDate:", minDate, "MaxDate:", maxDate);
-      return { chartData: [], admins };
+    const allAdminsList = Array.from(allAdminsSet).sort();
+    if (allAdminsList.length === 0) {
+        console.log("OverallAdminProgress: No admins identified from tasks with resolutionAdmin.");
+        return { chartData: [], teamAveragePercent: null, allAdmins: [] };
     }
 
-    const today = new Date();
-    if (maxDate < today) {
-        // console.log(`AdminWeeklyProgress: Extending maxDate from ${maxDate.toISOString()} to today ${today.toISOString()}`);
-        maxDate = today;
-    }
-    if (minDate > maxDate) {
-        // console.log(`AdminWeeklyProgress: minDate ${minDate.toISOString()} was after maxDate ${maxDate.toISOString()}. Adjusting minDate.`);
-        minDate = startOfISOWeek(maxDate); 
-    }
-    // console.log(`AdminWeeklyProgress: Adjusted minDate: ${minDate?.toISOString()}, maxDate: ${maxDate?.toISOString()}`);
 
-    const weeks = getWeeksInRange(minDate, maxDate);
-    // console.log(`AdminWeeklyProgress: Generated ${weeks.length} weeks: ${weeks.join(', ')}`);
-    if (weeks.length === 0) {
-      console.log("AdminWeeklyProgress: No weeks in the calculated range after adjustments. MinDate:", minDate, "MaxDate:", maxDate);
-      return { chartData: [], admins };
-    }
-    
-
-    const weeklyData: AdminWeeklyChartDataPoint[] = weeks.map(weekId => {
-      // console.log(`AdminWeeklyProgress: [Week Loop] Processing weekId: ${weekId}`);
-      const { endOfWeek: currentEndOfWeek } = parseWeekIdentifier(weekId);
-      const adminProgressMap: { [adminNameKey: string]: { resolved: number; totalAssigned: number; progressPercent: number; }} = {};
-      
-      let totalTeamProgressSum = 0;
-      let contributingAdminsCount = 0;
-
-      admins.forEach(admin => {
-        // console.log(`AdminWeeklyProgress: [Week: ${weekId}] Processing admin: ${admin}`);
-        const adminKey = admin.replace(/\s+/g, '') + 'Progress';
-        let tasksAssignedToAdminUpToWeekCount = 0;
-        let tasksResolvedByAdminUpToWeekCount = 0;
-
-        relevantTasks.forEach(task => {
-            if (task.resolutionAdmin !== admin) return;
-            
-            let createdAtDate;
-            try {
-                if (!task.createdAt) {
-                    return;
-                }
-                createdAtDate = parseISO(task.createdAt);
-                if (!isValid(createdAtDate)) {
-                    console.warn(`AdminWeeklyProgress: [Week: ${weekId}, Admin: ${admin}] Task ${task.id || task.taskReference} has invalid createdAt: ${task.createdAt}`);
-                    return;
-                }
-            } catch { return; }
-
-            if (createdAtDate <= currentEndOfWeek) {
-                tasksAssignedToAdminUpToWeekCount++;
-
-                if (task.resolutionStatus && PROTECTED_RESOLUTION_STATUSES.includes(task.resolutionStatus as TaskResolutionStatus) && task.resolvedAt) {
-                    let resolvedAtDate;
-                    try {
-                        resolvedAtDate = parseISO(task.resolvedAt);
-                        if (!isValid(resolvedAtDate)) {
-                            console.warn(`AdminWeeklyProgress: [Week: ${weekId}, Admin: ${admin}] Task ${task.id || task.taskReference} has invalid resolvedAt: ${task.resolvedAt}`);
-                            return;
-                        }
-                    } catch { return; }
-
-                    if (resolvedAtDate <= currentEndOfWeek) {
-                        tasksResolvedByAdminUpToWeekCount++;
-                    }
-                }
-            }
-        });
-        
-        const totalAssigned = tasksAssignedToAdminUpToWeekCount;
-        const resolvedCount = tasksResolvedByAdminUpToWeekCount;
-        const progressPercent = totalAssigned > 0 ? (resolvedCount / totalAssigned) * 100 : 0;
-        
-        // console.log(`AdminWeeklyProgress: [Week: ${weekId}, Admin: ${admin}] Assigned: ${totalAssigned}, Resolved: ${resolvedCount}, Progress: ${progressPercent.toFixed(1)}%`);
-
-        adminProgressMap[adminKey] = {
-            resolved: resolvedCount,
-            totalAssigned: totalAssigned,
-            progressPercent: progressPercent
-        };
-
-        if (totalAssigned > 0) {
-            totalTeamProgressSum += progressPercent;
-            contributingAdminsCount++;
-        }
-      });
-
-      const teamAverage = contributingAdminsCount > 0 ? totalTeamProgressSum / contributingAdminsCount : 0;
-      const goalLine = teamAverage < 50 ? 50 : teamAverage + 5;
-      // console.log(`AdminWeeklyProgress: [Week: ${weekId}] Team Average: ${teamAverage.toFixed(1)}%, Goal: ${goalLine.toFixed(1)}%, Contributing Admins: ${contributingAdminsCount}`);
-      
-      const weekDataObject: AdminWeeklyChartDataPoint = {
-        week: weekId,
-        teamAverage: parseFloat(teamAverage.toFixed(1)),
-        goalLine: parseFloat(goalLine.toFixed(1)),
+    const chartData: OverallAdminProgressDataPoint[] = allAdminsList.map(adminName => {
+      const stats = adminStats[adminName];
+      if (!stats || stats.assigned === 0) { // If admin has no tasks or no assigned tasks
+        return { adminName, progressPercent: null };
+      }
+      return {
+        adminName,
+        progressPercent: (stats.resolved / stats.assigned) * 100,
       };
-
-      admins.forEach(admin => {
-        const adminKey = admin.replace(/\s+/g, '') + 'Progress';
-        weekDataObject[adminKey] = parseFloat(adminProgressMap[adminKey]?.progressPercent.toFixed(1) || "0.0");
-      });
-      // console.log(`AdminWeeklyProgress: [Week: ${weekId}] WeekDataObject for chart:`, JSON.stringify(weekDataObject));
-      return weekDataObject;
     });
-    // console.log("AdminWeeklyProgress: Final calculated chartData to be set in state:", JSON.stringify(weeklyData));
-    // console.log("AdminWeeklyProgress: Final admins for chart to be set in state:", admins);
-    return { chartData: weeklyData, admins };
+    
+    // Sort by progressPercent descending, nulls (no progress) at the end
+    chartData.sort((a, b) => {
+        if (a.progressPercent === null && b.progressPercent === null) return a.adminName.localeCompare(b.adminName);
+        if (a.progressPercent === null) return 1;
+        if (b.progressPercent === null) return -1;
+        return b.progressPercent - a.progressPercent; // Higher progress first
+    });
+
+
+    let totalTeamAssigned = 0;
+    let totalTeamResolved = 0;
+    Object.values(adminStats).forEach(stats => {
+      totalTeamAssigned += stats.assigned;
+      totalTeamResolved += stats.resolved;
+    });
+
+    const teamAveragePercent = totalTeamAssigned > 0 ? (totalTeamResolved / totalTeamAssigned) * 100 : null;
+
+    console.log("OverallAdminProgress: Calculated chartData:", chartData);
+    console.log("OverallAdminProgress: Calculated teamAveragePercent:", teamAveragePercent);
+    console.log("OverallAdminProgress: All admins found:", allAdminsList);
+    
+    return { chartData, teamAveragePercent, allAdmins: allAdminsList };
   }, []);
 
 
@@ -260,8 +178,6 @@ export default function DashboardPage() {
     });
 
     const adminAverages: AdminResolutionTimeDataPoint[] = [];
-    
-    // Ensure all admins who have tasks (even if none resolved yet for this calc) are considered
     const sortedAdminList = Array.from(allAdminsWithTasks).sort();
 
     sortedAdminList.forEach(adminName => {
@@ -270,19 +186,16 @@ export default function DashboardPage() {
         const sum = times.reduce((acc, curr) => acc + curr, 0);
         adminAverages.push({ adminName: adminName, averageDays: sum / times.length });
       } else {
-        // Admin has tasks assigned in general, but none that fit the "resolved" criteria for this chart
         adminAverages.push({ adminName: adminName, averageDays: null });
       }
     });
     
-    // Sort by averageDays ascending, nulls (no resolved tasks) at the end
     adminAverages.sort((a, b) => {
         if (a.averageDays === null && b.averageDays === null) return a.adminName.localeCompare(b.adminName);
-        if (a.averageDays === null) return 1;
+        if (a.averageDays === null) return 1; // Nulls (no resolved tasks or error) go to the end
         if (b.averageDays === null) return -1;
-        return a.averageDays - b.averageDays;
+        return a.averageDays - b.averageDays; // Lower average days first
     });
-
 
     const teamAverage = totalResolvedTasksCount > 0 ? totalResolutionTimeAllTasks / totalResolvedTasksCount : null;
 
@@ -326,19 +239,19 @@ export default function DashboardPage() {
           }));
           setTaskOverviewData(overviewData);
 
-          // console.log("Dashboard: Calling calculateAdminWeeklyProgress with loaded tasks.");
-          const { chartData: adminProgress, admins: currentAdmins } = calculateAdminWeeklyProgress(loadedTasks);
-          // console.log("Dashboard: Received from calculateAdminWeeklyProgress - chartData length:", adminProgress.length, "admins count:", currentAdmins.length);
-          setAdminWeeklyProgressData(adminProgress);
-          setActiveAdmins(currentAdmins);
+          const { chartData: overallProgress, teamAveragePercent, allAdmins } = calculateOverallAdminProgress(loadedTasks);
+          setOverallAdminProgressData(overallProgress);
+          setTeamAverageProgress(teamAveragePercent);
+          setAdminsForProgressChart(allAdmins);
+
 
           const { adminAverages, teamAverage } = calculateAverageResolutionTimeByAdmin(loadedTasks);
           setAverageResolutionTimeData(adminAverages);
           setTeamAverageResolutionTime(teamAverage);
 
-
         } else {
           console.log("Dashboard: No tasks found in localStorage or tasks array is empty after parsing.");
+          // Reset all states related to tasks
           setTaskOverviewData([
               { name: t(STATUS_TRANSLATION_KEYS["Missing Estimated Dates"] as any), value: 0, fill: CHART_FILLS["Missing Estimated Dates"] },
               { name: t(STATUS_TRANSLATION_KEYS["Missing POD"] as any), value: 0, fill: CHART_FILLS["Missing POD"] },
@@ -346,23 +259,24 @@ export default function DashboardPage() {
           ]);
           setTotalTasks(0);
           setTasksCompletedCount(0);
-          setAdminWeeklyProgressData([]);
-          setActiveAdmins([]);
+          setOverallAdminProgressData([]);
+          setTeamAverageProgress(null);
+          setAdminsForProgressChart([]);
           setAverageResolutionTimeData([]);
           setTeamAverageResolutionTime(null);
         }
       } catch (error) {
         console.error("Error processing tasks from localStorage for dashboard:", error);
-        // Reset all states
-        setTaskOverviewData([
+         setTaskOverviewData([
             { name: t(STATUS_TRANSLATION_KEYS["Missing Estimated Dates"] as any), value: 0, fill: CHART_FILLS["Missing Estimated Dates"] },
             { name: t(STATUS_TRANSLATION_KEYS["Missing POD"] as any), value: 0, fill: CHART_FILLS["Missing POD"] },
             { name: t(STATUS_TRANSLATION_KEYS["Pending to Invoice Out of Time"] as any), value: 0, fill: CHART_FILLS["Pending to Invoice Out of Time"] },
         ]);
         setTotalTasks(0);
         setTasksCompletedCount(0);
-        setAdminWeeklyProgressData([]);
-        setActiveAdmins([]);
+        setOverallAdminProgressData([]);
+        setTeamAverageProgress(null);
+        setAdminsForProgressChart([]);
         setAverageResolutionTimeData([]);
         setTeamAverageResolutionTime(null);
       }
@@ -375,12 +289,14 @@ export default function DashboardPage() {
         ]);
         setTotalTasks(0);
         setTasksCompletedCount(0);
-        setAdminWeeklyProgressData([]);
-        setActiveAdmins([]);
+        setOverallAdminProgressData([]);
+        setTeamAverageProgress(null);
+        setAdminsForProgressChart([]);
         setAverageResolutionTimeData([]);
         setTeamAverageResolutionTime(null);
     }
-  }, [t, calculateAdminWeeklyProgress, calculateAverageResolutionTimeByAdmin]); 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [t, calculateOverallAdminProgress, calculateAverageResolutionTimeByAdmin]); 
 
   useEffect(() => {
     loadAndProcessTasks(); 
@@ -427,16 +343,21 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-6 w-6 text-primary" />
-              {t('dashboard.adminWeeklyProgress')}
+              {t('dashboard.overallAdminProgress.title')}
             </CardTitle>
-            <CardDescription>{t('dashboard.adminProgressDescription')}</CardDescription>
+            <CardDescription>{t('dashboard.overallAdminProgress.description')}</CardDescription>
           </CardHeader>
           <CardContent>
-            {adminWeeklyProgressData.length > 0 || activeAdmins.length > 0 ? (
-              <AdminWeeklyProgressChart data={adminWeeklyProgressData} admins={activeAdmins} />
+            {overallAdminProgressData.length > 0 || adminsForProgressChart.length > 0 ? (
+              <OverallAdminProgressChart 
+                data={overallAdminProgressData} 
+                teamAveragePercent={teamAverageProgress}
+                goalPercent={GOAL_PERCENTAGE} // Using a defined constant
+                allAdmins={adminsForProgressChart} 
+              />
             ) : (
               <p className="text-center text-muted-foreground py-10">
-                {totalTasks > 0 ? t('dashboard.adminWeeklyProgressChart.noData') : t('dashboard.adminWeeklyProgressChart.uploadDataPrompt')}
+                {totalTasks > 0 ? t('dashboard.overallAdminProgress.noData') : t('dashboard.overallAdminProgress.uploadDataPrompt')}
               </p>
             )}
           </CardContent>

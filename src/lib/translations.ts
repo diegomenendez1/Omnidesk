@@ -77,16 +77,14 @@ export interface Translations {
     inProgress: string;
     completed: string;
     blocked: string;
-    adminWeeklyProgress: string;
-    adminProgressDescription: string;
-    adminWeeklyProgressChart: {
-      teamAverage: string;
-      goalLine: string;
-      noData: string;
-      noDataForChart: string;
-      uploadDataPrompt: string;
+    overallAdminProgress: { // Renamed from adminWeeklyProgress
+      title: string;
+      description: string;
       yAxisLabel: string;
-      weekLabel: string;
+      teamAverageLabel: string;
+      goalLineLabel: string;
+      noData: string;
+      uploadDataPrompt: string;
     };
     averageResolutionTimeChart: {
       title: string;
@@ -95,7 +93,7 @@ export interface Translations {
       teamAverageLabel: string;
       noData: string;
       noResolvedTasks: string;
-      adminLabel: string;
+      adminLabel: string; // For tooltips or specific admin references if needed
       avgDaysSuffix: string;
       uploadDataPrompt: string;
     };
@@ -346,21 +344,19 @@ export const translations: Translations = {
       inProgress: "In Progress",
       completed: "Completed",
       blocked: "Blocked",
-      adminWeeklyProgress: "Admin Weekly Progress",
-      adminProgressDescription: "Individual and team progress towards resolution targets.",
-      adminWeeklyProgressChart: {
-        teamAverage: "Team Average",
-        goalLine: "Goal Line",
-        noData: "No data available.",
-        noDataForChart: "No data for this chart.",
-        uploadDataPrompt: "Please upload data to see admin weekly progress.",
+      overallAdminProgress: {
+        title: "Overall Admin Progress",
+        description: "Individual admin progress based on assigned vs. resolved tasks.",
         yAxisLabel: "Progress (%)",
-        weekLabel: "Week {week}",
+        teamAverageLabel: "Team Average",
+        goalLineLabel: "Minimum Goal",
+        noData: "No data available for overall admin progress.",
+        uploadDataPrompt: "Please upload data to see overall admin progress.",
       },
       averageResolutionTimeChart: {
         title: "Average Task Resolution Time",
         description: "Average business days administrators take to resolve tasks.",
-        yAxisLabel: "Avg. Business Days",
+        yAxisLabel: "Avg. Business Days to Resolve",
         teamAverageLabel: "Team Average",
         noData: "No data available to display resolution times.",
         noResolvedTasks: "No tasks have been resolved yet.",
@@ -609,21 +605,19 @@ export const translations: Translations = {
       inProgress: "En Progreso",
       completed: "Completado",
       blocked: "Bloqueado",
-      adminWeeklyProgress: "Progreso Semanal por Administrador",
-      adminProgressDescription: "Progreso individual y del equipo hacia los objetivos de resolución.",
-      adminWeeklyProgressChart: {
-        teamAverage: "Promedio Equipo",
-        goalLine: "Línea Objetivo",
-        noData: "No hay datos disponibles.",
-        noDataForChart: "No hay datos para esta gráfica.",
-        uploadDataPrompt: "Por favor, carga datos para ver el progreso semanal de los administradores.",
-        yAxisLabel: "Avance (%)",
-        weekLabel: "Semana {week}",
+      overallAdminProgress: { // Renamed from adminWeeklyProgress and keys updated
+        title: "Avance General por Administrador",
+        description: "Avance individual de cada administrador basado en tareas asignadas vs. resueltas.",
+        yAxisLabel: "Porcentaje de avance (%)",
+        teamAverageLabel: "Promedio del Equipo",
+        goalLineLabel: "Objetivo Mínimo",
+        noData: "No hay datos disponibles para el avance general de administradores.",
+        uploadDataPrompt: "Por favor, carga datos para ver el avance general de los administradores.",
       },
       averageResolutionTimeChart: {
         title: "Tiempo Promedio de Resolución de Tareas",
         description: "Promedio de días laborables que tardan los administradores en resolver tareas.",
-        yAxisLabel: "Prom. Días Laborables",
+        yAxisLabel: "Prom. Días Laborables para Resolver",
         teamAverageLabel: "Promedio del Equipo",
         noData: "No hay datos disponibles para mostrar tiempos de resolución.",
         noResolvedTasks: "Aún no se han resuelto tareas.",
