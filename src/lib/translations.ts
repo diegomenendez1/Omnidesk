@@ -1,270 +1,517 @@
 
+// 1. Define Locale type
 export type Locale = 'en' | 'es';
 
-// Helper type for ensuring key validity
-type PathImpl<T, K extends keyof T> = K extends string
-  ? T[K] extends Record<string, any>
-    ? T[K] extends Array<any>
-      ? `${K}`
-      : `${K}.${PathImpl<T[K], Exclude<keyof T[K], keyof any[]>> & string}`
-    : `${K}`
-  : never;
-
-type Path<T> = PathImpl<T, keyof T>;
-
+// 2. Define the main Translations interface
 export interface Translations {
-  [key: string]: any; // Allow for arbitrary structure
-  en: {
-    appName: string;
-    pageHeader: {
-      searchPlaceholder: string;
-      notifications: string;
-      myAccount: string;
-      profile: string;
-      settings: string;
-      logout: string;
-      dashboard: string;
-      interactiveTable: string;
-      uploadData: string;
-      language: string;
-      english: string;
-      spanish: string;
-      login: string;
-      admin: {
-        userManagement: string;
-        addNewUser: string;
-        nameLabel: string;
-        emailLabel: string;
-        passwordLabel: string;
-        roleLabel: string;
-        roleOwner: string;
-        roleAdmin: string;
-        roleUser: string;
-        addUserButton: string;
-        userAddedSuccessfully: string;
-        errorAddingUser: string;
-      };
-      theme: {
-        toggle: string;
-        title: string;
-        light: string;
-        dark: string;
-        system: string;
-      };
-    };
-    sidebar: {
-      dashboard: string;
-      interactiveTable: string;
-      uploadData: string;
-      adminUser: string;
-      adminEmail: string;
+  appName: string;
+  pageHeader: {
+    searchPlaceholder: string;
+    notifications: string;
+    myAccount: string;
+    profile: string;
+    settings: string;
+    logout: string;
+    dashboard: string;
+    interactiveTable: string;
+    uploadData: string;
+    language: string;
+    english: string;
+    spanish: string;
+    login: string;
+    admin: {
       userManagement: string;
-    };
-    dashboard: {
-      totalTasks: string;
-      activeProjects: string;
-      tasksCompleted: string;
-      teamMembers: string;
-      acrossAllProjects: string;
-      fromLastWeek: string;
-      thisMonth: string;
-      activeUsers: string;
-      taskProgressOverview: string;
-      taskDistributionByStatus: string;
-      projectSpotlight: string;
-      highlightingKeyProject: string;
-      projectPhoenixTitle: string;
-      projectPhoenixDescription: string;
-      progress: string;
-      deadline: string;
-      recentActivity: string;
-      latestUpdates: string;
-      activityCompletedTask: string;
-      activityUpdatedStatus: string;
-      activityAddedNewTask: string;
-      hoursAgo: string;
-      daysAgo: string;
-      todo: string;
-      inProgress: string;
-      completed: string;
-      blocked: string;
-      adminWeeklyProgress: string;
-      adminProgressDescription: string;
-      adminWeeklyProgressChart: {
-        teamAverage: string;
-        goalLine: string;
-        noData: string;
-        noDataForChart: string;
-        uploadDataPrompt: string;
-        yAxisLabel: string;
-        weekLabel: string;
-      };
-    };
-    interactiveTable: {
-      title: string;
-      validateWithAI: string;
-      validating: string;
-      validationComplete: string;
-      validationFailed: string;
-      validationFailedDescription: string;
-      fieldUpdated: string;
-      changeSavedFor: string;
-      tableHeaders: {
-        toRef: string;
-        toStatus: string;
-        logisticDeveloper: string;
-        delayDays: string;
-        customerAccount: string;
-        amount: string;
-        transportMode: string;
-        comments: string;
-        admin: string;
-        resolutionTimeDays: string;
-        history: string;
-        actions: string;
-        accumulatedBusinessDays: string;
-        resolvedAt: string;
-      };
-      status: {
-        missingEstimates: string;
-        missingPOD: string;
-        pendingInvoice: string;
-      };
-      resolutionStatus: {
-        pendiente: string;
-        sfp: string;
-        resuelto: string;
-      };
-      notAvailable: string;
-      selectStatus: string;
-      filterBy: string;
-      allStatuses: string;
-      filterAllOption: string;
-      filterActionPlaceholder: string;
-      viewHistoryTooltip: string;
-      viewingHistory: string;
-      historyFeaturePlaceholder: string;
-    };
-    uploadData: {
-      title: string;
-      description: string;
-      fileAcceptedToastTitle: string;
-      fileAcceptedToastDescription: string;
-      columnMappingTitle: string;
-      columnMappingDescription: string;
-      csvColumn: string;
-      mapToSystemColumn: string;
-      doNotImport: string;
-      cancel: string;
-      confirmAndProcess: string;
-      processing: string;
-      noDataToProcess: string;
-      incompleteMapping: string;
-      pleaseMapRequired: string;
-      dataProcessed: string;
-      tasksProcessedAndSaved: string;
-      tasksProcessedAndSavedWithSkipped: string;
-      errorSavingLocally: string;
-      errorSavingLocallyDescription: string;
-      previewTitle: string;
-      uploadAnotherFile: string;
-      redirectingToTable: string;
-      systemColumns: {
-        status: string;
-        assignee: string;
-        taskReference: string;
-        delayDays: string;
-        customerAccount: string;
-        netAmount: string;
-        transportMode: string;
-        comments: string;
-        resolutionAdmin: string;
-        resolutionStatus: string;
-        resolutionTimeDays: string;
-        id: string;
-        name: string;
-        createdAt: string;
-        resolvedAt: string;
-      };
-      fileUploader: {
-        dropzoneActive: string;
-        dropzoneInactive: string;
-        processingFile: string;
-        previewFor: string;
-        showingFirstNRows: string;
-        invalidFileToastTitle: string;
-        invalidFileToastDescription: string;
-        emptyFileToastTitle: string;
-        emptyFileToastDescription: string;
-        parseErrorToastTitle: string;
-        parseErrorToastDescription: string;
-      };
-      aiErrorToastTitle: string;
-      aiErrorToastDescription: string;
-      backup: {
-        dialogTitle: string;
-        dialogDescription: string;
-        backupAndContinueButton: string;
-        continueWithoutBackupButton: string;
-        successTitle: string;
-        successDescription: string;
-      };
-      validationErrors: {
-        title: string;
-        description: string;
-      };
-      noValidTasksProcessed: string;
-      allRowsInvalid: string;
-      noDataInFile: string;
-      goToTableButton: string;
-      noEffectiveChanges: string;
-      noEffectiveChangesDescription: string;
-    };
-    dataValidationReport: {
-      title: string;
-      inconsistenciesFound: string;
-      inconsistenciesFoundDescription: string;
-      noInconsistenciesFound: string;
-      noInconsistenciesFoundDescription: string;
-      cell: string;
-      description: string;
-    };
-    localStorage: {
-      loadedData: string;
-      loadedTasksDescription: string;
-      errorLoadingData: string;
-      errorLoadingDataDescription: string;
-      errorSavingData: string;
-      errorSavingDataDescription: string;
-    };
-    loginPage: {
-      titleLogin: string;
-      descriptionLogin: string;
-      titleRegister: string;
-      descriptionRegister: string;
+      addNewUser: string;
+      nameLabel: string;
       emailLabel: string;
       passwordLabel: string;
-      loginButton: string;
-      registerButton: string;
-      noAccount: string;
-      hasAccount: string;
-      registerLink: string;
-      loginLink: string;
-      error: {
-        invalidCredentials: string;
-        userNotFound: string;
-        wrongPassword: string;
-        generic: string;
-        invalidEmail: string;
-        userDisabled: string;
-        emailInUse: string;
-        weakPassword: string;
-        requiresRecentLogin: string;
-        passwordRequired: string;
-        networkError: string;
-        apiKeyInvalid: string;
-      };
+      roleLabel: string;
+      roleOwner: string;
+      roleAdmin: string;
+      roleUser: string;
+      addUserButton: string;
+      userAddedSuccessfully: string;
+      errorAddingUser: string;
     };
+    theme: {
+      toggle: string;
+      title: string;
+      light: string;
+      dark: string;
+      system: string;
+    };
+  };
+  sidebar: {
+    dashboard: string;
+    interactiveTable: string;
+    uploadData: string;
+    adminUser: string;
+    adminEmail: string;
+    userManagement: string;
+  };
+  dashboard: {
+    totalTasks: string;
+    activeProjects: string;
+    tasksCompleted: string;
+    teamMembers: string;
+    acrossAllProjects: string;
+    fromLastWeek: string;
+    thisMonth: string;
+    activeUsers: string;
+    taskProgressOverview: string;
+    taskDistributionByStatus: string;
+    projectSpotlight: string;
+    highlightingKeyProject: string;
+    projectPhoenixTitle: string;
+    projectPhoenixDescription: string;
+    progress: string;
+    deadline: string;
+    recentActivity: string;
+    latestUpdates: string;
+    activityCompletedTask: string;
+    activityUpdatedStatus: string;
+    activityAddedNewTask: string;
+    hoursAgo: string;
+    daysAgo: string;
+    todo: string;
+    inProgress: string;
+    completed: string;
+    blocked: string;
+    adminWeeklyProgress: string;
+    adminProgressDescription: string;
+    adminWeeklyProgressChart: {
+      teamAverage: string;
+      goalLine: string;
+      noData: string;
+      noDataForChart: string;
+      uploadDataPrompt: string;
+      yAxisLabel: string;
+      weekLabel: string;
+    };
+  };
+  interactiveTable: {
+    title: string;
+    validateWithAI: string;
+    validating: string;
+    validationComplete: string;
+    validationFailed: string;
+    validationFailedDescription: string;
+    fieldUpdated: string;
+    changeSavedFor: string;
+    tableHeaders: {
+      toRef: string;
+      toStatus: string;
+      logisticDeveloper: string;
+      delayDays: string;
+      customerAccount: string;
+      amount: string;
+      transportMode: string;
+      comments: string;
+      admin: string;
+      resolutionTimeDays: string;
+      history: string;
+      actions: string;
+      accumulatedBusinessDays: string;
+      resolvedAt: string;
+    };
+    status: {
+      missingEstimates: string;
+      missingPOD: string;
+      pendingInvoice: string;
+    };
+    resolutionStatus: {
+      pendiente: string;
+      sfp: string;
+      resuelto: string;
+    };
+    notAvailable: string;
+    selectStatus: string;
+    filterBy: string;
+    allStatuses: string;
+    filterAllOption: string;
+    filterActionPlaceholder: string;
+    viewHistoryTooltip: string;
+    viewingHistory: string;
+    historyFeaturePlaceholder: string;
+  };
+  uploadData: {
+    title: string;
+    description: string;
+    fileAcceptedToastTitle: string;
+    fileAcceptedToastDescription: string;
+    columnMappingTitle: string;
+    columnMappingDescription: string;
+    csvColumn: string;
+    mapToSystemColumn: string;
+    doNotImport: string;
+    cancel: string;
+    confirmAndProcess: string;
+    processing: string;
+    noDataToProcess: string;
+    incompleteMapping: string;
+    pleaseMapRequired: string;
+    dataProcessed: string;
+    tasksProcessedAndSaved: string;
+    tasksProcessedAndSavedWithSkipped: string;
+    errorSavingLocally: string;
+    errorSavingLocallyDescription: string;
+    previewTitle: string;
+    uploadAnotherFile: string;
+    redirectingToTable: string;
+    systemColumns: {
+      status: string;
+      assignee: string;
+      taskReference: string;
+      delayDays: string;
+      customerAccount: string;
+      netAmount: string;
+      transportMode: string;
+      comments: string;
+      resolutionAdmin: string;
+      resolutionStatus: string;
+      resolutionTimeDays: string;
+      id: string;
+      name: string;
+      createdAt: string;
+      resolvedAt: string;
+    };
+    fileUploader: {
+      dropzoneActive: string;
+      dropzoneInactive: string;
+      processingFile: string;
+      previewFor: string;
+      showingFirstNRows: string;
+      invalidFileToastTitle: string;
+      invalidFileToastDescription: string;
+      emptyFileToastTitle: string;
+      emptyFileToastDescription: string;
+      parseErrorToastTitle: string;
+      parseErrorToastDescription: string;
+    };
+    aiErrorToastTitle: string;
+    aiErrorToastDescription: string;
+    backup: {
+      dialogTitle: string;
+      dialogDescription: string;
+      backupAndContinueButton: string;
+      continueWithoutBackupButton: string;
+      successTitle: string;
+      successDescription: string;
+    };
+    validationErrors: {
+      title: string;
+      description: string;
+    };
+    noValidTasksProcessed: string;
+    allRowsInvalid: string;
+    noDataInFile: string;
+    goToTableButton: string;
+    noEffectiveChanges: string;
+    noEffectiveChangesDescription: string;
+  };
+  dataValidationReport: {
+    title: string;
+    inconsistenciesFound: string;
+    inconsistenciesFoundDescription: string;
+    noInconsistenciesFound: string;
+    noInconsistenciesFoundDescription: string;
+    cell: string;
+    description: string;
+  };
+  localStorage: {
+    loadedData: string;
+    loadedTasksDescription: string;
+    errorLoadingData: string;
+    errorLoadingDataDescription: string;
+    errorSavingData: string;
+    errorSavingDataDescription: string;
+  };
+  loginPage: {
+    titleLogin: string;
+    descriptionLogin: string;
+    titleRegister: string;
+    descriptionRegister: string;
+    emailLabel: string;
+    passwordLabel: string;
+    loginButton: string;
+    registerButton: string;
+    noAccount: string;
+    hasAccount: string;
+    registerLink: string;
+    loginLink: string;
+    error: {
+      invalidCredentials: string;
+      userNotFound: string;
+      wrongPassword: string;
+      generic: string;
+      invalidEmail: string;
+      userDisabled: string;
+      emailInUse: string;
+      weakPassword: string;
+      requiresRecentLogin: string;
+      passwordRequired: string;
+      networkError: string;
+      apiKeyInvalid: string;
+    };
+  };
+  // This structure must be present for each locale
+  [key: string]: any;
+}
+
+
+// 3. Define and EXPORT the translations object
+export const translations: Translations = {
+  en: {
+    appName: "OmniDeck",
+    pageHeader: {
+      searchPlaceholder: "Search...",
+      notifications: "Toggle notifications",
+      myAccount: "My Account",
+      profile: "Profile",
+      settings: "Settings",
+      logout: "Log Out",
+      dashboard: "Dashboard",
+      interactiveTable: "Interactive Table",
+      uploadData: "Upload Data",
+      language: "Language",
+      english: "English",
+      spanish: "Spanish",
+      login: "Login",
+      admin: {
+        userManagement: "User Management",
+        addNewUser: "Add New User",
+        nameLabel: "Name",
+        emailLabel: "Email",
+        passwordLabel: "Password",
+        roleLabel: "Role",
+        roleOwner: "Owner",
+        roleAdmin: "Admin",
+        roleUser: "User",
+        addUserButton: "Add User",
+        userAddedSuccessfully: "User added successfully!",
+        errorAddingUser: "Error adding user.",
+      },
+      theme: {
+        toggle: "Toggle theme",
+        title: "Theme",
+        light: "Light",
+        dark: "Dark",
+        system: "System",
+      },
+    },
+    sidebar: {
+      dashboard: "Dashboard",
+      interactiveTable: "Interactive Table",
+      uploadData: "Upload Data",
+      adminUser: "Admin User",
+      adminEmail: "admin@omnideck.com",
+      userManagement: "User Management",
+    },
+    dashboard: {
+      totalTasks: "Total Tasks",
+      activeProjects: "Active Projects",
+      tasksCompleted: "Tasks Completed",
+      teamMembers: "Team Members",
+      acrossAllProjects: "Across all projects",
+      fromLastWeek: "+2 from last week",
+      thisMonth: "This month",
+      activeUsers: "Active users",
+      taskProgressOverview: "Task Progress Overview",
+      taskDistributionByStatus: "A quick look at task distribution by status.",
+      projectSpotlight: "Project Spotlight",
+      highlightingKeyProject: "Highlighting a key ongoing project.",
+      projectPhoenixTitle: "Project Phoenix",
+      projectPhoenixDescription: "This initiative aims to revamp our core platform, enhancing user experience and performance. Currently in development phase with major milestones approaching.",
+      progress: "Progress",
+      deadline: "Deadline",
+      recentActivity: "Recent Activity",
+      latestUpdates: "Latest updates from your team.",
+      activityCompletedTask: "{user} completed task '{taskName}'",
+      activityUpdatedStatus: "{user} updated status of '{taskName}' to {status}",
+      activityAddedNewTask: "{user} added new task '{taskName}'",
+      hoursAgo: "{count} hours ago",
+      daysAgo: "{count} days ago",
+      todo: "To Do",
+      inProgress: "In Progress",
+      completed: "Completed",
+      blocked: "Blocked",
+      adminWeeklyProgress: "Admin Weekly Progress",
+      adminProgressDescription: "Individual and team progress towards resolution targets.",
+      adminWeeklyProgressChart: {
+        teamAverage: "Team Average",
+        goalLine: "Goal Line",
+        noData: "No data available.",
+        noDataForChart: "No data for this chart.",
+        uploadDataPrompt: "Please upload data to see admin weekly progress.",
+        yAxisLabel: "Progress (%)",
+        weekLabel: "Week {week}",
+      },
+    },
+    interactiveTable: {
+      title: "Task Overview",
+      validateWithAI: "Validate Data with AI",
+      validating: "Validating...",
+      validationComplete: "Data Validation Complete",
+      validationFailed: "Data Validation Failed",
+      validationFailedDescription: "An unknown error occurred during data validation.",
+      fieldUpdated: "Field updated",
+      changeSavedFor: "Change saved for {field}",
+      tableHeaders: {
+        toRef: "TO Ref.",
+        toStatus: "TO Status",
+        logisticDeveloper: "Logistic Developer",
+        delayDays: "Delay Days",
+        customerAccount: "Customer Acc.",
+        amount: "Amount $",
+        transportMode: "Transport Mode",
+        comments: "Comments",
+        admin: "Admin",
+        resolutionTimeDays: "Resolution Time (days)",
+        history: "History",
+        actions: "Actions",
+        accumulatedBusinessDays: "Accumulated Days (Business)",
+        resolvedAt: "Resolved At",
+      },
+      status: {
+        missingEstimates: "Missing Estimated Dates",
+        missingPOD: "Missing POD",
+        pendingInvoice: "Pending to Invoice Out of Time",
+      },
+      resolutionStatus: {
+        pendiente: "Pending",
+        sfp: "SFP",
+        resuelto: "Resolved",
+      },
+      notAvailable: "N/A",
+      selectStatus: "Select status",
+      filterBy: "Filter by {columnName}",
+      allStatuses: "All Statuses",
+      filterAllOption: "All",
+      filterActionPlaceholder: "Filter...",
+      viewHistoryTooltip: "View history",
+      viewingHistory: "Viewing history for task {taskId}",
+      historyFeaturePlaceholder: "History feature is not yet implemented.",
+    },
+    uploadData: {
+      title: "Upload Data from CSV",
+      description: "Upload a CSV file, map columns, and merge data with existing records.",
+      fileAcceptedToastTitle: "CSV File Uploaded",
+      fileAcceptedToastDescription: "Please review column mapping.",
+      columnMappingTitle: "Column Mapping",
+      columnMappingDescription: "Review and adjust how columns from your CSV file ({fileName}) map to system columns. 'TO Ref.' is crucial for matching.",
+      csvColumn: "CSV Column",
+      mapToSystemColumn: "Map to System Column",
+      doNotImport: "Do not import this column",
+      cancel: "Cancel",
+      confirmAndProcess: "Confirm Mapping & Process Data",
+      processing: "Processing...",
+      noDataToProcess: "No data to process",
+      incompleteMapping: "Incomplete Mapping",
+      pleaseMapRequired: "Please map the following required system columns: {columns}",
+      dataProcessed: "Data Processed Successfully",
+      tasksProcessedAndSaved: "{count} total tasks after processing. Check preview.",
+      tasksProcessedAndSavedWithSkipped: "{savedCount} total tasks after processing. Skipped {skippedCount} CSV rows due to errors or missing TO Reference.",
+      errorSavingLocally: "Error saving data locally",
+      errorSavingLocallyDescription: "Could not save data for the interactive table. Preview is still available on this page.",
+      previewTitle: "Processed Data Preview (first 10 rows of final list)",
+      uploadAnotherFile: "Upload Another File",
+      redirectingToTable: " Redirecting to Interactive Table...",
+      systemColumns: {
+        status: "TO Status",
+        assignee: "Logistic Developer",
+        taskReference: "TO Ref.",
+        delayDays: "Delay Days",
+        customerAccount: "Customer Account",
+        netAmount: "Net Amount $",
+        transportMode: "Transport Mode",
+        comments: "Comments",
+        resolutionAdmin: "Resolution Admin",
+        resolutionStatus: "Resolution Status",
+        resolutionTimeDays: "Resolution Time (days)",
+        id: "Internal ID",
+        name: "Task Name",
+        createdAt: "Creation Date (System)",
+        resolvedAt: "Resolution Date (System/CSV)",
+      },
+      fileUploader: {
+        dropzoneActive: "Drop the CSV file here ...",
+        dropzoneInactive: "Drag 'n' drop a CSV file here, or <span class=\"text-primary\">click to select</span>.",
+        processingFile: "Processing file...",
+        previewFor: "Preview for: {fileName}",
+        showingFirstNRows: "Showing first {count} data rows.",
+        invalidFileToastTitle: "Invalid file",
+        invalidFileToastDescription: "Please upload a .csv file.",
+        emptyFileToastTitle: "Empty or invalid CSV file",
+        emptyFileToastDescription: "Header is empty or no data rows found.",
+        parseErrorToastTitle: "Error parsing CSV",
+        parseErrorToastDescription: "Invalid CSV file format.",
+      },
+      aiErrorToastTitle: "Error fetching AI suggestions",
+      aiErrorToastDescription: "Some columns could not be auto-mapped. Please review them manually.",
+      backup: {
+        dialogTitle: "Backup Confirmation",
+        dialogDescription: "New data will be merged with existing records. It's recommended to backup current data before proceeding.",
+        backupAndContinueButton: "Backup and Continue",
+        continueWithoutBackupButton: "Continue without Backup",
+        successTitle: "Backup Successful",
+        successDescription: "Data backed up to {filename}.",
+      },
+      validationErrors: {
+        title: "Validation Issues ({count} CSV rows)",
+        description: "{count} CSV rows had validation errors or missing critical data (like TO Ref). Details for first {firstN}:\n{details}",
+      },
+      noValidTasksProcessed: "No Valid Tasks to Process",
+      allRowsInvalid: "All rows in the CSV file were invalid or could not be processed. Please check errors and try again.",
+      noDataInFile: "No data rows found in the uploaded CSV file.",
+      goToTableButton: "Go to Interactive Table",
+      noEffectiveChanges: "No Effective Changes Detected",
+      noEffectiveChangesDescription: "The uploaded data did not result in any effective changes to the existing task list.",
+    },
+    dataValidationReport: {
+      title: "AI Data Validation Report",
+      inconsistenciesFound: "Inconsistencies Found",
+      inconsistenciesFoundDescription: "The following potential issues were detected in your data. Please review them carefully.",
+      noInconsistenciesFound: "No Inconsistencies Found",
+      noInconsistenciesFoundDescription: "AI analysis completed successfully and found no inconsistencies in the current dataset.",
+      cell: "Cell",
+      description: "Description",
+    },
+    localStorage: {
+      loadedData: "Data Loaded",
+      loadedTasksDescription: "{count} tasks have been loaded from the last import.",
+      errorLoadingData: "Error Loading Data",
+      errorLoadingDataDescription: "Could not load saved tasks.",
+      errorSavingData: "Error Saving Data",
+      errorSavingDataDescription: "Could not save tasks to local storage.",
+    },
+    loginPage: {
+      titleLogin: "Login",
+      descriptionLogin: "Enter your credentials to access your account.",
+      titleRegister: "Register",
+      descriptionRegister: "Create a new account to get started.",
+      emailLabel: "Email",
+      passwordLabel: "Password",
+      loginButton: "Login",
+      registerButton: "Register",
+      noAccount: "Don't have an account?",
+      hasAccount: "Already have an account?",
+      registerLink: "Register here",
+      loginLink: "Login here",
+      error: {
+        invalidCredentials: "Invalid email or password. Please check and try again.",
+        userNotFound: "No account exists with that email.",
+        wrongPassword: "Incorrect password.",
+        generic: "An unexpected error occurred. Please try again later.",
+        invalidEmail: "The email address is not validly formatted.",
+        userDisabled: "This user account has been disabled.",
+        emailInUse: "This email address is already in use by another account.",
+        weakPassword: "Password should be at least 6 characters.",
+        requiresRecentLogin: "This operation is sensitive and requires recent authentication. Please log in again.",
+        passwordRequired: "Password is required.",
+        networkError: "A network error occurred. Please check your connection and try again.",
+        apiKeyInvalid: "The Firebase API key is invalid. Please check your Firebase project setup.",
+      },
+    },
   },
   es: {
     appName: "OmniDeck",
@@ -520,7 +767,18 @@ export interface Translations {
   },
 };
 
-type TranslationNamespaces = Translations['en'];
-export type TranslationKey = Path<TranslationNamespaces>;
+// 4. Helper type for ensuring key validity, defined after Translations and translations
+type PathImpl<T, K extends keyof T> = K extends string
+  ? T[K] extends Record<string, any>
+    ? T[K] extends Array<any> // Check if it's an array
+      ? `${K}` // If array, path ends here
+      : `${K}.${PathImpl<T[K], Exclude<keyof T[K], keyof any[]>> & string}` // If object, recurse
+    : `${K}` // If primitive, path ends here
+  : never;
+
+type Path<T> = PathImpl<T, keyof T>;
+
+// Use Translations['en'] to derive keys from a specific locale structure
+export type TranslationKey = Path<Translations['en']>;
 
     
