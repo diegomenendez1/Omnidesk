@@ -43,30 +43,41 @@ export default function DashboardPage() {
 
 
   const calculateAdminWeeklyProgress = useCallback((tasks: Task[]): { chartData: AdminWeeklyChartDataPoint[], admins: string[] } => {
+    console.log("AdminWeeklyProgress: Starting calculation...");
     if (!tasks || tasks.length === 0) {
         console.log("AdminWeeklyProgress: No tasks provided to calculateAdminWeeklyProgress.");
         return { chartData: [], admins: [] };
     }
+    console.log(`AdminWeeklyProgress: Total tasks loaded for calculation: ${tasks.length}`);
 
     const relevantTasks = tasks.filter(task => task.resolutionAdmin && task.createdAt);
+    console.log(`AdminWeeklyProgress: Relevant tasks (with resolutionAdmin & createdAt): ${relevantTasks.length}`);
     if (relevantTasks.length === 0) {
       console.log("AdminWeeklyProgress: No relevant tasks found (missing resolutionAdmin or createdAt).");
       return { chartData: [], admins: [] };
     }
 
     const admins = Array.from(new Set(relevantTasks.map(task => task.resolutionAdmin!))).sort();
+    console.log(`AdminWeeklyProgress: Identified admins: ${admins.join(', ')}`);
+    if (admins.length === 0) {
+        console.log("AdminWeeklyProgress: No admins identified from relevant tasks.");
+        return { chartData: [], admins: [] };
+    }
     
     let minDate: Date | null = null;
     let maxDate: Date | null = null;
 
     relevantTasks.forEach(task => {
+      console.log(`AdminWeeklyProgress: Processing task for dates - ID: ${task.id || task.taskReference}, CreatedAt: ${task.createdAt}, ResolvedAt: ${task.resolvedAt}`);
       try {
-        const createdAtDate = parseISO(task.createdAt!); // createdAt is guaranteed by filter
-        if (isValid(createdAtDate)) {
-          if (minDate === null || createdAtDate < minDate) minDate = createdAtDate;
-          if (maxDate === null || createdAtDate > maxDate) maxDate = createdAtDate;
-        } else {
-           console.warn(`AdminWeeklyProgress: Invalid createdAt date for task ${task.id || task.taskReference}: ${task.createdAt}`);
+        if (task.createdAt) {
+            const createdAtDate = parseISO(task.createdAt); 
+            if (isValid(createdAtDate)) {
+              if (minDate === null || createdAtDate < minDate) minDate = createdAtDate;
+              if (maxDate === null || createdAtDate > maxDate) maxDate = createdAtDate;
+            } else {
+               console.warn(`AdminWeeklyProgress: Invalid createdAt date for task ${task.id || task.taskReference}: ${task.createdAt}`);
+            }
         }
 
         if (task.resolvedAt) {
@@ -82,31 +93,35 @@ export default function DashboardPage() {
         console.warn(`AdminWeeklyProgress: Error parsing dates for task ${task.id || task.taskReference}:`, e);
       }
     });
+    console.log(`AdminWeeklyProgress: Initial minDate: ${minDate?.toISOString()}, maxDate: ${maxDate?.toISOString()}`);
 
-     if (minDate === null || maxDate === null || minDate > maxDate) {
+
+     if (minDate === null || maxDate === null) {
       console.log("AdminWeeklyProgress: No valid date range found from tasks. MinDate:", minDate, "MaxDate:", maxDate);
-      return { chartData: [], admins: [] };
+      return { chartData: [], admins };
     }
 
-    // Ensure maxDate includes today if it's in the past, to show current week's progress if applicable
     const today = new Date();
     if (maxDate < today) {
+        console.log(`AdminWeeklyProgress: Extending maxDate from ${maxDate.toISOString()} to today ${today.toISOString()}`);
         maxDate = today;
     }
-    // Also ensure minDate is not after maxDate if today was used to extend maxDate
     if (minDate > maxDate) {
-        minDate = startOfISOWeek(maxDate); // Adjust minDate to be reasonable if maxDate was pulled forward
+        console.log(`AdminWeeklyProgress: minDate ${minDate.toISOString()} was after maxDate ${maxDate.toISOString()}. Adjusting minDate.`);
+        minDate = startOfISOWeek(maxDate); 
     }
-
+    console.log(`AdminWeeklyProgress: Adjusted minDate: ${minDate?.toISOString()}, maxDate: ${maxDate?.toISOString()}`);
 
     const weeks = getWeeksInRange(minDate, maxDate);
+    console.log(`AdminWeeklyProgress: Generated ${weeks.length} weeks: ${weeks.join(', ')}`);
     if (weeks.length === 0) {
       console.log("AdminWeeklyProgress: No weeks in the calculated range after adjustments. MinDate:", minDate, "MaxDate:", maxDate);
       return { chartData: [], admins };
     }
-    console.log(`AdminWeeklyProgress: Processing ${weeks.length} weeks from ${minDate.toISOString()} to ${maxDate.toISOString()}`);
+    
 
     const weeklyData: AdminWeeklyChartDataPoint[] = weeks.map(weekId => {
+      console.log(`AdminWeeklyProgress: [Week Loop] Processing weekId: ${weekId}`);
       const { endOfWeek: currentEndOfWeek } = parseWeekIdentifier(weekId);
       const adminProgressMap: { [adminNameKey: string]: { resolved: number; totalAssigned: number; progressPercent: number; }} = {};
       
@@ -114,6 +129,7 @@ export default function DashboardPage() {
       let contributingAdminsCount = 0;
 
       admins.forEach(admin => {
+        console.log(`AdminWeeklyProgress: [Week: ${weekId}] Processing admin: ${admin}`);
         const adminKey = admin.replace(/\s+/g, '') + 'Progress';
         let tasksAssignedToAdminUpToWeekCount = 0;
         let tasksResolvedByAdminUpToWeekCount = 0;
@@ -123,14 +139,19 @@ export default function DashboardPage() {
             
             let createdAtDate;
             try {
-                createdAtDate = parseISO(task.createdAt!);
+                if (!task.createdAt) {
+                    // console.warn(`AdminWeeklyProgress: [Week: ${weekId}, Admin: ${admin}] Task ${task.id || task.taskReference} missing createdAt.`);
+                    return;
+                }
+                createdAtDate = parseISO(task.createdAt);
                 if (!isValid(createdAtDate)) {
-                     // Already warned above, or skip if critical
+                    console.warn(`AdminWeeklyProgress: [Week: ${weekId}, Admin: ${admin}] Task ${task.id || task.taskReference} has invalid createdAt: ${task.createdAt}`);
                     return;
                 }
             } catch { return; }
 
             if (createdAtDate <= currentEndOfWeek) {
+                // console.log(`AdminWeeklyProgress: [Week: ${weekId}, Admin: ${admin}] Task assigned: ${task.id || task.taskReference}, Created: ${task.createdAt}`);
                 tasksAssignedToAdminUpToWeekCount++;
 
                 if (PROTECTED_RESOLUTION_STATUSES.includes(task.resolutionStatus as TaskResolutionStatus) && task.resolvedAt) {
@@ -138,12 +159,13 @@ export default function DashboardPage() {
                     try {
                         resolvedAtDate = parseISO(task.resolvedAt);
                         if (!isValid(resolvedAtDate)) {
-                            // Already warned above
+                            console.warn(`AdminWeeklyProgress: [Week: ${weekId}, Admin: ${admin}] Task ${task.id || task.taskReference} has invalid resolvedAt: ${task.resolvedAt}`);
                             return;
                         }
                     } catch { return; }
 
                     if (resolvedAtDate <= currentEndOfWeek) {
+                        // console.log(`AdminWeeklyProgress: [Week: ${weekId}, Admin: ${admin}] Task resolved: ${task.id || task.taskReference}, Resolved: ${task.resolvedAt}`);
                         tasksResolvedByAdminUpToWeekCount++;
                     }
                 }
@@ -153,6 +175,8 @@ export default function DashboardPage() {
         const totalAssigned = tasksAssignedToAdminUpToWeekCount;
         const resolvedCount = tasksResolvedByAdminUpToWeekCount;
         const progressPercent = totalAssigned > 0 ? (resolvedCount / totalAssigned) * 100 : 0;
+        
+        console.log(`AdminWeeklyProgress: [Week: ${weekId}, Admin: ${admin}] Assigned: ${totalAssigned}, Resolved: ${resolvedCount}, Progress: ${progressPercent.toFixed(1)}%`);
 
         adminProgressMap[adminKey] = {
             resolved: resolvedCount,
@@ -168,6 +192,7 @@ export default function DashboardPage() {
 
       const teamAverage = contributingAdminsCount > 0 ? totalTeamProgressSum / contributingAdminsCount : 0;
       const goalLine = teamAverage < 50 ? 50 : teamAverage + 5;
+      console.log(`AdminWeeklyProgress: [Week: ${weekId}] Team Average: ${teamAverage.toFixed(1)}%, Goal: ${goalLine.toFixed(1)}%, Contributing Admins: ${contributingAdminsCount}`);
       
       const weekDataObject: AdminWeeklyChartDataPoint = {
         week: weekId,
@@ -179,10 +204,11 @@ export default function DashboardPage() {
         const adminKey = admin.replace(/\s+/g, '') + 'Progress';
         weekDataObject[adminKey] = parseFloat(adminProgressMap[adminKey]?.progressPercent.toFixed(1) || "0.0");
       });
-
+      console.log(`AdminWeeklyProgress: [Week: ${weekId}] WeekDataObject for chart:`, JSON.stringify(weekDataObject));
       return weekDataObject;
     });
-    console.log("AdminWeeklyProgress: Generated chartData:", weeklyData);
+    console.log("AdminWeeklyProgress: Final calculated chartData to be set in state:", JSON.stringify(weeklyData));
+    console.log("AdminWeeklyProgress: Final admins for chart to be set in state:", admins);
     return { chartData: weeklyData, admins };
   }, []);
 
@@ -221,7 +247,9 @@ export default function DashboardPage() {
           }));
           setTaskOverviewData(overviewData);
 
+          console.log("Dashboard: Calling calculateAdminWeeklyProgress with loaded tasks.");
           const { chartData: adminProgress, admins: currentAdmins } = calculateAdminWeeklyProgress(loadedTasks);
+          console.log("Dashboard: Received from calculateAdminWeeklyProgress - chartData length:", adminProgress.length, "admins count:", currentAdmins.length);
           setAdminWeeklyProgressData(adminProgress);
           setActiveAdmins(currentAdmins);
 
