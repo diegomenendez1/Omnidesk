@@ -12,8 +12,8 @@ import { useLanguage } from '@/context/language-context';
 import type { Task, TaskStatus, TaskResolutionStatus } from '@/types'; 
 import { PROTECTED_RESOLUTION_STATUSES } from '@/types'; 
 import { AdminWeeklyProgressChart, type AdminWeeklyChartDataPoint } from '@/components/dashboard/admin-weekly-progress-chart';
-import { getWeekIdentifier, getWeeksInRange, parseWeekIdentifier } from '@/lib/utils';
-import { startOfISOWeek, endOfISOWeek, parseISO, isValid } from 'date-fns';
+import { getWeeksInRange, parseWeekIdentifier } from '@/lib/utils'; // getWeekIdentifier not used directly here, but parseWeekIdentifier is
+import { parseISO, isValid, startOfISOWeek, endOfISOWeek } from 'date-fns';
 
 
 interface TaskOverviewData {
@@ -43,82 +43,124 @@ export default function DashboardPage() {
 
 
   const calculateAdminWeeklyProgress = useCallback((tasks: Task[]): { chartData: AdminWeeklyChartDataPoint[], admins: string[] } => {
-    if (!tasks || tasks.length === 0) return { chartData: [], admins: [] };
+    if (!tasks || tasks.length === 0) {
+        console.log("AdminWeeklyProgress: No tasks provided to calculateAdminWeeklyProgress.");
+        return { chartData: [], admins: [] };
+    }
 
     const relevantTasks = tasks.filter(task => task.resolutionAdmin && task.createdAt);
-    if (relevantTasks.length === 0) return { chartData: [], admins: [] };
+    if (relevantTasks.length === 0) {
+      console.log("AdminWeeklyProgress: No relevant tasks found (missing resolutionAdmin or createdAt).");
+      return { chartData: [], admins: [] };
+    }
 
     const admins = Array.from(new Set(relevantTasks.map(task => task.resolutionAdmin!))).sort();
     
-    let minDate = new Date();
-    let maxDate = new Date(1970,0,1);
+    let minDate: Date | null = null;
+    let maxDate: Date | null = null;
 
     relevantTasks.forEach(task => {
       try {
-        const createdAt = parseISO(task.createdAt!);
-        if (isValid(createdAt)) {
-          if (createdAt < minDate) minDate = createdAt;
-          if (createdAt > maxDate) maxDate = createdAt;
+        const createdAtDate = parseISO(task.createdAt!); // createdAt is guaranteed by filter
+        if (isValid(createdAtDate)) {
+          if (minDate === null || createdAtDate < minDate) minDate = createdAtDate;
+          if (maxDate === null || createdAtDate > maxDate) maxDate = createdAtDate;
+        } else {
+           console.warn(`AdminWeeklyProgress: Invalid createdAt date for task ${task.id || task.taskReference}: ${task.createdAt}`);
         }
+
         if (task.resolvedAt) {
-          const resolvedAt = parseISO(task.resolvedAt);
-           if (isValid(resolvedAt)) {
-             if (resolvedAt > maxDate) maxDate = resolvedAt;
-             if (resolvedAt < minDate) minDate = resolvedAt; // Case where resolvedAt might be before any createdAt
+          const resolvedAtDate = parseISO(task.resolvedAt);
+           if (isValid(resolvedAtDate)) {
+             if (minDate === null || resolvedAtDate < minDate) minDate = resolvedAtDate;
+             if (maxDate === null || resolvedAtDate > maxDate) maxDate = resolvedAtDate;
+           } else {
+             console.warn(`AdminWeeklyProgress: Invalid resolvedAt date for task ${task.id || task.taskReference}: ${task.resolvedAt}`);
            }
         }
       } catch (e) {
-        console.warn("Skipping task due to invalid date for progress calculation:", task, e);
+        console.warn(`AdminWeeklyProgress: Error parsing dates for task ${task.id || task.taskReference}:`, e);
       }
     });
-     if (!isValid(minDate) || !isValid(maxDate) || minDate > maxDate) { // if only invalid dates or no tasks, or minDate is still initial future date
-      minDate = new Date(); // default to today if no valid dates
-      maxDate = new Date();
+
+     if (minDate === null || maxDate === null || minDate > maxDate) {
+      console.log("AdminWeeklyProgress: No valid date range found from tasks. MinDate:", minDate, "MaxDate:", maxDate);
+      return { chartData: [], admins: [] };
     }
-    if (relevantTasks.length > 0 && maxDate < new Date()) { // Ensure maxDate includes today if it's in the past
-        maxDate = new Date();
+
+    // Ensure maxDate includes today if it's in the past, to show current week's progress if applicable
+    const today = new Date();
+    if (maxDate < today) {
+        maxDate = today;
+    }
+    // Also ensure minDate is not after maxDate if today was used to extend maxDate
+    if (minDate > maxDate) {
+        minDate = startOfISOWeek(maxDate); // Adjust minDate to be reasonable if maxDate was pulled forward
     }
 
 
     const weeks = getWeeksInRange(minDate, maxDate);
-    if (weeks.length === 0) return { chartData: [], admins };
+    if (weeks.length === 0) {
+      console.log("AdminWeeklyProgress: No weeks in the calculated range after adjustments. MinDate:", minDate, "MaxDate:", maxDate);
+      return { chartData: [], admins };
+    }
+    console.log(`AdminWeeklyProgress: Processing ${weeks.length} weeks from ${minDate.toISOString()} to ${maxDate.toISOString()}`);
 
     const weeklyData: AdminWeeklyChartDataPoint[] = weeks.map(weekId => {
       const { endOfWeek: currentEndOfWeek } = parseWeekIdentifier(weekId);
-      const adminProgressMap: { [adminName: string]: { resolved: number; totalAssigned: number; progressPercent: number; }} = {};
+      const adminProgressMap: { [adminNameKey: string]: { resolved: number; totalAssigned: number; progressPercent: number; }} = {};
       
       let totalTeamProgressSum = 0;
       let contributingAdminsCount = 0;
 
       admins.forEach(admin => {
-        const tasksAssignedToAdminUpToWeek = relevantTasks.filter(task => {
-            if (task.resolutionAdmin !== admin) return false;
-            try {
-                const createdAt = parseISO(task.createdAt!);
-                return isValid(createdAt) && createdAt <= currentEndOfWeek;
-            } catch { return false; }
-        });
+        const adminKey = admin.replace(/\s+/g, '') + 'Progress';
+        let tasksAssignedToAdminUpToWeekCount = 0;
+        let tasksResolvedByAdminUpToWeekCount = 0;
 
-        const tasksResolvedByAdminUpToWeek = tasksAssignedToAdminUpToWeek.filter(task => {
-            if (!PROTECTED_RESOLUTION_STATUSES.includes(task.resolutionStatus as TaskResolutionStatus)) return false;
-            if (!task.resolvedAt) return false;
+        relevantTasks.forEach(task => {
+            if (task.resolutionAdmin !== admin) return;
+            
+            let createdAtDate;
             try {
-                const resolvedAt = parseISO(task.resolvedAt);
-                return isValid(resolvedAt) && resolvedAt <= currentEndOfWeek;
-            } catch { return false; }
+                createdAtDate = parseISO(task.createdAt!);
+                if (!isValid(createdAtDate)) {
+                     // Already warned above, or skip if critical
+                    return;
+                }
+            } catch { return; }
+
+            if (createdAtDate <= currentEndOfWeek) {
+                tasksAssignedToAdminUpToWeekCount++;
+
+                if (PROTECTED_RESOLUTION_STATUSES.includes(task.resolutionStatus as TaskResolutionStatus) && task.resolvedAt) {
+                    let resolvedAtDate;
+                    try {
+                        resolvedAtDate = parseISO(task.resolvedAt);
+                        if (!isValid(resolvedAtDate)) {
+                            // Already warned above
+                            return;
+                        }
+                    } catch { return; }
+
+                    if (resolvedAtDate <= currentEndOfWeek) {
+                        tasksResolvedByAdminUpToWeekCount++;
+                    }
+                }
+            }
         });
         
-        const totalAssigned = tasksAssignedToAdminUpToWeek.length;
-        const resolvedCount = tasksResolvedByAdminUpToWeek.length;
+        const totalAssigned = tasksAssignedToAdminUpToWeekCount;
+        const resolvedCount = tasksResolvedByAdminUpToWeekCount;
         const progressPercent = totalAssigned > 0 ? (resolvedCount / totalAssigned) * 100 : 0;
 
-        adminProgressMap[admin.replace(/\s+/g, '') + 'Progress'] = { // Store with sanitized key
+        adminProgressMap[adminKey] = {
             resolved: resolvedCount,
             totalAssigned: totalAssigned,
             progressPercent: progressPercent
         };
 
-        if (totalAssigned > 0) { // Only include admins with assignments in team average
+        if (totalAssigned > 0) {
             totalTeamProgressSum += progressPercent;
             contributingAdminsCount++;
         }
@@ -134,13 +176,13 @@ export default function DashboardPage() {
       };
 
       admins.forEach(admin => {
-        // Use sanitized key for assignment
-        weekDataObject[admin.replace(/\s+/g, '') + 'Progress'] = parseFloat(adminProgressMap[admin.replace(/\s+/g, '') + 'Progress'].progressPercent.toFixed(1));
+        const adminKey = admin.replace(/\s+/g, '') + 'Progress';
+        weekDataObject[adminKey] = parseFloat(adminProgressMap[adminKey]?.progressPercent.toFixed(1) || "0.0");
       });
 
       return weekDataObject;
     });
-
+    console.log("AdminWeeklyProgress: Generated chartData:", weeklyData);
     return { chartData: weeklyData, admins };
   }, []);
 
@@ -177,12 +219,12 @@ export default function DashboardPage() {
           }));
           setTaskOverviewData(overviewData);
 
-          // Calculate and set admin weekly progress
           const { chartData: adminProgress, admins: currentAdmins } = calculateAdminWeeklyProgress(loadedTasks);
           setAdminWeeklyProgressData(adminProgress);
           setActiveAdmins(currentAdmins);
 
         } else {
+          console.log("Dashboard: No tasks found in localStorage or tasks array is empty.");
           setTaskOverviewData([
               { name: t(STATUS_TRANSLATION_KEYS["Missing Estimated Dates"] as any), value: 0, fill: CHART_FILLS["Missing Estimated Dates"] },
               { name: t(STATUS_TRANSLATION_KEYS["Missing POD"] as any), value: 0, fill: CHART_FILLS["Missing POD"] },
@@ -206,6 +248,7 @@ export default function DashboardPage() {
         setActiveAdmins([]);
       }
     } else {
+        console.log("Dashboard: 'uploadedTasks' not found in localStorage.");
         setTaskOverviewData([
             { name: t(STATUS_TRANSLATION_KEYS["Missing Estimated Dates"] as any), value: 0, fill: CHART_FILLS["Missing Estimated Dates"] },
             { name: t(STATUS_TRANSLATION_KEYS["Missing POD"] as any), value: 0, fill: CHART_FILLS["Missing POD"] },
@@ -223,11 +266,13 @@ export default function DashboardPage() {
 
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === 'uploadedTasks') {
+        console.log("Dashboard: Detected storage change for 'uploadedTasks'. Reloading data.");
         loadAndProcessTasks();
       }
     };
 
     const handleTasksUpdatedEvent = () => {
+      console.log("Dashboard: Detected 'tasksUpdatedInStorage' event. Reloading data.");
       loadAndProcessTasks();
     };
 
@@ -256,7 +301,7 @@ export default function DashboardPage() {
         <MetricCard title={t('dashboard.teamMembers')} value="12" icon={<Users className="h-6 w-6 text-primary" />} description={t('dashboard.activeUsers')} />
       </div>
 
-      <div className="grid gap-6 md:grid-cols-1"> {/* Changed to 1 col for now to give more space to new chart */}
+      <div className="grid gap-6 md:grid-cols-1">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -266,7 +311,14 @@ export default function DashboardPage() {
             <CardDescription>{t('dashboard.adminProgressDescription')}</CardDescription>
           </CardHeader>
           <CardContent>
-            <AdminWeeklyProgressChart data={adminWeeklyProgressData} admins={activeAdmins} />
+             {/* Conditional rendering for the chart or a "no data" message */}
+            {adminWeeklyProgressData.length > 0 || activeAdmins.length > 0 ? (
+              <AdminWeeklyProgressChart data={adminWeeklyProgressData} admins={activeAdmins} />
+            ) : (
+              <p className="text-center text-muted-foreground py-10">
+                {totalTasks > 0 ? t('dashboard.adminWeeklyProgressChart.noData') : t('dashboard.adminWeeklyProgressChart.uploadDataPrompt')}
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -334,3 +386,6 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+
+    
