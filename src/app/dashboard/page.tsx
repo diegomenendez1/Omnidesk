@@ -1,30 +1,100 @@
 
 "use client";
+
+import { useEffect, useState } from 'react';
 import { MetricCard } from '@/components/dashboard/metric-card';
 import { SampleStatsChart } from '@/components/dashboard/sample-stats-chart';
-import { Users, Activity, CheckCircle2, Briefcase, BarChart3, ListChecks, TrendingUp } from 'lucide-react';
+import { Users, Activity, CheckCircle2, Briefcase, ListChecks } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Image from 'next/image';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useLanguage } from '@/context/language-context';
+import type { Task, TaskStatus } from '@/types'; // Import Task and TaskStatus types
+
+interface TaskOverviewData {
+  name: string;
+  value: number;
+  fill: string;
+}
 
 export default function DashboardPage() {
   const { t } = useLanguage();
+  const [taskOverviewData, setTaskOverviewData] = useState<TaskOverviewData[]>([]);
+  const [totalTasks, setTotalTasks] = useState<number>(0);
+  const [tasksCompletedCount, setTasksCompletedCount] = useState<number>(0); // For MetricCard if logic changes
 
-  const projectSummaryData = {
-    totalProjects: 25,
-    activeProjects: 15,
-    completedProjects: 8,
-    onHoldProjects: 2,
+  // Chart fill colors (ensure these are defined in globals.css or adjust as needed)
+  const chartFills: Record<TaskStatus, string> = {
+    "Missing Estimated Dates": "hsl(var(--chart-1))",
+    "Missing POD": "hsl(var(--chart-2))",
+    "Pending to Invoice Out of Time": "hsl(var(--chart-3))",
+    // Add more if TaskStatus enum expands and you have more chart colors
+  };
+  const statusTranslationKeys: Record<TaskStatus, string> = {
+    "Missing Estimated Dates": "interactiveTable.status.missingEstimates",
+    "Missing POD": "interactiveTable.status.missingPOD",
+    "Pending to Invoice Out of Time": "interactiveTable.status.pendingInvoice",
   };
 
-  const taskOverviewData = [
-    { name: t('dashboard.todo'), value: 120, fill: "hsl(var(--chart-1))" },
-    { name: t('dashboard.inProgress'), value: 75, fill: "hsl(var(--chart-2))" },
-    { name: t('dashboard.completed'), value: 350, fill: "hsl(var(--chart-3))" },
-    { name: t('dashboard.blocked'), value: 30, fill: "hsl(var(--chart-4))" },
-  ];
-  
+
+  useEffect(() => {
+    const storedTasksJson = localStorage.getItem('uploadedTasks');
+    if (storedTasksJson) {
+      try {
+        const loadedTasks: Task[] = JSON.parse(storedTasksJson);
+        if (loadedTasks && loadedTasks.length > 0) {
+          setTotalTasks(loadedTasks.length);
+
+          const statusCounts: Record<TaskStatus, number> = {
+            "Missing Estimated Dates": 0,
+            "Missing POD": 0,
+            "Pending to Invoice Out of Time": 0,
+          };
+
+          let completedCount = 0;
+          loadedTasks.forEach(task => {
+            if (task.status && statusCounts.hasOwnProperty(task.status)) {
+              statusCounts[task.status]++;
+            }
+            // Example logic for "tasks completed" metric, adjust as needed
+            if (task.resolutionStatus === "Resuelto") {
+              completedCount++;
+            }
+          });
+          setTasksCompletedCount(completedCount);
+
+
+          const overviewData = (Object.keys(statusCounts) as TaskStatus[]).map(statusKey => ({
+            name: t(statusTranslationKeys[statusKey] as any),
+            value: statusCounts[statusKey],
+            fill: chartFills[statusKey] || "hsl(var(--chart-4))", // Fallback fill
+          }));
+          setTaskOverviewData(overviewData);
+        }
+      } catch (error) {
+        console.error("Error processing tasks from localStorage for dashboard:", error);
+        // Set to empty or default if error
+        setTaskOverviewData([
+            { name: t('interactiveTable.status.missingEstimates'), value: 0, fill: chartFills["Missing Estimated Dates"] },
+            { name: t('interactiveTable.status.missingPOD'), value: 0, fill: chartFills["Missing POD"] },
+            { name: t('interactiveTable.status.pendingInvoice'), value: 0, fill: chartFills["Pending to Invoice Out of Time"] },
+        ]);
+        setTotalTasks(0);
+        setTasksCompletedCount(0);
+      }
+    } else {
+       // Default empty state if no tasks in localStorage
+        setTaskOverviewData([
+            { name: t('interactiveTable.status.missingEstimates'), value: 0, fill: chartFills["Missing Estimated Dates"] },
+            { name: t('interactiveTable.status.missingPOD'), value: 0, fill: chartFills["Missing POD"] },
+            { name: t('interactiveTable.status.pendingInvoice'), value: 0, fill: chartFills["Pending to Invoice Out of Time"] },
+        ]);
+        setTotalTasks(0);
+        setTasksCompletedCount(0);
+    }
+  }, [t]); // Rerun if language changes to update translations
+
+
   const recentActivities = [
       { user: "Alice", actionKey: "dashboard.activityCompletedTask", taskName: "Design Homepage", timeKey: "dashboard.hoursAgo", timeArgs: { count: 2 }, avatar: "https://placehold.co/40x40.png?text=A" , dataAiHint: "female avatar"},
       { user: "Bob", actionKey: "dashboard.activityUpdatedStatus", taskName: "API Integration", status: t('dashboard.inProgress'), timeKey: "dashboard.hoursAgo", timeArgs: { count: 5 }, avatar: "https://placehold.co/40x40.png?text=B", dataAiHint: "male avatar" },
@@ -34,9 +104,10 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <MetricCard title={t('dashboard.totalTasks')} value="575" icon={<ListChecks className="h-6 w-6 text-primary" />} description={t('dashboard.acrossAllProjects')} />
+        <MetricCard title={t('dashboard.totalTasks')} value={totalTasks} icon={<ListChecks className="h-6 w-6 text-primary" />} description={t('dashboard.acrossAllProjects')} />
         <MetricCard title={t('dashboard.activeProjects')} value="15" icon={<Briefcase className="h-6 w-6 text-primary" />} description={t('dashboard.fromLastWeek')} />
-        <MetricCard title={t('dashboard.tasksCompleted')} value="350" icon={<CheckCircle2 className="h-6 w-6 text-[hsl(var(--success))]" />} description={t('dashboard.thisMonth')} />
+        {/* For "Tasks Completed", you might want specific logic based on a 'completed' status if available or resolutionStatus */}
+        <MetricCard title={t('dashboard.tasksCompleted')} value={tasksCompletedCount} icon={<CheckCircle2 className="h-6 w-6 text-[hsl(var(--success))]" />} description={t('dashboard.thisMonth')} />
         <MetricCard title={t('dashboard.teamMembers')} value="12" icon={<Users className="h-6 w-6 text-primary" />} description={t('dashboard.activeUsers')} />
       </div>
 
