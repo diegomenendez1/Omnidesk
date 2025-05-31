@@ -3,7 +3,7 @@
 
 import { useState, useTransition, type ChangeEvent, type KeyboardEvent, useEffect, useMemo } from 'react';
 import type { Task, TaskStatus, TaskResolutionStatus, TaskHistoryEntry, TaskHistoryChangeDetail } from '@/types';
-import { PROTECTED_RESOLUTION_STATUSES } from '@/types';
+import { PROTECTED_RESOLUTION_STATUSES, TaskSchema } from '@/types';
 import { performDataValidation } from '@/app/table/actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,13 +12,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent } from '@/components/ui/card';
 import { DataValidationReport } from './data-validation-report';
-import { TaskHistoryDialog } from './task-history-dialog'; // Import new component
+import { TaskHistoryDialog } from './task-history-dialog';
 import type { ValidateDataConsistencyOutput } from '@/types';
-import { ScanSearch, ArrowUp, ArrowDown, Filter as FilterIcon } from 'lucide-react'; // Removed History, now handled by TaskHistoryDialog
+import { ScanSearch, ArrowUp, ArrowDown, Filter as FilterIcon, History as HistoryIcon } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, calculateBusinessDays } from '@/lib/utils'; 
 import { useLanguage } from '@/context/language-context';
-import { useAuth } from '@/context/auth-context'; // Import useAuth
+import { useAuth } from '@/context/auth-context';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -38,12 +38,12 @@ interface InteractiveTableClientProps {
 }
 
 export function InteractiveTableClient({ initialData }: InteractiveTableClientProps) {
-  const [tasks, setTasks] = useState<Task[]>(initialData);
+  const [tasks, setTasks] = useState<Task[]>(initialData.map(task => ({ ...task, history: task.history || [] })));
   const [validationResult, setValidationResult] = useState<ValidateDataConsistencyOutput | null>(null);
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
   const { t } = useLanguage();
-  const { user: currentUser } = useAuth(); // Get current user
+  const { user: currentUser } = useAuth();
 
   const [editingCellKey, setEditingCellKey] = useState<string | null>(null);
   const [currentEditText, setCurrentEditText] = useState<string>("");
@@ -53,17 +53,13 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   const [filters, setFilters] = useState<Partial<Record<keyof Task, string | undefined>>>({});
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: null, direction: null });
   
-  // State for history dialog (though TaskHistoryDialog handles its own open state via DialogTrigger)
-  // We might need selectedTaskForHistory if we decide to pass data differently or refresh it.
-  // For now, TaskHistoryDialog will take the history array directly.
-
   useEffect(() => {
     const storedTasksJson = localStorage.getItem('uploadedTasks');
     if (storedTasksJson) {
       try {
         const loadedTasks: Task[] = JSON.parse(storedTasksJson);
         if (loadedTasks && loadedTasks.length > 0) {
-          setTasks(loadedTasks.map(task => ({ ...task, history: task.history || [] }))); // Ensure history array exists
+          setTasks(loadedTasks.map(task => ({ ...task, history: task.history || [] })));
           toast({
             title: t('localStorage.loadedData'),
             description: t('localStorage.loadedTasksDescription', { count: loadedTasks.length }),
@@ -98,31 +94,38 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     }
   };
 
-  const getFieldLabel = (fieldKey: keyof Task): string => {
+  const getFieldLabel = (fieldKey: keyof Task | string): string => {
     const keyMap: Record<string, string> = {
       'comments': 'interactiveTable.tableHeaders.comments',
       'resolutionAdmin': 'interactiveTable.tableHeaders.admin',
-      'resolutionStatus': 'interactiveTable.tableHeaders.actions', // Using 'actions' as it's the header for this column
+      'resolutionStatus': 'interactiveTable.tableHeaders.actions',
       'status': 'interactiveTable.tableHeaders.toStatus',
-      // Add other fields as needed
+      'taskReference': 'interactiveTable.tableHeaders.toRef',
+      'delayDays': 'interactiveTable.tableHeaders.delayDays',
+      'customerAccount': 'interactiveTable.tableHeaders.customerAccount',
+      'netAmount': 'interactiveTable.tableHeaders.amount',
+      'transportMode': 'interactiveTable.tableHeaders.transportMode',
+      'assignee': 'interactiveTable.tableHeaders.logisticDeveloper',
+      'resolutionTimeDays': 'interactiveTable.tableHeaders.resolutionTimeDays',
+      'createdAt': 'uploadData.systemColumns.createdAt',
+      'resolvedAt': 'uploadData.systemColumns.resolvedAt',
+      // Add other specific fields if needed
     };
-    return t(keyMap[fieldKey] || fieldKey);
+    // Try to translate if it's a known key, otherwise return the fieldKey itself
+    const translation = t(keyMap[fieldKey] || `history.fields.${fieldKey}`);
+    return translation === `history.fields.${fieldKey}` ? fieldKey : translation;
   };
 
-  const addHistoryEntry = (task: Task, field: keyof Task, oldValue: any, newValue: any): TaskHistoryEntry[] => {
+  const addHistoryEntry = (task: Task, changes: TaskHistoryChangeDetail[]): TaskHistoryEntry[] => {
     const history = task.history || [];
-    const changeDetail: TaskHistoryChangeDetail = {
-      field: String(field),
-      fieldLabel: getFieldLabel(field),
-      oldValue: oldValue,
-      newValue: newValue,
-    };
+    if (changes.length === 0) return history;
+
     const newEntry: TaskHistoryEntry = {
       id: uuidv4(),
       timestamp: new Date().toISOString(),
-      userId: currentUser?.uid || 'system',
-      userName: currentUser?.name || currentUser?.email || 'System',
-      changes: [changeDetail],
+      userId: currentUser?.uid || 'system_change',
+      userName: currentUser?.name || currentUser?.email || 'System Change',
+      changes: changes,
     };
     return [...history, newEntry];
   };
@@ -177,7 +180,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     const oldValue = taskToUpdate[column];
     const newValue = currentEditText;
 
-    if (String(oldValue || "") === String(newValue || "")) { // No actual change
+    if (String(oldValue || "") === String(newValue || "")) {
       setEditingCellKey(null);
       setCurrentEditText("");
       return;
@@ -185,7 +188,13 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     
     const updatedTasks = tasks.map(task => {
         if ((task.id || task.taskReference) === taskId) {
-          const newHistory = addHistoryEntry(task, column, oldValue, newValue);
+          const changeDetail: TaskHistoryChangeDetail = {
+            field: String(column),
+            fieldLabel: getFieldLabel(column),
+            oldValue,
+            newValue,
+          };
+          const newHistory = addHistoryEntry(task, [changeDetail]);
           return { ...task, [column]: newValue, history: newHistory };
         }
         return task;
@@ -203,24 +212,47 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     const oldValue = taskToUpdate[column];
     const newValue = value;
 
-    if (String(oldValue || "") === String(newValue || "")) { // No actual change
+    if (String(oldValue || "") === String(newValue || "")) {
         setEditingCellKey(null);
         setCurrentEditSelectValue('');
         setIsSelectDropdownOpen(false);
         return;
     }
+    
+    const changesForHistory: TaskHistoryChangeDetail[] = [{
+        field: String(column),
+        fieldLabel: getFieldLabel(column),
+        oldValue,
+        newValue,
+    }];
 
     const updatedTasks = tasks.map(task => {
         if ((task.id || task.taskReference) === taskId) {
-          const updatedTaskPartial = { [column]: newValue };
+          const updatedTaskPartial: Partial<Task> = { [column]: newValue };
+          
           if (column === 'resolutionStatus') {
+            const oldResolvedAt = task.resolvedAt;
             if (PROTECTED_RESOLUTION_STATUSES.includes(newValue as TaskResolutionStatus)) {
-              (updatedTaskPartial as any).resolvedAt = task.resolvedAt || new Date().toISOString(); // Set or keep resolvedAt
-            } else if (newValue === 'Pendiente') {
-              (updatedTaskPartial as any).resolvedAt = null; // Clear resolvedAt if moved back to Pendiente
+              if (!task.resolvedAt) { // Only set if not already set
+                (updatedTaskPartial as any).resolvedAt = new Date().toISOString();
+                 changesForHistory.push({
+                    field: 'resolvedAt',
+                    fieldLabel: getFieldLabel('resolvedAt'),
+                    oldValue: oldResolvedAt,
+                    newValue: (updatedTaskPartial as any).resolvedAt,
+                });
+              }
+            } else if (newValue === 'Pendiente' && task.resolvedAt) { // If moved back to Pendiente and resolvedAt was set
+              (updatedTaskPartial as any).resolvedAt = null;
+               changesForHistory.push({
+                  field: 'resolvedAt',
+                  fieldLabel: getFieldLabel('resolvedAt'),
+                  oldValue: oldResolvedAt,
+                  newValue: null,
+              });
             }
           }
-          const newHistory = addHistoryEntry(task, column, oldValue, newValue);
+          const newHistory = addHistoryEntry(task, changesForHistory);
           return { ...task, ...updatedTaskPartial, history: newHistory };
         }
         return task;
@@ -305,9 +337,6 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   
   const uniqueTaskReferences = useMemo(() => getUniqueValuesForColumn('taskReference'), [tasks, t]);
   const uniqueAssignees = useMemo(() => getUniqueValuesForColumn('assignee'), [tasks, t]);
-  // delayDays is numeric, not typically filtered by unique string values like this.
-  // For filtering, range sliders or similar might be better. Keeping for consistency if needed.
-  const uniqueDelayDays = useMemo(() => getUniqueValuesForColumn('delayDays'), [tasks, t]); 
   const uniqueCustomerAccounts = useMemo(() => getUniqueValuesForColumn('customerAccount'), [tasks, t]);
   const uniqueNetAmounts = useMemo(() => {
     const numericValues = new Set<string>();
@@ -326,7 +355,6 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   }, [tasks, t]);
   const uniqueTransportModes = useMemo(() => getUniqueValuesForColumn('transportMode'), [tasks, t]);
   const uniqueResolutionAdmins = useMemo(() => getUniqueValuesForColumn('resolutionAdmin'), [tasks, t]);
-  // resolutionTimeDays is numeric.
   const uniqueResolutionTimeDays = useMemo(() => getUniqueValuesForColumn('resolutionTimeDays'), [tasks, t]); 
   const uniqueResolvedAtDates = useMemo(() => getUniqueValuesForColumn('resolvedAt'), [tasks, t]);
 
@@ -399,7 +427,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
         } else if (key === 'createdAt' || key === 'resolvedAt') {
             valA = a[key] ? new Date(a[key] as string).getTime() : null;
             valB = b[key] ? new Date(b[key] as string).getTime() : null;
-            if (valA && isNaN(valA)) valA = null; // Handle invalid date strings
+            if (valA && isNaN(valA)) valA = null;
             if (valB && isNaN(valB)) valB = null;
         } else {
             valA = a[key as keyof Task];
@@ -537,7 +565,6 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                         {t('interactiveTable.tableHeaders.accumulatedBusinessDays')}
                         {renderSortIcon('accumulatedBusinessDays')}
                       </div>
-                      {/* No filter popover for accumulated days as it's calculated */}
                     </div>
                   </TableHead>
 
@@ -626,7 +653,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                     </div>
                   </TableHead>
 
-                  <TableHead className="group text-center w-[100px]"> {/* History column */}
+                  <TableHead className="group text-center w-[100px]">
                     <div className="flex items-center justify-center py-3 px-1">
                        {t('interactiveTable.tableHeaders.history')}
                     </div>

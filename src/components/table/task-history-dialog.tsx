@@ -22,12 +22,13 @@ function formatHistoryValue(value: any, field: string, t: Function): string {
   if (value === null || value === undefined || value === "") {
     return t('interactiveTable.notAvailable');
   }
-  if (field === 'resolvedAt' || field === 'createdAt' || field === 'timestamp') { // Added 'timestamp' for consistency if ever needed
+  if (field === 'resolvedAt' || field === 'createdAt' || field === 'timestamp') {
     try {
-      // Date formatting is now handled directly in the table cell for timestamp
-      // For oldValue/newValue, specific date formatting might still be needed if they are date strings
       if (value instanceof Date || !isNaN(new Date(value).getTime())) {
-        return format(new Date(value), 'PPpp', { locale: t('localeObject') === 'es' ? es : enUS }); // Placeholder, main formatting in cell
+        // Delegate to main formatting in cell for 'timestamp'
+        // For oldValue/newValue, if they are date strings, format them here
+        const dateFnsLocale = t('localeObject') === 'es' ? es : enUS; // Determine locale based on app language
+        return format(new Date(value), 'PPpp', { locale: dateFnsLocale });
       }
       return String(value);
     } catch {
@@ -50,7 +51,6 @@ function formatHistoryValue(value: any, field: string, t: Function): string {
     };
     return t(keyMap[value] || value);
   }
-  // Could add more specific formatters here, e.g., for netAmount (currency)
   return String(value);
 }
 

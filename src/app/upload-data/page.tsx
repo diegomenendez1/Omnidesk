@@ -27,7 +27,7 @@ import type { SuggestCsvMappingOutput, SystemColumn } from './actions';
 import { useRouter } from 'next/navigation';
 import { formatCurrency } from '@/lib/utils';
 import { useLanguage } from '@/context/language-context';
-import { useAuth } from '@/context/auth-context'; // Import useAuth
+import { useAuth } from '@/context/auth-context';
 import type { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -51,13 +51,12 @@ const PREFERRED_CSV_TO_SYSTEM_MAP: Record<string, string> = {
   "administrador": "resolutionAdmin",
   "estado de resolución": "resolutionStatus",
   "tiempo resolución (días)": "resolutionTimeDays",
-  "fecha de creación": "createdAt", // New
-  "creation date": "createdAt", // New
-  "fecha de resolución": "resolvedAt", // New
-  "resolution date": "resolvedAt", // New
+  "fecha de creación": "createdAt",
+  "creation date": "createdAt",
+  "fecha de resolución": "resolvedAt",
+  "resolution date": "resolvedAt",
 };
 
-// Helper function to generate a unique ID for tasks missing one from CSV
 const generateTemporaryId = (taskRef?: string, index?: number): string => {
   const randomPart = Math.random().toString(36).substring(2, 9);
   if (taskRef) return `csv-${taskRef}-${randomPart}`;
@@ -75,12 +74,12 @@ export default function UploadDataPage() {
   const { toast } = useToast();
   const router = useRouter();
   const { t } = useLanguage();
-  const { user: currentUser } = useAuth(); // Get current user
+  const { user: currentUser } = useAuth();
 
   const [showBackupDialog, setShowBackupDialog] = useState(false);
 
   const systemColumns: SystemColumn[] = [
-    { name: 'taskReference', description: t('uploadData.systemColumns.taskReference'), required: true }, // taskReference is key
+    { name: 'taskReference', description: t('uploadData.systemColumns.taskReference'), required: true },
     { name: 'status', description: t('uploadData.systemColumns.status'), required: true },
     { name: 'assignee', description: t('uploadData.systemColumns.assignee') },
     { name: 'delayDays', description: t('uploadData.systemColumns.delayDays') },
@@ -93,20 +92,19 @@ export default function UploadDataPage() {
     { name: 'resolutionTimeDays', description: t('uploadData.systemColumns.resolutionTimeDays') },
     { name: 'createdAt', description: t('uploadData.systemColumns.createdAt') },
     { name: 'resolvedAt', description: t('uploadData.systemColumns.resolvedAt') },
-    // `id` and `name` are handled internally or less commonly mapped.
-    // `history` is not mapped from CSV.
   ];
 
   const [suggestedMappings, setSuggestedMappings] = useState<SuggestCsvMappingOutput['suggestedMappings']>([]);
   const [userMappings, setUserMappings] = useState<Record<string, string | null>>({});
   const [processedTasksForPreview, setProcessedTasksForPreview] = useState<Task[]>([]);
 
-  const getFieldLabel = (fieldKey: string): string => {
+  const getFieldLabel = (fieldKey: keyof Task | string): string => {
     const systemCol = systemColumns.find(sc => sc.name === fieldKey);
     if (systemCol) {
-      return t(systemCol.description as any) || systemCol.description;
+        const translatedDesc = t(systemCol.description as any);
+        // If translation returns the key itself, use the original description
+        return translatedDesc === systemCol.description ? systemCol.description : translatedDesc;
     }
-    // Fallback for keys not in systemColumns (e.g., custom CSV keys if not mapped)
     const keyMap: Record<string, string> = {
       'comments': 'interactiveTable.tableHeaders.comments',
       'resolutionAdmin': 'interactiveTable.tableHeaders.admin',
@@ -121,9 +119,12 @@ export default function UploadDataPage() {
       'resolutionTimeDays': 'interactiveTable.tableHeaders.resolutionTimeDays',
       'createdAt': 'uploadData.systemColumns.createdAt',
       'resolvedAt': 'uploadData.systemColumns.resolvedAt',
+      'taskCreation': 'history.taskCreated',
     };
-    return t(keyMap[fieldKey] || fieldKey);
+    const translation = t(keyMap[fieldKey] || `history.fields.${fieldKey}`);
+    return translation === `history.fields.${fieldKey}` ? String(fieldKey) : translation;
   };
+
 
   const handleFileAccepted = (file: File, headers: string[], previewRows: string[][], allRows: string[][]) => {
     setCsvFile(file);
@@ -229,7 +230,7 @@ export default function UploadDataPage() {
       const taskMap = new Map<string, Task>();
       existingTasks.forEach(task => {
         if (task.taskReference) {
-          taskMap.set(task.taskReference, { ...task, history: task.history || [] }); // Ensure history array
+          taskMap.set(task.taskReference, { ...task, history: task.history || [] });
         } else if (task.id) { 
           taskMap.set(task.id, { ...task, history: task.history || [] }); 
         }
@@ -238,7 +239,7 @@ export default function UploadDataPage() {
       const newCsvTaskInputs: Record<string, any>[] = [];
       const uniqueCsvRowsByRef = new Map<string, any>();
 
-      rawCsvRows.forEach((row, rowIndex) => {
+      rawCsvRows.forEach((row) => {
         const constructedTaskInput: any = {};
         let taskRefFromCsv: string | undefined = undefined;
 
@@ -252,11 +253,36 @@ export default function UploadDataPage() {
             if (systemColName === 'delayDays' || systemColName === 'netAmount' || systemColName === 'resolutionTimeDays') {
               constructedTaskInput[systemColName] = value && value !== "" && !isNaN(parseFloat(value)) ? parseFloat(value) : null;
             } else if (systemColName === 'createdAt' || systemColName === 'resolvedAt') {
-              constructedTaskInput[systemColName] = (value && value !== "") ? new Date(value).toISOString() : undefined;
+              // Try to parse various date formats, fallback to ISO string or undefined
+              if (value && value !== "") {
+                let dateObj = new Date(value); // Handles ISO, and many common formats
+                // Check if date is "Invalid Date"
+                if (isNaN(dateObj.getTime())) {
+                    // Attempt to parse dd/mm/yyyy or mm/dd/yyyy
+                    const parts = value.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+                    if (parts) {
+                        // Assuming dd/mm/yyyy first, common in some regions
+                        let day = parseInt(parts[1], 10);
+                        let month = parseInt(parts[2], 10);
+                        let year = parseInt(parts[3], 10);
+                        if (year < 100) year += 2000; // Handle yy
+
+                        // Basic check for mm/dd/yyyy if month > 12
+                        if (month > 12 && day <= 12) {
+                           [day, month] = [month, day]; // Swap
+                        }
+                        dateObj = new Date(year, month - 1, day);
+                    }
+                }
+                constructedTaskInput[systemColName] = !isNaN(dateObj.getTime()) ? dateObj.toISOString() : undefined;
+              } else {
+                constructedTaskInput[systemColName] = undefined;
+              }
             } else if (value !== undefined && value !== "") {
               constructedTaskInput[systemColName] = value;
             } else if (value === "") { 
-              constructedTaskInput[systemColName] = TaskSchema.shape[systemColName as keyof TaskSchema['shape']].isOptional() || TaskSchema.shape[systemColName as keyof TaskSchema['shape']].isNullable() ? null : undefined;
+              const fieldSchema = TaskSchema.shape[systemColName as keyof typeof TaskSchema.shape];
+              constructedTaskInput[systemColName] = fieldSchema && (fieldSchema.isOptional() || fieldSchema.isNullable()) ? null : undefined;
             }
           }
         });
@@ -288,7 +314,7 @@ export default function UploadDataPage() {
             ...csvTaskInput, 
             id: existingTask?.id || csvTaskInput.id, 
             createdAt: csvTaskInput.createdAt || existingTask?.createdAt || new Date().toISOString(),
-            history: existingTask?.history || [], // Preserve existing history
+            history: existingTask?.history || [],
         };
 
         if (csvTaskInput.resolvedAt) {
@@ -313,22 +339,20 @@ export default function UploadDataPage() {
         const changesForHistory: TaskHistoryChangeDetail[] = [];
 
         if (existingTask) { 
-          // Compare fields for history logging
           (Object.keys(processedCsvTask) as Array<keyof Task>).forEach(key => {
-            if (key === 'id' || key === 'history' || key === 'createdAt') return; // Skip non-comparable or internally managed
+            if (key === 'id' || key === 'history' || key === 'createdAt') return; 
             
             const oldValue = existingTask[key];
             const newValue = processedCsvTask[key];
 
-            // Handle date string comparison carefully if resolvedAt is involved
             if (key === 'resolvedAt') {
                 const oldDate = oldValue ? new Date(oldValue as string).toISOString() : null;
                 const newDate = newValue ? new Date(newValue as string).toISOString() : null;
                 if (oldDate !== newDate) {
-                    changesForHistory.push({ field: key, fieldLabel: getFieldLabel(key), oldValue, newValue });
+                    changesForHistory.push({ field: String(key), fieldLabel: getFieldLabel(key), oldValue, newValue });
                 }
             } else if (String(oldValue ?? "") !== String(newValue ?? "")) {
-              changesForHistory.push({ field: key, fieldLabel: getFieldLabel(key), oldValue, newValue });
+              changesForHistory.push({ field: String(key), fieldLabel: getFieldLabel(key), oldValue, newValue });
             }
           });
           
@@ -337,18 +361,16 @@ export default function UploadDataPage() {
             ...processedCsvTask, 
             id: existingTask.id || processedCsvTask.id || generateTemporaryId(taskRef, csvIndex), 
             createdAt: existingTask.createdAt || processedCsvTask.createdAt, 
-            // history will be updated below
           };
 
           if (existingTask.resolutionStatus && 
               PROTECTED_RESOLUTION_STATUSES.includes(existingTask.resolutionStatus as TaskResolutionStatus) &&
               processedCsvTask.resolutionStatus === 'Pendiente' && 
-              !changesForHistory.find(c => c.field === 'resolutionStatus')) { // If CSV tries to revert a protected status without explicitly changing it in this CSV row
+              !changesForHistory.find(c => c.field === 'resolutionStatus')) {
             mergedTask.resolutionStatus = existingTask.resolutionStatus;
             mergedTask.resolvedAt = existingTask.resolvedAt || processedCsvTask.resolvedAt; 
           } else if (mergedTask.resolutionStatus && PROTECTED_RESOLUTION_STATUSES.includes(mergedTask.resolutionStatus as TaskResolutionStatus) && !mergedTask.resolvedAt) {
             mergedTask.resolvedAt = new Date().toISOString();
-            // Check if resolvedAt change was already captured, if not, add it
             if (!changesForHistory.some(c => c.field === 'resolvedAt')) {
                 changesForHistory.push({ field: 'resolvedAt', fieldLabel: getFieldLabel('resolvedAt'), oldValue: existingTask.resolvedAt, newValue: mergedTask.resolvedAt });
             }
@@ -366,15 +388,14 @@ export default function UploadDataPage() {
           mergedTask.history = newHistoryForThisTask;
           taskMap.set(taskRef, mergedTask);
 
-        } else { // New task from CSV
+        } else { 
           processedCsvTask.id = processedCsvTask.id || generateTemporaryId(taskRef, csvIndex);
           if (processedCsvTask.resolutionStatus && PROTECTED_RESOLUTION_STATUSES.includes(processedCsvTask.resolutionStatus as TaskResolutionStatus) && !processedCsvTask.resolvedAt) {
              processedCsvTask.resolvedAt = new Date().toISOString();
           }
-          // Log creation as a history event
           changesForHistory.push({
             field: 'taskCreation',
-            fieldLabel: t('history.taskCreated'),
+            fieldLabel: getFieldLabel('taskCreation'),
             oldValue: null,
             newValue: `Ref: ${taskRef}`,
           });
@@ -409,7 +430,7 @@ export default function UploadDataPage() {
 
       if (validationErrors.length > 0) {
         const errorMessages = validationErrors.slice(0, 5).map(err =>
-          `Fila CSV (Ref: ${err.csvTaskRef || 'N/A'}, aprox. original ${err.rowIndexGlobal}): ${err.errors.map(e => `${t(`uploadData.systemColumns.${e.path.join('.')}` as any, e.path.join('.'))} - ${e.message}`).join('; ')}`
+          `Fila CSV (Ref: ${err.csvTaskRef || 'N/A'}, aprox. original ${err.rowIndexGlobal}): ${err.errors.map(e => `${getFieldLabel(e.path.join('.'))} - ${e.message}`).join('; ')}`
         ).join('\n');
         toast({
           title: t('uploadData.validationErrors.title', { count: validationErrors.length }),
@@ -479,10 +500,14 @@ export default function UploadDataPage() {
 
   const triggerProcessData = () => {
     const taskRefMapped = Object.values(userMappings).includes('taskReference');
-    if (!taskRefMapped) {
+    const statusMapped = Object.values(userMappings).includes('status');
+    if (!taskRefMapped || !statusMapped) {
+      const missingCols = [];
+      if (!taskRefMapped) missingCols.push(t('uploadData.systemColumns.taskReference'));
+      if (!statusMapped) missingCols.push(t('uploadData.systemColumns.status'));
       toast({
         title: t('uploadData.incompleteMapping'),
-        description: t('uploadData.pleaseMapRequired', { columns: t('uploadData.systemColumns.taskReference') }),
+        description: t('uploadData.pleaseMapRequired', { columns: missingCols.join(', ') }),
         variant: "destructive"
       });
       return;
@@ -554,7 +579,7 @@ export default function UploadDataPage() {
                   <TableHeader>
                     <TableRow>
                       {systemColumns
-                        .filter(sc => processedTasksForPreview.length > 0 && processedTasksForPreview[0].hasOwnProperty(sc.name) && sc.name !== 'history') // Exclude history from preview columns
+                        .filter(sc => processedTasksForPreview.length > 0 && processedTasksForPreview[0].hasOwnProperty(sc.name) && sc.name !== 'history')
                         .map(col => (
                           <TableHead key={col.name}>{t(col.description as any) || col.description}</TableHead>
                       ))}
