@@ -88,6 +88,17 @@ export interface Translations {
       yAxisLabel: string;
       weekLabel: string;
     };
+    averageResolutionTimeChart: {
+      title: string;
+      description: string;
+      yAxisLabel: string;
+      teamAverageLabel: string;
+      noData: string;
+      noResolvedTasks: string;
+      adminLabel: string;
+      avgDaysSuffix: string;
+      uploadDataPrompt: string;
+    };
   };
   interactiveTable: {
     title: string;
@@ -346,6 +357,17 @@ export const translations: Translations = {
         yAxisLabel: "Progress (%)",
         weekLabel: "Week {week}",
       },
+      averageResolutionTimeChart: {
+        title: "Average Task Resolution Time",
+        description: "Average business days administrators take to resolve tasks.",
+        yAxisLabel: "Avg. Business Days",
+        teamAverageLabel: "Team Average",
+        noData: "No data available to display resolution times.",
+        noResolvedTasks: "No tasks have been resolved yet.",
+        adminLabel: "{adminName}",
+        avgDaysSuffix: "days",
+        uploadDataPrompt: "Upload data to see resolution times.",
+      },
     },
     interactiveTable: {
       title: "Task Overview",
@@ -597,6 +619,17 @@ export const translations: Translations = {
         uploadDataPrompt: "Por favor, carga datos para ver el progreso semanal de los administradores.",
         yAxisLabel: "Avance (%)",
         weekLabel: "Semana {week}",
+      },
+      averageResolutionTimeChart: {
+        title: "Tiempo Promedio de Resolución de Tareas",
+        description: "Promedio de días laborables que tardan los administradores en resolver tareas.",
+        yAxisLabel: "Prom. Días Laborables",
+        teamAverageLabel: "Promedio del Equipo",
+        noData: "No hay datos disponibles para mostrar tiempos de resolución.",
+        noResolvedTasks: "Aún no se han resuelto tareas.",
+        adminLabel: "{adminName}",
+        avgDaysSuffix: "días",
+        uploadDataPrompt: "Carga datos para ver los tiempos de resolución.",
       },
     },
     interactiveTable: {
