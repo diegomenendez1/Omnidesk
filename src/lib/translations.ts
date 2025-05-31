@@ -155,12 +155,13 @@ export interface Translations {
       pleaseMapRequired: string;
       dataProcessed: string;
       tasksProcessedAndSaved: string;
+      tasksProcessedAndSavedWithSkipped: string; // New
       errorSavingLocally: string;
       errorSavingLocallyDescription: string;
       previewTitle: string;
       uploadAnotherFile: string;
       redirectingToTable: string;
-      systemColumns: {
+      systemColumns: { // These are also used for error messages path translation
         status: string;
         assignee: string;
         taskReference: string;
@@ -172,6 +173,8 @@ export interface Translations {
         resolutionAdmin: string;
         resolutionStatus: string;
         resolutionTimeDays: string;
+        id: string; // Added for completeness if ID errors occur
+        name: string; // Added for completeness
       };
       fileUploader: {
         dropzoneActive: string;
@@ -196,6 +199,12 @@ export interface Translations {
         successTitle: string;
         successDescription: string;
       };
+      validationErrors: { // New section for Zod validation
+        title: string;
+        description: string;
+      };
+      noValidTasksProcessed: string; // New
+      allRowsInvalid: string; // New
     };
     dataValidationReport: {
       title: string;
@@ -237,7 +246,7 @@ export interface Translations {
         requiresRecentLogin: string; 
         passwordRequired: string;
         networkError: string;
-        apiKeyInvalid: string; // New key for invalid API key
+        apiKeyInvalid: string; 
       }
     };
   };
@@ -377,12 +386,13 @@ export interface Translations {
       pleaseMapRequired: string;
       dataProcessed: string;
       tasksProcessedAndSaved: string;
+      tasksProcessedAndSavedWithSkipped: string; // New
       errorSavingLocally: string;
       errorSavingLocallyDescription: string;
       previewTitle: string;
       uploadAnotherFile: string;
       redirectingToTable: string;
-      systemColumns: {
+      systemColumns: { // These are also used for error messages path translation
         status: string;
         assignee: string;
         taskReference: string;
@@ -394,6 +404,8 @@ export interface Translations {
         resolutionAdmin: string;
         resolutionStatus: string;
         resolutionTimeDays: string;
+        id: string; // Added for completeness
+        name: string; // Added for completeness
       };
       fileUploader: {
         dropzoneActive: string;
@@ -418,6 +430,12 @@ export interface Translations {
         successTitle: string;
         successDescription: string;
       };
+      validationErrors: { // New section for Zod validation
+        title: string;
+        description: string;
+      };
+      noValidTasksProcessed: string; // New
+      allRowsInvalid: string; // New
     };
     dataValidationReport: {
       title: string;
@@ -459,7 +477,7 @@ export interface Translations {
         requiresRecentLogin: string; 
         passwordRequired: string;
         networkError: string;
-        apiKeyInvalid: string; // New key for invalid API key
+        apiKeyInvalid: string; 
       }
     };
   }
@@ -603,6 +621,7 @@ export const translations: Translations = {
       pleaseMapRequired: "Please map the following required system columns: {columns}",
       dataProcessed: "Data Processed",
       tasksProcessedAndSaved: "{count} tasks processed and saved to local storage.",
+      tasksProcessedAndSavedWithSkipped: "{savedCount} tasks processed and saved. {skippedCount} rows skipped due to errors.",
       errorSavingLocally: "Error saving data locally",
       errorSavingLocallyDescription: "Could not save data for the interactive table. Preview is still available on this page.",
       previewTitle: "Preview of Processed Data (first 10 rows)",
@@ -618,8 +637,10 @@ export const translations: Translations = {
         transportMode: "Transport Mode",
         comments: "Comments",
         resolutionAdmin: "Administrator",
-        resolutionStatus: "Estado de Resolución", // Corrected key for consistency, was "Estado Resolución"
-        resolutionTimeDays: "Tiempo Resolución (días)",
+        resolutionStatus: "Resolution Status",
+        resolutionTimeDays: "Resolution Time (days)",
+        id: "Internal ID",
+        name: "Task Name",
       },
       fileUploader: {
         dropzoneActive: "Drop CSV file here...",
@@ -644,6 +665,12 @@ export const translations: Translations = {
         successTitle: "Backup Successful",
         successDescription: "Data backed up to {filename}.",
       },
+      validationErrors: {
+        title: "Validation Errors ({count} rows failed)",
+        description: "{count} rows had validation errors. Showing first {firstN}:\n{details}",
+      },
+      noValidTasksProcessed: "No Valid Tasks Processed",
+      allRowsInvalid: "All rows in the CSV file were invalid after validation. Please check the errors and try again.",
     },
     dataValidationReport: {
       title: "AI Data Validation Report",
@@ -825,23 +852,26 @@ export const translations: Translations = {
       pleaseMapRequired: "Por favor, mapea las siguientes columnas requeridas del sistema: {columns}",
       dataProcessed: "Datos Procesados",
       tasksProcessedAndSaved: "{count} tareas procesadas y guardadas en el almacenamiento local.",
+      tasksProcessedAndSavedWithSkipped: "{savedCount} tareas procesadas y guardadas. Se omitieron {skippedCount} filas debido a errores.",
       errorSavingLocally: "Error al guardar datos localmente",
       errorSavingLocallyDescription: "No se pudieron guardar los datos para la tabla interactiva. La vista previa sigue disponible en esta página.",
       previewTitle: "Vista Previa de Datos Procesados (primeras 10 filas)",
       uploadAnotherFile: "Cargar otro archivo",
       redirectingToTable: " Redirigiendo a la Tabla Interactiva...",
       systemColumns: {
-        status: "TO Status",
+        status: "Estado TO",
         assignee: "Desarrollador Logístico",
-        taskReference: "TO Ref.",
-        delayDays: "Dias de atraso",
-        customerAccount: "Customer Acc.",
-        netAmount: "Monto $",
-        transportMode: "Transport Mode",
+        taskReference: "Ref. TO",
+        delayDays: "Días de Atraso",
+        customerAccount: "Cuenta Cliente",
+        netAmount: "Monto Neto $",
+        transportMode: "Modo Transporte",
         comments: "Comentarios",
-        resolutionAdmin: "Administrador",
-        resolutionStatus: "Estado de Resolución", // Corrected key for consistency
+        resolutionAdmin: "Administrador Resolución",
+        resolutionStatus: "Estado Resolución",
         resolutionTimeDays: "Tiempo Resolución (días)",
+        id: "ID Interno",
+        name: "Nombre Tarea",
       },
       fileUploader: {
         dropzoneActive: "Suelta el archivo CSV aquí...",
@@ -866,6 +896,12 @@ export const translations: Translations = {
         successTitle: "Respaldo Exitoso",
         successDescription: "Datos respaldados en {filename}.",
       },
+      validationErrors: {
+        title: "Errores de Validación ({count} filas fallaron)",
+        description: "{count} filas tuvieron errores de validación. Mostrando las primeras {firstN}:\n{details}",
+      },
+      noValidTasksProcessed: "No se Procesaron Tareas Válidas",
+      allRowsInvalid: "Todas las filas del archivo CSV fueron inválidas después de la validación. Por favor, revisa los errores e inténtalo de nuevo.",
     },
     dataValidationReport: {
       title: "Reporte de Validación de Datos IA",

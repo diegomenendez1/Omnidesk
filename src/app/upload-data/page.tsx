@@ -2,7 +2,8 @@
 "use client";
 
 import { useState, useTransition } from 'react';
-import type { Task, TaskStatus, TaskResolutionStatus } from '@/types';
+import type { Task } from '@/types'; // Task type now comes from Zod schema
+import { TaskSchema, TaskStatusSchema, TaskResolutionStatusSchema } from '@/types'; // Import Zod schemas
 import { FileUploader } from '@/components/upload/file-uploader';
 import { ColumnMapper } from '@/components/upload/column-mapper';
 import { Button } from '@/components/ui/button';
@@ -26,11 +27,13 @@ import type { SuggestCsvMappingOutput, SystemColumn } from './actions';
 import { useRouter } from 'next/navigation';
 import { formatCurrency } from '@/lib/utils';
 import { useLanguage } from '@/context/language-context';
+import type { z } from 'zod';
 
 type UploadStep = "upload" | "map" | "confirm" | "done";
 
-const validStatuses: TaskStatus[] = ["Missing Estimated Dates", "Missing POD", "Pending to Invoice Out of Time"];
-const validResolutionStatuses: TaskResolutionStatus[] = ["Pendiente", "SFP", "Resuelto"];
+// These arrays are no longer needed as Zod schemas handle validation
+// const validStatuses: TaskStatus[] = ["Missing Estimated Dates", "Missing POD", "Pending to Invoice Out of Time"];
+// const validResolutionStatuses: TaskResolutionStatus[] = ["Pendiente", "SFP", "Resuelto"];
 
 const PREFERRED_CSV_TO_SYSTEM_MAP: Record<string, string> = {
   "transport order ref.": "taskReference",
@@ -67,7 +70,7 @@ export default function UploadDataPage() {
 
   const systemColumns: SystemColumn[] = [
     { name: 'status', description: t('uploadData.systemColumns.status'), required: true },
-    { name: 'assignee', description: t('uploadData.systemColumns.assignee') },
+    { name: 'assignee', description: t('uploadData.systemColumns.assignee') }, // Not strictly required by schema (optional)
     { name: 'taskReference', description: t('uploadData.systemColumns.taskReference') },
     { name: 'delayDays', description: t('uploadData.systemColumns.delayDays') },
     { name: 'customerAccount', description: t('uploadData.systemColumns.customerAccount') },
@@ -182,11 +185,12 @@ export default function UploadDataPage() {
         toast({ title: t('uploadData.noDataToProcess'), variant: "destructive" });
         return;
       }
-      // Validation for required mappings is done in triggerProcessData before this.
 
-      const tasks: Task[] = [];
+      const validTasks: Task[] = [];
+      const invalidRows: { rowIndex: number; errors: z.ZodIssue[] }[] = [];
+
       rawCsvRows.forEach((row, rowIndex) => {
-        const taskObject: Partial<Task> = {};
+        const constructedTaskInput: any = {}; // Use 'any' for easier construction, Zod will validate final structure
         let idCandidate: string | undefined = undefined;
 
         csvHeaders.forEach((header, colIndex) => {
@@ -194,56 +198,97 @@ export default function UploadDataPage() {
           if (systemColName) {
             const value = row[colIndex]?.trim();
 
-            if (systemColName === 'status') {
-              taskObject.status = validStatuses.includes(value as TaskStatus) ? value as TaskStatus : "Missing Estimated Dates";
-            } else if (systemColName === 'assignee') {
-              taskObject.assignee = value || "";
-            } else if (systemColName === 'taskReference') {
-              taskObject.taskReference = value || "";
-              if (!idCandidate && value) idCandidate = `csv-${value}-${rowIndex}`;
-            } else if (systemColName === 'delayDays' || systemColName === 'netAmount' || systemColName === 'resolutionTimeDays') {
-              taskObject[systemColName as 'delayDays' | 'netAmount' | 'resolutionTimeDays'] = value && !isNaN(parseFloat(value)) ? parseFloat(value) : null;
-            } else if (systemColName === 'customerAccount' || systemColName === 'transportMode' || systemColName === 'comments' || systemColName === 'resolutionAdmin') {
-              taskObject[systemColName as 'customerAccount' | 'transportMode' | 'comments' | 'resolutionAdmin'] = value || "";
-            } else if (systemColName === 'resolutionStatus') {
-              taskObject.resolutionStatus = validResolutionStatuses.includes(value as TaskResolutionStatus) ? value as TaskResolutionStatus : "Pendiente";
+            if (systemColName === 'delayDays' || systemColName === 'netAmount' || systemColName === 'resolutionTimeDays') {
+              constructedTaskInput[systemColName] = value && !isNaN(parseFloat(value)) ? parseFloat(value) : null;
+            } else if (value !== undefined) { // Only assign if value is not undefined
+              constructedTaskInput[systemColName] = value;
             }
-            else if (systemColumns.some(sc => sc.name === systemColName)) {
-              (taskObject as any)[systemColName] = value || null;
+            
+            if (systemColName === 'taskReference' && value) {
+              idCandidate = `csv-${value}-${rowIndex}`;
             }
           }
         });
 
-        if (!taskObject.id && idCandidate) {
-          taskObject.id = idCandidate;
+        // Apply defaults for fields required by schema if not mapped or empty,
+        // but only if schema doesn't handle it with .default() or .optional() implies undefined is ok.
+        // Status is required by TaskSchema.
+        if (constructedTaskInput.status === undefined || constructedTaskInput.status === "") {
+             constructedTaskInput.status = TaskStatusSchema.enum["Missing Estimated Dates"]; // Default if not provided or empty
         }
-        if (!taskObject.id) {
-          taskObject.id = `TEMP-CSV-${Date.now()}-${rowIndex}-${Math.random().toString(36).substring(2, 7)}`;
+        // Assignee is optional in schema, so empty string or undefined is fine.
+        // If it were required:
+        // if (constructedTaskInput.assignee === undefined || constructedTaskInput.assignee === "") {
+        //   constructedTaskInput.assignee = "Unassigned"; // Or some other default
+        // }
+
+
+        const validationAttempt = TaskSchema.safeParse(constructedTaskInput);
+
+        if (validationAttempt.success) {
+          let finalTask = validationAttempt.data;
+          if (!finalTask.id && idCandidate) {
+            finalTask.id = idCandidate;
+          }
+          if (!finalTask.id) {
+            finalTask.id = `TEMP-CSV-${Date.now()}-${rowIndex}-${Math.random().toString(36).substring(2, 7)}`;
+          }
+          validTasks.push(finalTask);
+        } else {
+          invalidRows.push({ rowIndex: rowIndex + 1, errors: validationAttempt.error.issues });
         }
-
-        if (!taskObject.status) taskObject.status = "Missing Estimated Dates";
-        if (taskObject.resolutionStatus === undefined && systemColumns.some(sc => sc.name === 'resolutionStatus')) {
-           taskObject.resolutionStatus = "Pendiente";
-        }
-
-
-        tasks.push(taskObject as Task);
       });
 
-      setProcessedTasks(tasks);
+      setProcessedTasks(validTasks); // Update preview table with only valid tasks
 
-      try {
-        localStorage.setItem('uploadedTasks', JSON.stringify(tasks));
-        toast({ title: t('uploadData.dataProcessed'), description: t('uploadData.tasksProcessedAndSaved', { count: tasks.length }) });
-        router.push('/table');
-      } catch (error) {
-        console.error("Error saving tasks to localStorage:", error);
+      if (invalidRows.length > 0) {
+        const errorMessages = invalidRows.slice(0, 3).map(rowErr =>
+          `Fila ${rowErr.rowIndex}: ${rowErr.errors.map(e => `${t(`uploadData.systemColumns.${e.path.join('.')}` as any, e.path.join('.'))} - ${e.message}`).join('; ')}`
+        ).join('\n');
         toast({
-          title: t('uploadData.errorSavingLocally'),
-          description: t('uploadData.errorSavingLocallyDescription'),
+          title: t('uploadData.validationErrors.title', { count: invalidRows.length }),
+          description: t('uploadData.validationErrors.description', {
+            details: errorMessages,
+            count: invalidRows.length,
+            firstN: invalidRows.slice(0,3).length
+          }),
+          variant: "destructive",
+          duration: 15000, // Longer duration for detailed errors
+        });
+      }
+
+      if (validTasks.length > 0) {
+        try {
+          localStorage.setItem('uploadedTasks', JSON.stringify(validTasks));
+          toast({ 
+            title: t('uploadData.dataProcessed'), 
+            description: t('uploadData.tasksProcessedAndSavedWithSkipped', { savedCount: validTasks.length, skippedCount: invalidRows.length }) 
+          });
+          router.push('/table');
+        } catch (error) {
+          console.error("Error saving tasks to localStorage:", error);
+          toast({
+            title: t('uploadData.errorSavingLocally'),
+            description: t('uploadData.errorSavingLocallyDescription'),
+            variant: "destructive",
+          });
+          setStep("done"); 
+        }
+      } else if (invalidRows.length > 0) {
+        toast({
+          title: t('uploadData.noValidTasksProcessed'),
+          description: t('uploadData.allRowsInvalid'),
           variant: "destructive",
         });
-        setStep("done");
+        setStep("done"); 
+      } else if (rawCsvRows.length > 0 && validTasks.length === 0 && invalidRows.length === 0) {
+        // This case means rows were processed but somehow no valid or invalid tasks were categorized.
+        // This could happen if all rows were empty or only headers.
+         toast({ title: t('uploadData.noDataToProcess'), description: "No data rows found in the CSV or all rows were empty.", variant: "destructive" });
+         setStep("upload");
+      } else {
+         toast({ title: t('uploadData.noDataToProcess'), variant: "destructive" });
+         setStep("upload");
       }
     });
   };
@@ -286,21 +331,18 @@ export default function UploadDataPage() {
       return;
     }
     
-    // Check if there's existing data to prompt for backup
     const existingData = localStorage.getItem('uploadedTasks');
-    // Check if existingData is not null, not an empty string, and not an empty array string
     if (existingData && existingData.trim() !== "" && existingData.trim() !== "[]") {
         try {
             const parsedData = JSON.parse(existingData);
             if (Array.isArray(parsedData) && parsedData.length > 0) {
                  setShowBackupDialog(true);
-                 return; // Wait for user action from dialog
+                 return; 
             }
         } catch (e) {
             console.error("Error parsing existing localStorage data, proceeding without backup prompt:", e);
         }
     }
-    // If no significant existing data, proceed directly
     actuallyProcessAndSaveData();
   };
 
@@ -346,7 +388,7 @@ export default function UploadDataPage() {
                 <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
                 <AlertTitle className="text-green-700 dark:text-green-300">{t('uploadData.dataProcessed')}</AlertTitle>
                 <AlertDescription className="text-green-600 dark:text-green-400">
-                  {t('uploadData.tasksProcessedAndSaved', { count: processedTasks.length }).replace(t('uploadData.redirectingToTable'), '')}
+                  {/* Updated message handled by toast in actuallyProcessAndSaveData */}
                   {t('uploadData.previewTitle')}
                 </AlertDescription>
               </Alert>
@@ -355,36 +397,42 @@ export default function UploadDataPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      {systemColumns.filter(sc => Object.values(userMappings).includes(sc.name)).map(col => (
-                        <TableHead key={col.name}>{t(col.description as any) || col.description}</TableHead>
+                      {/* Filter systemColumns to only those present in at least one processedTask or in userMappings */}
+                      {systemColumns
+                        .filter(sc => processedTasks.length > 0 && Object.keys(processedTasks[0]).includes(sc.name))
+                        .map(col => (
+                          <TableHead key={col.name}>{t(col.description as any) || col.description}</TableHead>
                       ))}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {processedTasks.slice(0, 10).map((task, index) => (
                       <TableRow key={task.id || `processed-${index}`}>
-                        {systemColumns.filter(sc => Object.values(userMappings).includes(sc.name)).map(col => {
-                          const value = task[col.name as keyof Task];
-                          if (col.name === 'netAmount') {
-                            return <TableCell key={col.name} className="text-right">{formatCurrency(value as number | null)}</TableCell>;
-                          }
-                          if (col.name === 'status') {
-                            const keyMap: Record<TaskStatus, string> = {
-                              "Missing Estimated Dates": "interactiveTable.status.missingEstimates",
-                              "Missing POD": "interactiveTable.status.missingPOD",
-                              "Pending to Invoice Out of Time": "interactiveTable.status.pendingInvoice",
-                            };
-                            return <TableCell key={col.name}>{t(keyMap[value as TaskStatus] as any)}</TableCell>;
-                          }
-                          if (col.name === 'resolutionStatus') {
-                            const keyMap: Record<TaskResolutionStatus, string> = {
-                              "Pendiente": "interactiveTable.resolutionStatus.pendiente",
-                              "SFP": "interactiveTable.resolutionStatus.sfp",
-                              "Resuelto": "interactiveTable.resolutionStatus.resuelto",
-                            };
-                            return <TableCell key={col.name}>{t(keyMap[value as TaskResolutionStatus] as any)}</TableCell>;
-                          }
-                          return <TableCell key={col.name}>{String(value === null || value === undefined ? t('interactiveTable.notAvailable') : value)}</TableCell>;
+                        {systemColumns
+                          .filter(sc => processedTasks.length > 0 && Object.keys(processedTasks[0]).includes(sc.name))
+                          .map(col => {
+                            const value = task[col.name as keyof Task];
+                            if (col.name === 'netAmount') {
+                              return <TableCell key={col.name} className="text-right">{formatCurrency(value as number | null)}</TableCell>;
+                            }
+                            if (col.name === 'status') {
+                              const keyMap: Record<Task['status'], string> = {
+                                "Missing Estimated Dates": "interactiveTable.status.missingEstimates",
+                                "Missing POD": "interactiveTable.status.missingPOD",
+                                "Pending to Invoice Out of Time": "interactiveTable.status.pendingInvoice",
+                              };
+                              return <TableCell key={col.name}>{t(keyMap[value as Task['status']] as any)}</TableCell>;
+                            }
+                            if (col.name === 'resolutionStatus') {
+                               if (value === undefined || value === null) return <TableCell key={col.name}>{t('interactiveTable.notAvailable')}</TableCell>;
+                              const keyMap: Record<Exclude<Task['resolutionStatus'], undefined>, string> = {
+                                "Pendiente": "interactiveTable.resolutionStatus.pendiente",
+                                "SFP": "interactiveTable.resolutionStatus.sfp",
+                                "Resuelto": "interactiveTable.resolutionStatus.resuelto",
+                              };
+                              return <TableCell key={col.name}>{t(keyMap[value as Exclude<Task['resolutionStatus'], undefined>] as any)}</TableCell>;
+                            }
+                            return <TableCell key={col.name}>{String(value === null || value === undefined ? t('interactiveTable.notAvailable') : value)}</TableCell>;
                         })}
                       </TableRow>
                     ))}
@@ -396,6 +444,20 @@ export default function UploadDataPage() {
               </Button>
             </div>
           )}
+           {step === "done" && processedTasks.length === 0 && ( // If "done" but no tasks, implies all were invalid or initial file was empty
+                <div className="space-y-4">
+                    <Alert variant="destructive">
+                        <AlertCircle className="h-5 w-5" />
+                        <AlertTitle>{t('uploadData.noValidTasksProcessed')}</AlertTitle>
+                        <AlertDescription>
+                            {t('uploadData.allRowsInvalid')}
+                        </AlertDescription>
+                    </Alert>
+                    <Button onClick={() => { setStep("upload"); setCsvFile(null); setProcessedTasks([]); }} className="mt-4">
+                        {t('uploadData.uploadAnotherFile')}
+                    </Button>
+                </div>
+            )}
         </CardContent>
       </Card>
 
@@ -422,4 +484,3 @@ export default function UploadDataPage() {
     </div>
   );
 }
-
