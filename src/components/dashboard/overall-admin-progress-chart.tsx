@@ -1,5 +1,7 @@
+
 "use client";
 
+import * as React from "react"; // Added this line
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid, ReferenceLine, LabelList } from "recharts";
 import {
   ChartContainer,
@@ -7,7 +9,7 @@ import {
   ChartLegendContent,
 } from "@/components/ui/chart";
 import { useLanguage } from "@/context/language-context";
-import type { useMemo } from 'react'; // Import type for useMemo if not already imported globally
+// Removed type import for useMemo as React.useMemo will be used directly
 
 export interface OverallAdminProgressDataPoint {
   adminName: string;
@@ -48,14 +50,14 @@ const DataLabel = ({ x, y, value, unit = "%" }: { x?: number; y?: number; value?
 export function OverallAdminProgressChart({ data, teamAveragePercent, goalPercent, allAdmins }: OverallAdminProgressChartProps) {
   const { t } = useLanguage();
 
-  const chartConfig = React.useMemo(() => { // Changed from useMemo to React.useMemo for explicit import if needed
+  const chartConfig = React.useMemo(() => { 
     const config: any = {
       progressPercent: {
         label: t('dashboard.overallAdminProgress.yAxisLabel'),
       },
       teamAverage: {
         label: t('dashboard.overallAdminProgress.teamAverageLabel'),
-        color: "hsl(var(--primary))", // Using primary color for team average line for visibility
+        color: "hsl(var(--primary))", 
       },
       goalLine: {
         label: t('dashboard.overallAdminProgress.goalLineLabel'),
@@ -71,7 +73,7 @@ export function OverallAdminProgressChart({ data, teamAveragePercent, goalPercen
     return config;
   }, [t, allAdmins]);
 
-  const chartData = React.useMemo(() => { // Changed from useMemo to React.useMemo
+  const chartData = React.useMemo(() => { 
     return allAdmins.map(adminName => {
       const adminData = data.find(d => d.adminName === adminName);
       return {
@@ -110,6 +112,7 @@ export function OverallAdminProgressChart({ data, teamAveragePercent, goalPercen
             interval={0}
             angle={-30}
             textAnchor="end"
+            // tickFormatter={(value) => `Sem. ${value.substring(value.indexOf('-W') + 2)}`}
           />
           <YAxis
             stroke="hsl(var(--muted-foreground))"
@@ -149,28 +152,28 @@ export function OverallAdminProgressChart({ data, teamAveragePercent, goalPercen
           {teamAveragePercent !== null && (
             <ReferenceLine
               y={teamAveragePercent}
-              stroke="hsl(var(--primary))"
+              stroke="hsl(var(--primary))" // More visible color for team average
               strokeWidth={2}
               ifOverflow="extendDomain"
               label={{
                 value: `${t('dashboard.overallAdminProgress.teamAverageLabel')}: ${teamAveragePercent.toFixed(0)}%`,
                 position: "insideTopRight",
-                fill: "hsl(var(--primary))",
+                fill: "hsl(var(--primary))", // Ensure label color matches line
                 fontSize: 10,
-                dy: -5,
+                dy: -5, 
               }}
             />
           )}
           <ReferenceLine
             y={goalPercent}
-            stroke="hsl(var(--destructive))"
-            strokeDasharray="5 5"
+            stroke="hsl(var(--destructive))" // Destructive color for goal
+            strokeDasharray="5 5" // Dotted line for goal
             strokeWidth={2}
             ifOverflow="extendDomain"
             label={{
               value: `${t('dashboard.overallAdminProgress.goalLineLabel')}: ${goalPercent.toFixed(0)}%`,
               position: "insideTopLeft",
-              fill: "hsl(var(--destructive))",
+              fill: "hsl(var(--destructive))", // Ensure label color matches line
               fontSize: 10,
               dy: -5,
             }}
