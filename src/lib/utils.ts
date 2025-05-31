@@ -1,5 +1,8 @@
+
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { getISOWeek, getISOWeekYear, startOfISOWeek, endOfISOWeek, eachWeekOfInterval, formatISO } from 'date-fns';
+
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -51,3 +54,77 @@ export function calculateBusinessDays(startDate: Date, endDate: Date): number {
   }
   return count;
 }
+
+/**
+ * Gets a week identifier string (e.g., "2023-W40") for a given date.
+ * Uses ISO week date standard.
+ * @param date The date.
+ * @returns The week identifier string.
+ */
+export function getWeekIdentifier(date: Date): string {
+  const year = getISOWeekYear(date);
+  const week = getISOWeek(date);
+  return `${year}-W${String(week).padStart(2, '0')}`;
+}
+
+/**
+ * Gets an array of week identifier strings within a given date interval.
+ * @param startDate The start of the interval.
+ * @param endDate The end of the interval.
+ * @returns An array of week identifier strings.
+ */
+export function getWeeksInRange(startDate: Date, endDate: Date): string[] {
+  if (startDate > endDate) return [];
+  const weeks = eachWeekOfInterval(
+    { start: startDate, end: endDate },
+    { weekStartsOn: 1 } // Monday
+  );
+  return weeks.map(getWeekIdentifier);
+}
+
+/**
+ * Gets the start date of an ISO week.
+ * @param year The ISO week year.
+ * @param week The ISO week number.
+ * @returns The start date of the week.
+ */
+export function getStartOfISOWeek(year: number, week: number): Date {
+    // Simple approximation: this might need a more robust library for perfect ISO week date conversion
+    // For date-fns, you'd use parseISO or construct from year and then setISOWeek.
+    // This is a simplified version. For production, use date-fns's setISOWeek and startOfISOWeek.
+    const d = new Date(year, 0, 1 + (week - 1) * 7);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
+    return new Date(d.setDate(diff));
+}
+
+/**
+ * Gets the end date of an ISO week.
+ * @param year The ISO week year.
+ * @param week The ISO week number.
+ * @returns The end date of the week.
+ */
+export function getEndOfISOWeek(year: number, week: number): Date {
+    const startDate = getStartOfISOWeek(year, week);
+    const endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + 6);
+    return endDate;
+}
+
+export function parseWeekIdentifier(weekIdentifier: string): { year: number; week: number; startOfWeek: Date; endOfWeek: Date } {
+  const [yearStr, weekStr] = weekIdentifier.split('-W');
+  const year = parseInt(yearStr, 10);
+  const week = parseInt(weekStr, 10);
+  
+  // For robust conversion from ISO year and week to Date, date-fns is better.
+  // Here's an approach using startOfISOWeek after setting the week.
+  let date = new Date(year, 0, 4); // Jan 4th is always in week 1 of its ISO year
+  date = startOfISOWeek(date); // Go to start of week 1 of 'year'
+  date.setDate(date.getDate() + (week - 1) * 7); // Add weeks
+  
+  const startOfWeek = startOfISOWeek(date);
+  const endOfWeek = endOfISOWeek(startOfWeek);
+
+  return { year, week, startOfWeek, endOfWeek };
+}
+

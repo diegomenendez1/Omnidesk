@@ -37,6 +37,7 @@ export const TaskSchema = z.object({
   resolutionTimeDays: z.number().nullable().optional(),
   
   createdAt: z.string().datetime({ message: "Invalid datetime string for createdAt, expected ISO 8601 format" }).optional().describe("ISO datetime string when the task was first created/ingested."),
+  resolvedAt: z.string().datetime({ message: "Invalid datetime string for resolvedAt, expected ISO 8601 format" }).optional().nullable().describe("ISO datetime string when the task was resolved."),
   // Allow other dynamic keys from CSV. For stricter validation, remove .catchall(z.any()).
 }).catchall(z.any());
 
@@ -67,3 +68,4 @@ export interface SystemColumnInfo {
   description: string;
   required?: boolean;
 }
+

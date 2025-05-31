@@ -1,3 +1,4 @@
+
 export type Locale = 'en' | 'es';
 
 // Helper type for ensuring key validity
@@ -92,6 +93,13 @@ export interface Translations {
       inProgress: string;
       completed: string;
       blocked: string;
+      adminWeeklyProgress: string; 
+      adminProgressDescription: string; 
+      adminWeeklyProgressChart: { // For the chart component itself
+        teamAverage: string;
+        goalLine: string;
+        noData: string;
+      };
     };
     interactiveTable: {
       title: string;
@@ -115,7 +123,8 @@ export interface Translations {
         resolutionTimeDays: string;
         history: string; 
         actions: string; 
-        accumulatedBusinessDays: string; // New for business days
+        accumulatedBusinessDays: string; 
+        resolvedAt: string; 
       };
       status: { 
         missingEstimates: string;
@@ -175,7 +184,8 @@ export interface Translations {
         resolutionTimeDays: string;
         id: string; 
         name: string; 
-        createdAt: string; // New for createdAt
+        createdAt: string; 
+        resolvedAt: string; 
       };
       fileUploader: {
         dropzoneActive: string;
@@ -206,10 +216,10 @@ export interface Translations {
       };
       noValidTasksProcessed: string; 
       allRowsInvalid: string; 
-      noDataInFile: string; // New for empty file case in "done" step
-      goToTableButton: string; // New button text
-      noEffectiveChanges: string; // New toast for no changes
-      noEffectiveChangesDescription: string; // New toast desc
+      noDataInFile: string; 
+      goToTableButton: string; 
+      noEffectiveChanges: string; 
+      noEffectiveChangesDescription: string; 
     };
     dataValidationReport: {
       title: string;
@@ -225,8 +235,8 @@ export interface Translations {
       loadedTasksDescription: string;
       errorLoadingData: string;
       errorLoadingDataDescription: string;
-      errorSavingData: string; // New for saving errors
-      errorSavingDataDescription: string; // New for saving errors
+      errorSavingData: string; 
+      errorSavingDataDescription: string; 
     };
     loginPage: { 
       titleLogin: string;
@@ -331,6 +341,13 @@ export interface Translations {
       inProgress: string;
       completed: string;
       blocked: string;
+      adminWeeklyProgress: string; 
+      adminProgressDescription: string; 
+      adminWeeklyProgressChart: { // For the chart component itself
+        teamAverage: string;
+        goalLine: string;
+        noData: string;
+      };
     };
     interactiveTable: {
       title: string;
@@ -354,7 +371,8 @@ export interface Translations {
         resolutionTimeDays: string;
         history: string; 
         actions: string;
-        accumulatedBusinessDays: string; // New for business days
+        accumulatedBusinessDays: string; 
+        resolvedAt: string; 
       };
       status: {
         missingEstimates: string;
@@ -414,7 +432,8 @@ export interface Translations {
         resolutionTimeDays: string;
         id: string; 
         name: string; 
-        createdAt: string; // New for createdAt
+        createdAt: string; 
+        resolvedAt: string; 
       };
       fileUploader: {
         dropzoneActive: string;
@@ -445,10 +464,10 @@ export interface Translations {
       };
       noValidTasksProcessed: string; 
       allRowsInvalid: string; 
-      noDataInFile: string; // New for empty file case in "done" step
-      goToTableButton: string; // New button text
-      noEffectiveChanges: string; // New toast for no changes
-      noEffectiveChangesDescription: string; // New toast desc
+      noDataInFile: string; 
+      goToTableButton: string; 
+      noEffectiveChanges: string; 
+      noEffectiveChangesDescription: string; 
     };
     dataValidationReport: {
       title: string;
@@ -464,8 +483,8 @@ export interface Translations {
       loadedTasksDescription: string;
       errorLoadingData: string;
       errorLoadingDataDescription: string;
-      errorSavingData: string; // New for saving errors
-      errorSavingDataDescription: string; // New for saving errors
+      errorSavingData: string; 
+      errorSavingDataDescription: string; 
     };
     loginPage: { 
       titleLogin: string;
@@ -574,6 +593,13 @@ export const translations: Translations = {
       inProgress: "In Progress",
       completed: "Completed",
       blocked: "Blocked",
+      adminWeeklyProgress: "Admin Weekly Progress",
+      adminProgressDescription: "Individual and team progress towards resolution goals.",
+      adminWeeklyProgressChart: {
+        teamAverage: "Team Average",
+        goalLine: "Goal Line",
+        noData: "No data available for admin progress."
+      }
     },
     interactiveTable: {
       title: "Tasks Overview",
@@ -597,7 +623,8 @@ export const translations: Translations = {
         resolutionTimeDays: "Resolution Time (days)",
         history: "History", 
         actions: "Actions", 
-        accumulatedBusinessDays: "Accumulated Days (Business)"
+        accumulatedBusinessDays: "Accumulated Days (Business)",
+        resolvedAt: "Resolved At",
       },
       status: { 
         missingEstimates: "Missing Estimated Dates",
@@ -658,6 +685,7 @@ export const translations: Translations = {
         id: "Internal ID",
         name: "Task Name",
         createdAt: "Created At (System)",
+        resolvedAt: "Resolved At (System/CSV)",
       },
       fileUploader: {
         dropzoneActive: "Drop CSV file here...",
@@ -813,6 +841,13 @@ export const translations: Translations = {
       inProgress: "En Progreso",
       completed: "Completado",
       blocked: "Bloqueado",
+      adminWeeklyProgress: "Progreso Semanal por Administrador",
+      adminProgressDescription: "Progreso individual y del equipo hacia los objetivos de resolución.",
+      adminWeeklyProgressChart: {
+        teamAverage: "Promedio Equipo",
+        goalLine: "Línea Objetivo",
+        noData: "No hay datos disponibles para el progreso de administradores."
+      }
     },
     interactiveTable: {
       title: "Resumen de Tareas",
@@ -836,7 +871,8 @@ export const translations: Translations = {
         resolutionTimeDays: "Tiempo Resolución (días)",
         history: "Historial", 
         actions: "Acciones",
-        accumulatedBusinessDays: "Días Acumulados (Hábiles)"
+        accumulatedBusinessDays: "Días Acumulados (Hábiles)",
+        resolvedAt: "Fecha Resolución",
       },
       status: {
         missingEstimates: "Fechas Estimadas Faltantes",
@@ -897,6 +933,7 @@ export const translations: Translations = {
         id: "ID Interno",
         name: "Nombre Tarea",
         createdAt: "Fecha Creación (Sistema)",
+        resolvedAt: "Fecha Resolución (Sistema/CSV)",
       },
       fileUploader: {
         dropzoneActive: "Suelta el archivo CSV aquí...",

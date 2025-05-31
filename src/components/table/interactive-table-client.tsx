@@ -15,7 +15,7 @@ import { DataValidationReport } from './data-validation-report';
 import type { ValidateDataConsistencyOutput } from '@/types';
 import { ScanSearch, ArrowUp, ArrowDown, Filter as FilterIcon, History } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
-import { formatCurrency, calculateBusinessDays } from '@/lib/utils'; // Import calculateBusinessDays
+import { formatCurrency, calculateBusinessDays } from '@/lib/utils'; 
 import { useLanguage } from '@/context/language-context';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
@@ -26,7 +26,7 @@ const ALL_FILTER_VALUE = "_ALL_VALUES_";
 
 type SortDirection = 'ascending' | 'descending';
 interface SortConfig {
-  key: keyof Task | 'accumulatedBusinessDays' | null; // Allow sorting by virtual column
+  key: keyof Task | 'accumulatedBusinessDays' | null; 
   direction: SortDirection | null;
 }
 
@@ -157,7 +157,15 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
         const currentId = task.id || task.taskReference;
         const targetId = taskId;
         if (currentId === targetId) {
-          return { ...task, [column]: value };
+          const updatedTask = { ...task, [column]: value };
+          if (column === 'resolutionStatus') {
+            if (PROTECTED_RESOLUTION_STATUSES.includes(value as TaskResolutionStatus)) {
+              updatedTask.resolvedAt = task.resolvedAt || new Date().toISOString(); // Set or keep resolvedAt
+            } else if (value === 'Pendiente') {
+              updatedTask.resolvedAt = null; // Clear resolvedAt if moved back to Pendiente
+            }
+          }
+          return updatedTask;
         }
         return task;
       });
@@ -217,6 +225,10 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                         ? t('interactiveTable.notAvailable') 
                         : String(val);
       
+      if (columnKey === 'resolvedAt' && val) {
+        stringVal = new Date(val as string).toLocaleDateString();
+      }
+
       if (stringVal.trim() !== "" || stringVal === t('interactiveTable.notAvailable')) { 
         values.add(stringVal);
       }
@@ -233,8 +245,6 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   
   const uniqueTaskReferences = useMemo(() => getUniqueValuesForColumn('taskReference'), [tasks, t]);
   const uniqueAssignees = useMemo(() => getUniqueValuesForColumn('assignee'), [tasks, t]);
-  // delayDays is now potentially dynamic based on createdAt for open tasks, so direct unique values might not be appropriate for filtering if it's displayed dynamically.
-  // For now, keeping uniqueDelayDays for the stored value, if any.
   const uniqueDelayDays = useMemo(() => getUniqueValuesForColumn('delayDays'), [tasks, t]);
   const uniqueCustomerAccounts = useMemo(() => getUniqueValuesForColumn('customerAccount'), [tasks, t]);
   const uniqueNetAmounts = useMemo(() => {
@@ -255,6 +265,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   const uniqueTransportModes = useMemo(() => getUniqueValuesForColumn('transportMode'), [tasks, t]);
   const uniqueResolutionAdmins = useMemo(() => getUniqueValuesForColumn('resolutionAdmin'), [tasks, t]);
   const uniqueResolutionTimeDays = useMemo(() => getUniqueValuesForColumn('resolutionTimeDays'), [tasks, t]);
+  const uniqueResolvedAtDates = useMemo(() => getUniqueValuesForColumn('resolvedAt'), [tasks, t]);
 
 
   const filteredTasks = useMemo(() => tasks.filter(task => {
@@ -267,6 +278,8 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
 
       if (taskValue === null || taskValue === undefined) {
         taskValueString = t('interactiveTable.notAvailable');
+      } else if (columnKey === 'resolvedAt' && taskValue) {
+        taskValueString = new Date(taskValue as string).toLocaleDateString();
       } else {
         taskValueString = String(taskValue);
       }
@@ -282,14 +295,14 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
       if (task.createdAt && (!task.resolutionStatus || task.resolutionStatus === 'Pendiente')) {
           try {
             const startDate = new Date(task.createdAt);
-            const endDate = new Date(); // Today
+            const endDate = new Date(); 
             return calculateBusinessDays(startDate, endDate);
           } catch (e) {
             console.error("Error calculating business days for task:", task.id, e);
             return null;
           }
       }
-      return task.delayDays ?? null; // Fallback to delayDays if not pending or no createdAt
+      return task.delayDays ?? null; 
   };
 
 
@@ -315,6 +328,9 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
         if (key === 'accumulatedBusinessDays') {
             valA = calculateAccumulatedBusinessDaysForTask(a);
             valB = calculateAccumulatedBusinessDaysForTask(b);
+        } else if (key === 'createdAt' || key === 'resolvedAt') {
+            valA = a[key] ? new Date(a[key] as string).getTime() : null;
+            valB = b[key] ? new Date(b[key] as string).getTime() : null;
         } else {
             valA = a[key as keyof Task];
             valB = b[key as keyof Task];
@@ -454,14 +470,12 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                     </div>
                   </TableHead>
                   
-                  {/* Accumulated Business Days Column */}
                   <TableHead className="group">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1 cursor-pointer flex-grow py-3 pr-2" onClick={() => requestSort('accumulatedBusinessDays')}>
                         {t('interactiveTable.tableHeaders.accumulatedBusinessDays')}
                         {renderSortIcon('accumulatedBusinessDays')}
                       </div>
-                      {/* Filtering for this dynamic column can be complex; skip for now or filter by delayDays as proxy */}
                     </div>
                   </TableHead>
 
@@ -539,6 +553,16 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                       {renderFilterPopover('resolutionTimeDays', 'interactiveTable.tableHeaders.resolutionTimeDays', uniqueResolutionTimeDays, true)}
                     </div>
                   </TableHead>
+                  
+                  <TableHead className="group">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1 cursor-pointer flex-grow py-3 pr-2" onClick={() => requestSort('resolvedAt')}>
+                        {t('interactiveTable.tableHeaders.resolvedAt')}
+                        {renderSortIcon('resolvedAt')}
+                      </div>
+                      {renderFilterPopover('resolvedAt', 'interactiveTable.tableHeaders.resolvedAt', uniqueResolvedAtDates)}
+                    </div>
+                  </TableHead>
 
                   <TableHead className="group text-center w-20">
                     <div className="flex items-center justify-center py-3">
@@ -595,7 +619,6 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                         </span>
                       </TableCell>
                       <TableCell>{task.assignee || t('interactiveTable.notAvailable')}</TableCell>
-                      {/* Display accumulated business days */}
                       <TableCell>{accumulatedDays === null ? t('interactiveTable.notAvailable') : String(accumulatedDays)}</TableCell>
                       
                       <TableCell>{task.customerAccount || t('interactiveTable.notAvailable')}</TableCell>
@@ -634,7 +657,9 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                       </TableCell>
                       
                       <TableCell className="text-right">{task.resolutionTimeDays === null || task.resolutionTimeDays === undefined ? t('interactiveTable.notAvailable') : String(task.resolutionTimeDays)}</TableCell>
-                      
+                      <TableCell>
+                        {task.resolvedAt ? new Date(task.resolvedAt).toLocaleDateString() : (task.resolutionStatus && PROTECTED_RESOLUTION_STATUSES.includes(task.resolutionStatus) ? t('interactiveTable.notAvailable') : '')}
+                      </TableCell>
                        <TableCell className="text-center">
                         <Button 
                           variant="ghost" 
@@ -698,3 +723,4 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     </div>
   );
 }
+

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useTransition } from 'react';
@@ -48,7 +47,11 @@ const PREFERRED_CSV_TO_SYSTEM_MAP: Record<string, string> = {
   "comentarios": "comments",
   "administrador": "resolutionAdmin",
   "estado de resolución": "resolutionStatus",
-  "tiempo resolución (días)": "resolutionTimeDays"
+  "tiempo resolución (días)": "resolutionTimeDays",
+  "fecha de creación": "createdAt", // New
+  "creation date": "createdAt", // New
+  "fecha de resolución": "resolvedAt", // New
+  "resolution date": "resolvedAt", // New
 };
 
 // Helper function to generate a unique ID for tasks missing one from CSV
@@ -84,7 +87,9 @@ export default function UploadDataPage() {
     { name: 'resolutionAdmin', description: t('uploadData.systemColumns.resolutionAdmin') },
     { name: 'resolutionStatus', description: t('uploadData.systemColumns.resolutionStatus') },
     { name: 'resolutionTimeDays', description: t('uploadData.systemColumns.resolutionTimeDays') },
-    // `createdAt` and `id` are handled internally, not typically mapped from CSV by user.
+    { name: 'createdAt', description: t('uploadData.systemColumns.createdAt') },
+    { name: 'resolvedAt', description: t('uploadData.systemColumns.resolvedAt') },
+    // `id` and `name` are handled internally or less commonly mapped.
   ];
 
   const [suggestedMappings, setSuggestedMappings] = useState<SuggestCsvMappingOutput['suggestedMappings']>([]);
@@ -198,14 +203,11 @@ export default function UploadDataPage() {
         if (task.taskReference) {
           taskMap.set(task.taskReference, task);
         } else if (task.id) { 
-          // Fallback for older data that might not have taskReference as primary key yet
-          // This might need more robust handling if IDs are not stable across CSVs for the same "task"
           taskMap.set(task.id, task); 
         }
       });
       
       const newCsvTaskInputs: Record<string, any>[] = [];
-      // Handle duplicates within the new CSV: last one wins
       const uniqueCsvRowsByRef = new Map<string, any>();
 
       rawCsvRows.forEach((row, rowIndex) => {
@@ -215,21 +217,26 @@ export default function UploadDataPage() {
         csvHeaders.forEach((header, colIndex) => {
           const systemColName = userMappings[header];
           if (systemColName) {
-            const value = row[colIndex]?.trim();
+            let value = row[colIndex]?.trim();
              if (systemColName === 'taskReference' && value) {
               taskRefFromCsv = value;
             }
             if (systemColName === 'delayDays' || systemColName === 'netAmount' || systemColName === 'resolutionTimeDays') {
               constructedTaskInput[systemColName] = value && value !== "" && !isNaN(parseFloat(value)) ? parseFloat(value) : null;
+            } else if (systemColName === 'createdAt' || systemColName === 'resolvedAt') {
+              // Attempt to parse dates; if invalid, Zod will catch it later. Store as string for now.
+              // A more robust solution would involve date parsing libraries here (e.g. date-fns parseISO)
+              // but for now, pass through and let Zod handle. An empty string becomes undefined.
+              constructedTaskInput[systemColName] = (value && value !== "") ? new Date(value).toISOString() : undefined;
             } else if (value !== undefined && value !== "") {
               constructedTaskInput[systemColName] = value;
-            } else if (value === "") { // Explicitly handle empty strings for non-numeric fields if they should be null or undefined based on schema
+            } else if (value === "") { 
               constructedTaskInput[systemColName] = TaskSchema.shape[systemColName as keyof TaskSchema['shape']].isOptional() || TaskSchema.shape[systemColName as keyof TaskSchema['shape']].isNullable() ? null : undefined;
             }
           }
         });
         
-        if (taskRefFromCsv) { // Only process rows that could map to a taskReference
+        if (taskRefFromCsv) { 
            uniqueCsvRowsByRef.set(taskRefFromCsv, constructedTaskInput);
         }
       });
@@ -241,74 +248,88 @@ export default function UploadDataPage() {
 
       newCsvTaskInputs.forEach((csvTaskInput, csvIndex) => {
         const taskRef = csvTaskInput.taskReference;
-        if (!taskRef) { // Should not happen due to previous filter, but as safeguard
+        if (!taskRef) { 
           console.warn("Skipping CSV row due to missing taskReference after pre-processing:", csvTaskInput);
           return;
         }
 
         const existingTask = taskMap.get(taskRef);
         
-        // Ensure `status` has a default if not provided, before Zod validation
         if (csvTaskInput.status === undefined || csvTaskInput.status === "" || csvTaskInput.status === null) {
-            csvTaskInput.status = "Missing Estimated Dates"; // Default status for Zod
+            csvTaskInput.status = "Missing Estimated Dates"; 
         }
         
-        // If it's a new task, ensure createdAt is set
         const taskDataForValidation = {
-            ...csvTaskInput,
-            createdAt: existingTask?.createdAt || csvTaskInput.createdAt || new Date().toISOString(),
-            id: existingTask?.id || csvTaskInput.id, // Preserve existing ID
+            ...csvTaskInput, // CSV data takes precedence initially for fields it provides
+            id: existingTask?.id || csvTaskInput.id, 
+            createdAt: csvTaskInput.createdAt || existingTask?.createdAt || new Date().toISOString(), // Prioritize CSV createdAt, then existing, then new
         };
+
+        // If CSV provides a resolvedAt, use it. Otherwise, if existing task has one, preserve it (especially if status is protected).
+        if (csvTaskInput.resolvedAt) {
+            taskDataForValidation.resolvedAt = csvTaskInput.resolvedAt;
+        } else if (existingTask?.resolvedAt && existingTask.resolutionStatus && PROTECTED_RESOLUTION_STATUSES.includes(existingTask.resolutionStatus)) {
+            taskDataForValidation.resolvedAt = existingTask.resolvedAt;
+        }
 
 
         const validationAttempt = TaskSchema.safeParse(taskDataForValidation);
 
         if (!validationAttempt.success) {
           validationErrors.push({ 
-            // Find original row index for better error reporting if possible, or use csvIndex
             rowIndexGlobal: rawCsvRows.findIndex(r => r.includes(taskRef)) + 1 || csvIndex +1 , 
             csvTaskRef: taskRef, 
             errors: validationAttempt.error.issues 
           });
-          return; // Skip this invalid CSV task
+          return; 
         }
 
-        let processedCsvTask = validationAttempt.data; // Now validated
+        let processedCsvTask = validationAttempt.data; 
 
-        if (existingTask) { // Update existing task
+        if (existingTask) { 
           let mergedTask: Task = { 
-            ...existingTask, // Start with existing
-            ...processedCsvTask, // Overlay with new validated data
-            id: existingTask.id || processedCsvTask.id || generateTemporaryId(taskRef, csvIndex), // Ensure ID is preserved or generated
-            createdAt: existingTask.createdAt || processedCsvTask.createdAt, // Preserve original creation date
+            ...existingTask, 
+            ...processedCsvTask, 
+            id: existingTask.id || processedCsvTask.id || generateTemporaryId(taskRef, csvIndex), 
+            createdAt: existingTask.createdAt || processedCsvTask.createdAt, 
           };
 
-          // Protected status logic:
-          // If existing task had a protected status, and new CSV tries to set it to 'Pendiente', keep existing.
           if (existingTask.resolutionStatus && 
               PROTECTED_RESOLUTION_STATUSES.includes(existingTask.resolutionStatus as TaskResolutionStatus) &&
               processedCsvTask.resolutionStatus === 'Pendiente') {
             mergedTask.resolutionStatus = existingTask.resolutionStatus;
+            // If status is protected, also protect resolvedAt from being cleared by a CSV that might not have it
+            mergedTask.resolvedAt = existingTask.resolvedAt || processedCsvTask.resolvedAt; 
+          } else if (mergedTask.resolutionStatus && PROTECTED_RESOLUTION_STATUSES.includes(mergedTask.resolutionStatus as TaskResolutionStatus) && !mergedTask.resolvedAt) {
+            // If newly resolved by CSV to a protected status, and no resolvedAt was provided by CSV, set it now.
+            mergedTask.resolvedAt = new Date().toISOString();
           }
           
           taskMap.set(taskRef, mergedTask);
-        } else { // Add new task
+        } else { 
           processedCsvTask.id = processedCsvTask.id || generateTemporaryId(taskRef, csvIndex);
-          // createdAt should have been set in taskDataForValidation and passed validation
+          if (processedCsvTask.resolutionStatus && PROTECTED_RESOLUTION_STATUSES.includes(processedCsvTask.resolutionStatus as TaskResolutionStatus) && !processedCsvTask.resolvedAt) {
+             processedCsvTask.resolvedAt = new Date().toISOString(); // Set resolvedAt if resolved and not provided
+          }
           taskMap.set(taskRef, processedCsvTask);
         }
         validNewOrUpdatedTasksCount++;
       });
       
-      // Handle tasks in existing storage that weren't in the new CSV (for SFP retention)
-      // The current taskMap approach already retains them if PROTECTED_RESOLUTION_STATUSES includes their status
-      // and they weren't updated.
-      // We just need to ensure those with SFP etc. are not accidentally removed if the logic was to only take from new CSV.
-      // Since taskMap was initialized with existingTasks, they are preserved if not updated.
+      // Retain tasks from original list if they have a protected status and weren't in the new CSV
+      existingTasks.forEach(existingTask => {
+        if (existingTask.taskReference && 
+            !uniqueCsvRowsByRef.has(existingTask.taskReference) && // Not in the new CSV
+            existingTask.resolutionStatus && 
+            PROTECTED_RESOLUTION_STATUSES.includes(existingTask.resolutionStatus as TaskResolutionStatus)) {
+          if (!taskMap.has(existingTask.taskReference)) { // Ensure it wasn't somehow re-added
+            taskMap.set(existingTask.taskReference, existingTask);
+          }
+        }
+      });
+
 
       let finalTaskList = Array.from(taskMap.values());
-
-      // Sort by netAmount descending
       finalTaskList.sort((a, b) => (b.netAmount ?? -Infinity) - (a.netAmount ?? -Infinity));
       
       setProcessedTasksForPreview(finalTaskList.slice(0, 10));
@@ -322,23 +343,20 @@ export default function UploadDataPage() {
           description: t('uploadData.validationErrors.description', {
             details: errorMessages,
             count: validationErrors.length,
-            firstN: validationErrors.slice(0,5).length // Show details for first 5
+            firstN: validationErrors.slice(0,5).length 
           }),
           variant: "destructive",
           duration: 20000,
         });
       }
 
-      if (validNewOrUpdatedTasksCount > 0 || (finalTaskList.length > 0 && existingTasks.length !== finalTaskList.length)) {
-        // Save if any new/updated tasks were processed OR if the final list length changed (e.g. SFP items retained)
+      if (validNewOrUpdatedTasksCount > 0 || (finalTaskList.length > 0 && existingTasks.length !== finalTaskList.length) || finalTaskList.some((task, idx) => JSON.stringify(task) !== JSON.stringify(existingTasks.find(et => et.taskReference === task.taskReference)))) {
         try {
           localStorage.setItem('uploadedTasks', JSON.stringify(finalTaskList));
           toast({ 
             title: t('uploadData.dataProcessed'), 
             description: t('uploadData.tasksProcessedAndSavedWithSkipped', { savedCount: finalTaskList.length, skippedCount: validationErrors.length }) 
           });
-          // No auto-redirect to table on merge, user stays to see preview or upload another.
-          // router.push('/table'); 
           setStep("done");
         } catch (error) {
           console.error("Error saving tasks to localStorage:", error);
@@ -360,7 +378,6 @@ export default function UploadDataPage() {
          toast({ title: t('uploadData.noDataToProcess'), description: "The CSV file appears to be empty or had no data rows.", variant: "destructive" });
          setStep("upload");
       } else {
-         // No new valid tasks, no errors, no change in list length from existing.
          toast({ title: t('uploadData.noEffectiveChanges'), description: t('uploadData.noEffectiveChangesDescription'), variant: "default" });
          setStep("done");
       }
@@ -388,7 +405,6 @@ export default function UploadDataPage() {
   };
 
   const triggerProcessData = () => {
-    // TaskReference is the new key required for merging.
     const taskRefMapped = Object.values(userMappings).includes('taskReference');
     if (!taskRefMapped) {
       toast({
@@ -470,6 +486,7 @@ export default function UploadDataPage() {
                           <TableHead key={col.name}>{t(col.description as any) || col.description}</TableHead>
                       ))}
                        <TableHead>{t('uploadData.systemColumns.createdAt')}</TableHead>
+                       <TableHead>{t('uploadData.systemColumns.resolvedAt')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -502,6 +519,7 @@ export default function UploadDataPage() {
                             return <TableCell key={col.name}>{String(value === null || value === undefined ? t('interactiveTable.notAvailable') : value)}</TableCell>;
                         })}
                         <TableCell>{task.createdAt ? new Date(task.createdAt).toLocaleDateString() : t('interactiveTable.notAvailable')}</TableCell>
+                        <TableCell>{task.resolvedAt ? new Date(task.resolvedAt).toLocaleDateString() : t('interactiveTable.notAvailable')}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

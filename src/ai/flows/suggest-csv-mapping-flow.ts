@@ -63,6 +63,7 @@ For each CSV header, identify the most appropriate system column.
 If a CSV header does not seem to match any system column, or if it's ambiguous, you can suggest mapping it to 'null' (meaning "do not import" or "no clear match").
 Consider common naming variations (e.g., "Due Date", "Deadline", "Fecha de Entrega" might all map to a system column named "dueDate" described as "Due date for the task").
 Prioritize mapping to required system columns if a reasonable match exists.
+Consider date formats when suggesting mappings for date-related system columns like 'createdAt' or 'resolvedAt', which expect ISO 8601 format.
 
 Return the suggestions in the specified JSON format. For each csvColumn, provide the systemColumn it maps to (or null) and an optional confidence score.
 List any CSV columns you couldn't map under unmappedCsvColumns.
