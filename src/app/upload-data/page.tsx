@@ -1,7 +1,8 @@
+
 "use client";
 
 import { useState, useTransition } from 'react';
-import type { Task, TaskResolutionStatus } from '@/types'; 
+import type { Task, TaskResolutionStatus, TaskHistoryEntry, TaskHistoryChangeDetail } from '@/types'; 
 import { TaskSchema, PROTECTED_RESOLUTION_STATUSES } from '@/types'; 
 import { FileUploader } from '@/components/upload/file-uploader';
 import { ColumnMapper } from '@/components/upload/column-mapper';
@@ -26,7 +27,9 @@ import type { SuggestCsvMappingOutput, SystemColumn } from './actions';
 import { useRouter } from 'next/navigation';
 import { formatCurrency } from '@/lib/utils';
 import { useLanguage } from '@/context/language-context';
+import { useAuth } from '@/context/auth-context'; // Import useAuth
 import type { z } from 'zod';
+import { v4 as uuidv4 } from 'uuid';
 
 type UploadStep = "upload" | "map" | "confirm" | "done";
 
@@ -72,6 +75,7 @@ export default function UploadDataPage() {
   const { toast } = useToast();
   const router = useRouter();
   const { t } = useLanguage();
+  const { user: currentUser } = useAuth(); // Get current user
 
   const [showBackupDialog, setShowBackupDialog] = useState(false);
 
@@ -90,12 +94,36 @@ export default function UploadDataPage() {
     { name: 'createdAt', description: t('uploadData.systemColumns.createdAt') },
     { name: 'resolvedAt', description: t('uploadData.systemColumns.resolvedAt') },
     // `id` and `name` are handled internally or less commonly mapped.
+    // `history` is not mapped from CSV.
   ];
 
   const [suggestedMappings, setSuggestedMappings] = useState<SuggestCsvMappingOutput['suggestedMappings']>([]);
   const [userMappings, setUserMappings] = useState<Record<string, string | null>>({});
   const [processedTasksForPreview, setProcessedTasksForPreview] = useState<Task[]>([]);
 
+  const getFieldLabel = (fieldKey: string): string => {
+    const systemCol = systemColumns.find(sc => sc.name === fieldKey);
+    if (systemCol) {
+      return t(systemCol.description as any) || systemCol.description;
+    }
+    // Fallback for keys not in systemColumns (e.g., custom CSV keys if not mapped)
+    const keyMap: Record<string, string> = {
+      'comments': 'interactiveTable.tableHeaders.comments',
+      'resolutionAdmin': 'interactiveTable.tableHeaders.admin',
+      'resolutionStatus': 'interactiveTable.tableHeaders.actions',
+      'status': 'interactiveTable.tableHeaders.toStatus',
+      'taskReference': 'interactiveTable.tableHeaders.toRef',
+      'delayDays': 'interactiveTable.tableHeaders.delayDays',
+      'customerAccount': 'interactiveTable.tableHeaders.customerAccount',
+      'netAmount': 'interactiveTable.tableHeaders.amount',
+      'transportMode': 'interactiveTable.tableHeaders.transportMode',
+      'assignee': 'interactiveTable.tableHeaders.logisticDeveloper',
+      'resolutionTimeDays': 'interactiveTable.tableHeaders.resolutionTimeDays',
+      'createdAt': 'uploadData.systemColumns.createdAt',
+      'resolvedAt': 'uploadData.systemColumns.resolvedAt',
+    };
+    return t(keyMap[fieldKey] || fieldKey);
+  };
 
   const handleFileAccepted = (file: File, headers: string[], previewRows: string[][], allRows: string[][]) => {
     setCsvFile(file);
@@ -201,9 +229,9 @@ export default function UploadDataPage() {
       const taskMap = new Map<string, Task>();
       existingTasks.forEach(task => {
         if (task.taskReference) {
-          taskMap.set(task.taskReference, task);
+          taskMap.set(task.taskReference, { ...task, history: task.history || [] }); // Ensure history array
         } else if (task.id) { 
-          taskMap.set(task.id, task); 
+          taskMap.set(task.id, { ...task, history: task.history || [] }); 
         }
       });
       
@@ -224,9 +252,6 @@ export default function UploadDataPage() {
             if (systemColName === 'delayDays' || systemColName === 'netAmount' || systemColName === 'resolutionTimeDays') {
               constructedTaskInput[systemColName] = value && value !== "" && !isNaN(parseFloat(value)) ? parseFloat(value) : null;
             } else if (systemColName === 'createdAt' || systemColName === 'resolvedAt') {
-              // Attempt to parse dates; if invalid, Zod will catch it later. Store as string for now.
-              // A more robust solution would involve date parsing libraries here (e.g. date-fns parseISO)
-              // but for now, pass through and let Zod handle. An empty string becomes undefined.
               constructedTaskInput[systemColName] = (value && value !== "") ? new Date(value).toISOString() : undefined;
             } else if (value !== undefined && value !== "") {
               constructedTaskInput[systemColName] = value;
@@ -260,18 +285,17 @@ export default function UploadDataPage() {
         }
         
         const taskDataForValidation = {
-            ...csvTaskInput, // CSV data takes precedence initially for fields it provides
+            ...csvTaskInput, 
             id: existingTask?.id || csvTaskInput.id, 
-            createdAt: csvTaskInput.createdAt || existingTask?.createdAt || new Date().toISOString(), // Prioritize CSV createdAt, then existing, then new
+            createdAt: csvTaskInput.createdAt || existingTask?.createdAt || new Date().toISOString(),
+            history: existingTask?.history || [], // Preserve existing history
         };
 
-        // If CSV provides a resolvedAt, use it. Otherwise, if existing task has one, preserve it (especially if status is protected).
         if (csvTaskInput.resolvedAt) {
             taskDataForValidation.resolvedAt = csvTaskInput.resolvedAt;
         } else if (existingTask?.resolvedAt && existingTask.resolutionStatus && PROTECTED_RESOLUTION_STATUSES.includes(existingTask.resolutionStatus)) {
             taskDataForValidation.resolvedAt = existingTask.resolvedAt;
         }
-
 
         const validationAttempt = TaskSchema.safeParse(taskDataForValidation);
 
@@ -285,49 +309,98 @@ export default function UploadDataPage() {
         }
 
         let processedCsvTask = validationAttempt.data; 
+        let newHistoryForThisTask: TaskHistoryEntry[] = existingTask?.history || [];
+        const changesForHistory: TaskHistoryChangeDetail[] = [];
 
         if (existingTask) { 
+          // Compare fields for history logging
+          (Object.keys(processedCsvTask) as Array<keyof Task>).forEach(key => {
+            if (key === 'id' || key === 'history' || key === 'createdAt') return; // Skip non-comparable or internally managed
+            
+            const oldValue = existingTask[key];
+            const newValue = processedCsvTask[key];
+
+            // Handle date string comparison carefully if resolvedAt is involved
+            if (key === 'resolvedAt') {
+                const oldDate = oldValue ? new Date(oldValue as string).toISOString() : null;
+                const newDate = newValue ? new Date(newValue as string).toISOString() : null;
+                if (oldDate !== newDate) {
+                    changesForHistory.push({ field: key, fieldLabel: getFieldLabel(key), oldValue, newValue });
+                }
+            } else if (String(oldValue ?? "") !== String(newValue ?? "")) {
+              changesForHistory.push({ field: key, fieldLabel: getFieldLabel(key), oldValue, newValue });
+            }
+          });
+          
           let mergedTask: Task = { 
             ...existingTask, 
             ...processedCsvTask, 
             id: existingTask.id || processedCsvTask.id || generateTemporaryId(taskRef, csvIndex), 
             createdAt: existingTask.createdAt || processedCsvTask.createdAt, 
+            // history will be updated below
           };
 
           if (existingTask.resolutionStatus && 
               PROTECTED_RESOLUTION_STATUSES.includes(existingTask.resolutionStatus as TaskResolutionStatus) &&
-              processedCsvTask.resolutionStatus === 'Pendiente') {
+              processedCsvTask.resolutionStatus === 'Pendiente' && 
+              !changesForHistory.find(c => c.field === 'resolutionStatus')) { // If CSV tries to revert a protected status without explicitly changing it in this CSV row
             mergedTask.resolutionStatus = existingTask.resolutionStatus;
-            // If status is protected, also protect resolvedAt from being cleared by a CSV that might not have it
             mergedTask.resolvedAt = existingTask.resolvedAt || processedCsvTask.resolvedAt; 
           } else if (mergedTask.resolutionStatus && PROTECTED_RESOLUTION_STATUSES.includes(mergedTask.resolutionStatus as TaskResolutionStatus) && !mergedTask.resolvedAt) {
-            // If newly resolved by CSV to a protected status, and no resolvedAt was provided by CSV, set it now.
             mergedTask.resolvedAt = new Date().toISOString();
+            // Check if resolvedAt change was already captured, if not, add it
+            if (!changesForHistory.some(c => c.field === 'resolvedAt')) {
+                changesForHistory.push({ field: 'resolvedAt', fieldLabel: getFieldLabel('resolvedAt'), oldValue: existingTask.resolvedAt, newValue: mergedTask.resolvedAt });
+            }
           }
           
+          if (changesForHistory.length > 0) {
+            newHistoryForThisTask.push({
+              id: uuidv4(),
+              timestamp: new Date().toISOString(),
+              userId: currentUser?.uid || 'csv_upload',
+              userName: currentUser?.name || currentUser?.email || 'CSV Upload',
+              changes: changesForHistory,
+            });
+          }
+          mergedTask.history = newHistoryForThisTask;
           taskMap.set(taskRef, mergedTask);
-        } else { 
+
+        } else { // New task from CSV
           processedCsvTask.id = processedCsvTask.id || generateTemporaryId(taskRef, csvIndex);
           if (processedCsvTask.resolutionStatus && PROTECTED_RESOLUTION_STATUSES.includes(processedCsvTask.resolutionStatus as TaskResolutionStatus) && !processedCsvTask.resolvedAt) {
-             processedCsvTask.resolvedAt = new Date().toISOString(); // Set resolvedAt if resolved and not provided
+             processedCsvTask.resolvedAt = new Date().toISOString();
           }
+          // Log creation as a history event
+          changesForHistory.push({
+            field: 'taskCreation',
+            fieldLabel: t('history.taskCreated'),
+            oldValue: null,
+            newValue: `Ref: ${taskRef}`,
+          });
+           newHistoryForThisTask.push({
+              id: uuidv4(),
+              timestamp: new Date().toISOString(),
+              userId: currentUser?.uid || 'csv_upload',
+              userName: currentUser?.name || currentUser?.email || 'CSV Upload',
+              changes: changesForHistory,
+            });
+          processedCsvTask.history = newHistoryForThisTask;
           taskMap.set(taskRef, processedCsvTask);
         }
         validNewOrUpdatedTasksCount++;
       });
       
-      // Retain tasks from original list if they have a protected status and weren't in the new CSV
       existingTasks.forEach(existingTask => {
         if (existingTask.taskReference && 
-            !uniqueCsvRowsByRef.has(existingTask.taskReference) && // Not in the new CSV
+            !uniqueCsvRowsByRef.has(existingTask.taskReference) && 
             existingTask.resolutionStatus && 
             PROTECTED_RESOLUTION_STATUSES.includes(existingTask.resolutionStatus as TaskResolutionStatus)) {
-          if (!taskMap.has(existingTask.taskReference)) { // Ensure it wasn't somehow re-added
-            taskMap.set(existingTask.taskReference, existingTask);
+          if (!taskMap.has(existingTask.taskReference)) { 
+            taskMap.set(existingTask.taskReference, { ...existingTask, history: existingTask.history || [] });
           }
         }
       });
-
 
       let finalTaskList = Array.from(taskMap.values());
       finalTaskList.sort((a, b) => (b.netAmount ?? -Infinity) - (a.netAmount ?? -Infinity));
@@ -481,7 +554,7 @@ export default function UploadDataPage() {
                   <TableHeader>
                     <TableRow>
                       {systemColumns
-                        .filter(sc => processedTasksForPreview.length > 0 && processedTasksForPreview[0].hasOwnProperty(sc.name))
+                        .filter(sc => processedTasksForPreview.length > 0 && processedTasksForPreview[0].hasOwnProperty(sc.name) && sc.name !== 'history') // Exclude history from preview columns
                         .map(col => (
                           <TableHead key={col.name}>{t(col.description as any) || col.description}</TableHead>
                       ))}
@@ -493,7 +566,7 @@ export default function UploadDataPage() {
                     {processedTasksForPreview.map((task, index) => (
                       <TableRow key={task.id || `processed-${index}`}>
                         {systemColumns
-                          .filter(sc => processedTasksForPreview.length > 0 && processedTasksForPreview[0].hasOwnProperty(sc.name))
+                          .filter(sc => processedTasksForPreview.length > 0 && processedTasksForPreview[0].hasOwnProperty(sc.name) && sc.name !== 'history')
                           .map(col => {
                             const value = task[col.name as keyof Task];
                             if (col.name === 'netAmount') {

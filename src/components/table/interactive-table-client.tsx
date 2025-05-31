@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useTransition, type ChangeEvent, type KeyboardEvent, useEffect, useMemo } from 'react';
-import type { Task, TaskStatus, TaskResolutionStatus } from '@/types';
+import type { Task, TaskStatus, TaskResolutionStatus, TaskHistoryEntry, TaskHistoryChangeDetail } from '@/types';
 import { PROTECTED_RESOLUTION_STATUSES } from '@/types';
 import { performDataValidation } from '@/app/table/actions';
 import { Button } from '@/components/ui/button';
@@ -12,12 +12,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent } from '@/components/ui/card';
 import { DataValidationReport } from './data-validation-report';
+import { TaskHistoryDialog } from './task-history-dialog'; // Import new component
 import type { ValidateDataConsistencyOutput } from '@/types';
-import { ScanSearch, ArrowUp, ArrowDown, Filter as FilterIcon, History } from 'lucide-react';
+import { ScanSearch, ArrowUp, ArrowDown, Filter as FilterIcon } from 'lucide-react'; // Removed History, now handled by TaskHistoryDialog
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, calculateBusinessDays } from '@/lib/utils'; 
 import { useLanguage } from '@/context/language-context';
+import { useAuth } from '@/context/auth-context'; // Import useAuth
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { v4 as uuidv4 } from 'uuid';
 
 const resolutionStatusOptions: TaskResolutionStatus[] = ["Pendiente", "SFP", "Resuelto"];
 const statusOptions: TaskStatus[] = ["Missing Estimated Dates", "Missing POD", "Pending to Invoice Out of Time"];
@@ -40,6 +43,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
   const { t } = useLanguage();
+  const { user: currentUser } = useAuth(); // Get current user
 
   const [editingCellKey, setEditingCellKey] = useState<string | null>(null);
   const [currentEditText, setCurrentEditText] = useState<string>("");
@@ -48,7 +52,10 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
 
   const [filters, setFilters] = useState<Partial<Record<keyof Task, string | undefined>>>({});
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: null, direction: null });
-
+  
+  // State for history dialog (though TaskHistoryDialog handles its own open state via DialogTrigger)
+  // We might need selectedTaskForHistory if we decide to pass data differently or refresh it.
+  // For now, TaskHistoryDialog will take the history array directly.
 
   useEffect(() => {
     const storedTasksJson = localStorage.getItem('uploadedTasks');
@@ -56,7 +63,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
       try {
         const loadedTasks: Task[] = JSON.parse(storedTasksJson);
         if (loadedTasks && loadedTasks.length > 0) {
-          setTasks(loadedTasks);
+          setTasks(loadedTasks.map(task => ({ ...task, history: task.history || [] }))); // Ensure history array exists
           toast({
             title: t('localStorage.loadedData'),
             description: t('localStorage.loadedTasksDescription', { count: loadedTasks.length }),
@@ -84,11 +91,40 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     } catch (error) {
       console.error("Error saving tasks to localStorage:", error);
       toast({
-        title: t('localStorage.errorSavingData' as TranslationKey),
-        description: t('localStorage.errorSavingDataDescription' as TranslationKey),
+        title: t('localStorage.errorSavingData'),
+        description: t('localStorage.errorSavingDataDescription'),
         variant: "destructive",
       });
     }
+  };
+
+  const getFieldLabel = (fieldKey: keyof Task): string => {
+    const keyMap: Record<string, string> = {
+      'comments': 'interactiveTable.tableHeaders.comments',
+      'resolutionAdmin': 'interactiveTable.tableHeaders.admin',
+      'resolutionStatus': 'interactiveTable.tableHeaders.actions', // Using 'actions' as it's the header for this column
+      'status': 'interactiveTable.tableHeaders.toStatus',
+      // Add other fields as needed
+    };
+    return t(keyMap[fieldKey] || fieldKey);
+  };
+
+  const addHistoryEntry = (task: Task, field: keyof Task, oldValue: any, newValue: any): TaskHistoryEntry[] => {
+    const history = task.history || [];
+    const changeDetail: TaskHistoryChangeDetail = {
+      field: String(field),
+      fieldLabel: getFieldLabel(field),
+      oldValue: oldValue,
+      newValue: newValue,
+    };
+    const newEntry: TaskHistoryEntry = {
+      id: uuidv4(),
+      timestamp: new Date().toISOString(),
+      userId: currentUser?.uid || 'system',
+      userName: currentUser?.name || currentUser?.email || 'System',
+      changes: [changeDetail],
+    };
+    return [...history, newEntry];
   };
 
 
@@ -135,37 +171,57 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   };
 
   const saveInlineEdit = (taskId: string, column: keyof Task) => {
-    const taskIdentifier = tasks.find(t => t.id === taskId || t.taskReference === taskId);
-     if (!editingCellKey || !taskIdentifier || (!editingCellKey.startsWith(taskIdentifier.id || String(Math.random())) && !editingCellKey.startsWith(taskIdentifier.taskReference || String(Math.random())))) return;
+    const taskToUpdate = tasks.find(t => (t.id || t.taskReference) === taskId);
+    if (!editingCellKey || !taskToUpdate || (!editingCellKey.startsWith(taskToUpdate.id || String(Math.random())) && !editingCellKey.startsWith(taskToUpdate.taskReference || String(Math.random())))) return;
 
+    const oldValue = taskToUpdate[column];
+    const newValue = currentEditText;
+
+    if (String(oldValue || "") === String(newValue || "")) { // No actual change
+      setEditingCellKey(null);
+      setCurrentEditText("");
+      return;
+    }
+    
     const updatedTasks = tasks.map(task => {
-        const currentId = task.id || task.taskReference;
-        const targetId = taskId;
-        if (currentId === targetId) {
-          return { ...task, [column]: currentEditText };
+        if ((task.id || task.taskReference) === taskId) {
+          const newHistory = addHistoryEntry(task, column, oldValue, newValue);
+          return { ...task, [column]: newValue, history: newHistory };
         }
         return task;
       });
     updateTasksInStateAndStorage(updatedTasks);
     setEditingCellKey(null);
     setCurrentEditText("");
-    toast({ title: t('interactiveTable.fieldUpdated'), description: t('interactiveTable.changeSavedFor', { field: t(`interactiveTable.tableHeaders.${column}` as any, String(column))}) });
+    toast({ title: t('interactiveTable.fieldUpdated'), description: t('interactiveTable.changeSavedFor', { field: getFieldLabel(column)}) });
   };
 
   const handleInlineSelectChange = (taskId: string, column: keyof Task, value: string) => {
+    const taskToUpdate = tasks.find(t => (t.id || t.taskReference) === taskId);
+    if (!taskToUpdate) return;
+
+    const oldValue = taskToUpdate[column];
+    const newValue = value;
+
+    if (String(oldValue || "") === String(newValue || "")) { // No actual change
+        setEditingCellKey(null);
+        setCurrentEditSelectValue('');
+        setIsSelectDropdownOpen(false);
+        return;
+    }
+
     const updatedTasks = tasks.map(task => {
-        const currentId = task.id || task.taskReference;
-        const targetId = taskId;
-        if (currentId === targetId) {
-          const updatedTask = { ...task, [column]: value };
+        if ((task.id || task.taskReference) === taskId) {
+          const updatedTaskPartial = { [column]: newValue };
           if (column === 'resolutionStatus') {
-            if (PROTECTED_RESOLUTION_STATUSES.includes(value as TaskResolutionStatus)) {
-              updatedTask.resolvedAt = task.resolvedAt || new Date().toISOString(); // Set or keep resolvedAt
-            } else if (value === 'Pendiente') {
-              updatedTask.resolvedAt = null; // Clear resolvedAt if moved back to Pendiente
+            if (PROTECTED_RESOLUTION_STATUSES.includes(newValue as TaskResolutionStatus)) {
+              (updatedTaskPartial as any).resolvedAt = task.resolvedAt || new Date().toISOString(); // Set or keep resolvedAt
+            } else if (newValue === 'Pendiente') {
+              (updatedTaskPartial as any).resolvedAt = null; // Clear resolvedAt if moved back to Pendiente
             }
           }
-          return updatedTask;
+          const newHistory = addHistoryEntry(task, column, oldValue, newValue);
+          return { ...task, ...updatedTaskPartial, history: newHistory };
         }
         return task;
       });
@@ -173,7 +229,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     setEditingCellKey(null);
     setCurrentEditSelectValue('');
     setIsSelectDropdownOpen(false); 
-    toast({ title: t('interactiveTable.fieldUpdated'), description: t('interactiveTable.changeSavedFor', { field: t(`interactiveTable.tableHeaders.${column}` as any, String(column))}) });
+    toast({ title: t('interactiveTable.fieldUpdated'), description: t('interactiveTable.changeSavedFor', { field: getFieldLabel(column)}) });
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>, taskId: string, column: keyof Task) => {
@@ -226,7 +282,11 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                         : String(val);
       
       if (columnKey === 'resolvedAt' && val) {
-        stringVal = new Date(val as string).toLocaleDateString();
+        try {
+            stringVal = new Date(val as string).toLocaleDateString();
+        } catch {
+            // keep original stringVal if date parsing fails
+        }
       }
 
       if (stringVal.trim() !== "" || stringVal === t('interactiveTable.notAvailable')) { 
@@ -245,7 +305,9 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   
   const uniqueTaskReferences = useMemo(() => getUniqueValuesForColumn('taskReference'), [tasks, t]);
   const uniqueAssignees = useMemo(() => getUniqueValuesForColumn('assignee'), [tasks, t]);
-  const uniqueDelayDays = useMemo(() => getUniqueValuesForColumn('delayDays'), [tasks, t]);
+  // delayDays is numeric, not typically filtered by unique string values like this.
+  // For filtering, range sliders or similar might be better. Keeping for consistency if needed.
+  const uniqueDelayDays = useMemo(() => getUniqueValuesForColumn('delayDays'), [tasks, t]); 
   const uniqueCustomerAccounts = useMemo(() => getUniqueValuesForColumn('customerAccount'), [tasks, t]);
   const uniqueNetAmounts = useMemo(() => {
     const numericValues = new Set<string>();
@@ -264,7 +326,8 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   }, [tasks, t]);
   const uniqueTransportModes = useMemo(() => getUniqueValuesForColumn('transportMode'), [tasks, t]);
   const uniqueResolutionAdmins = useMemo(() => getUniqueValuesForColumn('resolutionAdmin'), [tasks, t]);
-  const uniqueResolutionTimeDays = useMemo(() => getUniqueValuesForColumn('resolutionTimeDays'), [tasks, t]);
+  // resolutionTimeDays is numeric.
+  const uniqueResolutionTimeDays = useMemo(() => getUniqueValuesForColumn('resolutionTimeDays'), [tasks, t]); 
   const uniqueResolvedAtDates = useMemo(() => getUniqueValuesForColumn('resolvedAt'), [tasks, t]);
 
 
@@ -279,7 +342,11 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
       if (taskValue === null || taskValue === undefined) {
         taskValueString = t('interactiveTable.notAvailable');
       } else if (columnKey === 'resolvedAt' && taskValue) {
-        taskValueString = new Date(taskValue as string).toLocaleDateString();
+         try {
+            taskValueString = new Date(taskValue as string).toLocaleDateString();
+        } catch {
+            taskValueString = String(taskValue);
+        }
       } else {
         taskValueString = String(taskValue);
       }
@@ -296,6 +363,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
           try {
             const startDate = new Date(task.createdAt);
             const endDate = new Date(); 
+            if (isNaN(startDate.getTime())) return task.delayDays ?? null; // Invalid createdAt
             return calculateBusinessDays(startDate, endDate);
           } catch (e) {
             console.error("Error calculating business days for task:", task.id, e);
@@ -331,6 +399,8 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
         } else if (key === 'createdAt' || key === 'resolvedAt') {
             valA = a[key] ? new Date(a[key] as string).getTime() : null;
             valB = b[key] ? new Date(b[key] as string).getTime() : null;
+            if (valA && isNaN(valA)) valA = null; // Handle invalid date strings
+            if (valB && isNaN(valB)) valB = null;
         } else {
             valA = a[key as keyof Task];
             valB = b[key as keyof Task];
@@ -396,15 +466,6 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
       </Popover>
     );
   };
-
-  const handleViewHistory = (taskId: string) => {
-    toast({
-      title: t('interactiveTable.viewingHistory', { taskId }),
-      description: t('interactiveTable.historyFeaturePlaceholder'),
-    });
-    console.log("View history for task:", taskId);
-  };
-
 
   return (
     <div className="space-y-4 w-full">
@@ -476,6 +537,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                         {t('interactiveTable.tableHeaders.accumulatedBusinessDays')}
                         {renderSortIcon('accumulatedBusinessDays')}
                       </div>
+                      {/* No filter popover for accumulated days as it's calculated */}
                     </div>
                   </TableHead>
 
@@ -491,7 +553,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
 
                   <TableHead className="group text-right">
                      <div className="flex items-center justify-between">
-                      <div className="flex items-center justify-end gap-1 cursor-pointer flex-grow py-3 pr-2" onClick={() => requestSort('netAmount')}>
+                       <div className="flex items-center justify-end gap-1 cursor-pointer flex-grow py-3 pr-2" onClick={() => requestSort('netAmount')}>
                         {t('interactiveTable.tableHeaders.amount')}
                         {renderSortIcon('netAmount')}
                       </div>
@@ -564,12 +626,11 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                     </div>
                   </TableHead>
 
-                  <TableHead className="group text-center w-20">
-                    <div className="flex items-center justify-center py-3">
+                  <TableHead className="group text-center w-[100px]"> {/* History column */}
+                    <div className="flex items-center justify-center py-3 px-1">
                        {t('interactiveTable.tableHeaders.history')}
                     </div>
                   </TableHead>
-
 
                   <TableHead className="group text-left"> 
                      <div className="flex items-center justify-between">
@@ -660,16 +721,8 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                       <TableCell>
                         {task.resolvedAt ? new Date(task.resolvedAt).toLocaleDateString() : (task.resolutionStatus && PROTECTED_RESOLUTION_STATUSES.includes(task.resolutionStatus) ? t('interactiveTable.notAvailable') : '')}
                       </TableCell>
-                       <TableCell className="text-center">
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={() => handleViewHistory(taskId)}
-                          title={t('interactiveTable.viewHistoryTooltip')}
-                        >
-                          <History className="h-4 w-4" />
-                          <span className="sr-only">{t('interactiveTable.viewHistoryTooltip')}</span>
-                        </Button>
+                      <TableCell className="text-center">
+                        <TaskHistoryDialog history={task.history} taskReference={task.taskReference} />
                       </TableCell>
 
                       <TableCell
@@ -723,4 +776,3 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     </div>
   );
 }
-
