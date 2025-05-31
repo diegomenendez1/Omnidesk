@@ -68,9 +68,9 @@ export default function DashboardPage() {
           setTaskOverviewData(overviewData);
         } else {
           setTaskOverviewData([
-              { name: t('interactiveTable.status.missingEstimates'), value: 0, fill: CHART_FILLS["Missing Estimated Dates"] },
-              { name: t('interactiveTable.status.missingPOD'), value: 0, fill: CHART_FILLS["Missing POD"] },
-              { name: t('interactiveTable.status.pendingInvoice'), value: 0, fill: CHART_FILLS["Pending to Invoice Out of Time"] },
+              { name: t(STATUS_TRANSLATION_KEYS["Missing Estimated Dates"] as any), value: 0, fill: CHART_FILLS["Missing Estimated Dates"] },
+              { name: t(STATUS_TRANSLATION_KEYS["Missing POD"] as any), value: 0, fill: CHART_FILLS["Missing POD"] },
+              { name: t(STATUS_TRANSLATION_KEYS["Pending to Invoice Out of Time"] as any), value: 0, fill: CHART_FILLS["Pending to Invoice Out of Time"] },
           ]);
           setTotalTasks(0);
           setTasksCompletedCount(0);
@@ -78,18 +78,18 @@ export default function DashboardPage() {
       } catch (error) {
         console.error("Error processing tasks from localStorage for dashboard:", error);
         setTaskOverviewData([
-            { name: t('interactiveTable.status.missingEstimates'), value: 0, fill: CHART_FILLS["Missing Estimated Dates"] },
-            { name: t('interactiveTable.status.missingPOD'), value: 0, fill: CHART_FILLS["Missing POD"] },
-            { name: t('interactiveTable.status.pendingInvoice'), value: 0, fill: CHART_FILLS["Pending to Invoice Out of Time"] },
+            { name: t(STATUS_TRANSLATION_KEYS["Missing Estimated Dates"] as any), value: 0, fill: CHART_FILLS["Missing Estimated Dates"] },
+            { name: t(STATUS_TRANSLATION_KEYS["Missing POD"] as any), value: 0, fill: CHART_FILLS["Missing POD"] },
+            { name: t(STATUS_TRANSLATION_KEYS["Pending to Invoice Out of Time"] as any), value: 0, fill: CHART_FILLS["Pending to Invoice Out of Time"] },
         ]);
         setTotalTasks(0);
         setTasksCompletedCount(0);
       }
     } else {
         setTaskOverviewData([
-            { name: t('interactiveTable.status.missingEstimates'), value: 0, fill: CHART_FILLS["Missing Estimated Dates"] },
-            { name: t('interactiveTable.status.missingPOD'), value: 0, fill: CHART_FILLS["Missing POD"] },
-            { name: t('interactiveTable.status.pendingInvoice'), value: 0, fill: CHART_FILLS["Pending to Invoice Out of Time"] },
+            { name: t(STATUS_TRANSLATION_KEYS["Missing Estimated Dates"] as any), value: 0, fill: CHART_FILLS["Missing Estimated Dates"] },
+            { name: t(STATUS_TRANSLATION_KEYS["Missing POD"] as any), value: 0, fill: CHART_FILLS["Missing POD"] },
+            { name: t(STATUS_TRANSLATION_KEYS["Pending to Invoice Out of Time"] as any), value: 0, fill: CHART_FILLS["Pending to Invoice Out of Time"] },
         ]);
         setTotalTasks(0);
         setTasksCompletedCount(0);
