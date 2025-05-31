@@ -188,10 +188,12 @@ export default function DashboardPage() {
 
 
   const loadAndProcessTasks = useCallback(() => {
+    console.log("Dashboard: Attempting to load tasks from localStorage key 'uploadedTasks'.");
     const storedTasksJson = localStorage.getItem('uploadedTasks');
     if (storedTasksJson) {
       try {
         const loadedTasks: Task[] = JSON.parse(storedTasksJson);
+        console.log(`Dashboard: Successfully parsed ${loadedTasks.length} tasks from localStorage.`);
         if (loadedTasks && loadedTasks.length > 0) {
           setTotalTasks(loadedTasks.length);
 
@@ -224,7 +226,7 @@ export default function DashboardPage() {
           setActiveAdmins(currentAdmins);
 
         } else {
-          console.log("Dashboard: No tasks found in localStorage or tasks array is empty.");
+          console.log("Dashboard: No tasks found in localStorage or tasks array is empty after parsing.");
           setTaskOverviewData([
               { name: t(STATUS_TRANSLATION_KEYS["Missing Estimated Dates"] as any), value: 0, fill: CHART_FILLS["Missing Estimated Dates"] },
               { name: t(STATUS_TRANSLATION_KEYS["Missing POD"] as any), value: 0, fill: CHART_FILLS["Missing POD"] },
@@ -387,5 +389,7 @@ export default function DashboardPage() {
   );
 }
 
+
+    
 
     
