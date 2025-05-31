@@ -2,8 +2,8 @@
 "use client";
 
 import { useState, useTransition } from 'react';
-import type { Task } from '@/types'; // Task type now comes from Zod schema
-import { TaskSchema, TaskStatusSchema, TaskResolutionStatusSchema } from '@/types'; // Import Zod schemas
+import type { Task, TaskResolutionStatus } from '@/types'; 
+import { TaskSchema, PROTECTED_RESOLUTION_STATUSES } from '@/types'; 
 import { FileUploader } from '@/components/upload/file-uploader';
 import { ColumnMapper } from '@/components/upload/column-mapper';
 import { Button } from '@/components/ui/button';
@@ -31,10 +31,6 @@ import type { z } from 'zod';
 
 type UploadStep = "upload" | "map" | "confirm" | "done";
 
-// These arrays are no longer needed as Zod schemas handle validation
-// const validStatuses: TaskStatus[] = ["Missing Estimated Dates", "Missing POD", "Pending to Invoice Out of Time"];
-// const validResolutionStatuses: TaskResolutionStatus[] = ["Pendiente", "SFP", "Resuelto"];
-
 const PREFERRED_CSV_TO_SYSTEM_MAP: Record<string, string> = {
   "transport order ref.": "taskReference",
   "to ref.": "taskReference",
@@ -55,6 +51,14 @@ const PREFERRED_CSV_TO_SYSTEM_MAP: Record<string, string> = {
   "tiempo resolución (días)": "resolutionTimeDays"
 };
 
+// Helper function to generate a unique ID for tasks missing one from CSV
+const generateTemporaryId = (taskRef?: string, index?: number): string => {
+  const randomPart = Math.random().toString(36).substring(2, 9);
+  if (taskRef) return `csv-${taskRef}-${randomPart}`;
+  return `csv-temp-${Date.now()}-${index || 0}-${randomPart}`;
+};
+
+
 export default function UploadDataPage() {
   const [step, setStep] = useState<UploadStep>("upload");
   const [csvFile, setCsvFile] = useState<File | null>(null);
@@ -69,9 +73,9 @@ export default function UploadDataPage() {
   const [showBackupDialog, setShowBackupDialog] = useState(false);
 
   const systemColumns: SystemColumn[] = [
+    { name: 'taskReference', description: t('uploadData.systemColumns.taskReference'), required: true }, // taskReference is key
     { name: 'status', description: t('uploadData.systemColumns.status'), required: true },
-    { name: 'assignee', description: t('uploadData.systemColumns.assignee') }, // Not strictly required by schema (optional)
-    { name: 'taskReference', description: t('uploadData.systemColumns.taskReference') },
+    { name: 'assignee', description: t('uploadData.systemColumns.assignee') },
     { name: 'delayDays', description: t('uploadData.systemColumns.delayDays') },
     { name: 'customerAccount', description: t('uploadData.systemColumns.customerAccount') },
     { name: 'netAmount', description: t('uploadData.systemColumns.netAmount') },
@@ -80,11 +84,13 @@ export default function UploadDataPage() {
     { name: 'resolutionAdmin', description: t('uploadData.systemColumns.resolutionAdmin') },
     { name: 'resolutionStatus', description: t('uploadData.systemColumns.resolutionStatus') },
     { name: 'resolutionTimeDays', description: t('uploadData.systemColumns.resolutionTimeDays') },
+    // `createdAt` and `id` are handled internally, not typically mapped from CSV by user.
   ];
 
   const [suggestedMappings, setSuggestedMappings] = useState<SuggestCsvMappingOutput['suggestedMappings']>([]);
   const [userMappings, setUserMappings] = useState<Record<string, string | null>>({});
-  const [processedTasks, setProcessedTasks] = useState<Task[]>([]);
+  const [processedTasksForPreview, setProcessedTasksForPreview] = useState<Task[]>([]);
+
 
   const handleFileAccepted = (file: File, headers: string[], previewRows: string[][], allRows: string[][]) => {
     setCsvFile(file);
@@ -186,85 +192,154 @@ export default function UploadDataPage() {
         return;
       }
 
-      const validTasks: Task[] = [];
-      const invalidRows: { rowIndex: number; errors: z.ZodIssue[] }[] = [];
+      const existingTasks: Task[] = JSON.parse(localStorage.getItem('uploadedTasks') || '[]') as Task[];
+      const taskMap = new Map<string, Task>();
+      existingTasks.forEach(task => {
+        if (task.taskReference) {
+          taskMap.set(task.taskReference, task);
+        } else if (task.id) { 
+          // Fallback for older data that might not have taskReference as primary key yet
+          // This might need more robust handling if IDs are not stable across CSVs for the same "task"
+          taskMap.set(task.id, task); 
+        }
+      });
+      
+      const newCsvTaskInputs: Record<string, any>[] = [];
+      // Handle duplicates within the new CSV: last one wins
+      const uniqueCsvRowsByRef = new Map<string, any>();
 
       rawCsvRows.forEach((row, rowIndex) => {
-        const constructedTaskInput: any = {}; // Use 'any' for easier construction, Zod will validate final structure
-        let idCandidate: string | undefined = undefined;
+        const constructedTaskInput: any = {};
+        let taskRefFromCsv: string | undefined = undefined;
 
         csvHeaders.forEach((header, colIndex) => {
           const systemColName = userMappings[header];
           if (systemColName) {
             const value = row[colIndex]?.trim();
-
-            if (systemColName === 'delayDays' || systemColName === 'netAmount' || systemColName === 'resolutionTimeDays') {
-              constructedTaskInput[systemColName] = value && !isNaN(parseFloat(value)) ? parseFloat(value) : null;
-            } else if (value !== undefined) { // Only assign if value is not undefined
-              constructedTaskInput[systemColName] = value;
+             if (systemColName === 'taskReference' && value) {
+              taskRefFromCsv = value;
             }
-            
-            if (systemColName === 'taskReference' && value) {
-              idCandidate = `csv-${value}-${rowIndex}`;
+            if (systemColName === 'delayDays' || systemColName === 'netAmount' || systemColName === 'resolutionTimeDays') {
+              constructedTaskInput[systemColName] = value && value !== "" && !isNaN(parseFloat(value)) ? parseFloat(value) : null;
+            } else if (value !== undefined && value !== "") {
+              constructedTaskInput[systemColName] = value;
+            } else if (value === "") { // Explicitly handle empty strings for non-numeric fields if they should be null or undefined based on schema
+              constructedTaskInput[systemColName] = TaskSchema.shape[systemColName as keyof TaskSchema['shape']].isOptional() || TaskSchema.shape[systemColName as keyof TaskSchema['shape']].isNullable() ? null : undefined;
             }
           }
         });
-
-        // Apply defaults for fields required by schema if not mapped or empty,
-        // but only if schema doesn't handle it with .default() or .optional() implies undefined is ok.
-        // Status is required by TaskSchema.
-        if (constructedTaskInput.status === undefined || constructedTaskInput.status === "") {
-             constructedTaskInput.status = TaskStatusSchema.enum["Missing Estimated Dates"]; // Default if not provided or empty
-        }
-        // Assignee is optional in schema, so empty string or undefined is fine.
-        // If it were required:
-        // if (constructedTaskInput.assignee === undefined || constructedTaskInput.assignee === "") {
-        //   constructedTaskInput.assignee = "Unassigned"; // Or some other default
-        // }
-
-
-        const validationAttempt = TaskSchema.safeParse(constructedTaskInput);
-
-        if (validationAttempt.success) {
-          let finalTask = validationAttempt.data;
-          if (!finalTask.id && idCandidate) {
-            finalTask.id = idCandidate;
-          }
-          if (!finalTask.id) {
-            finalTask.id = `TEMP-CSV-${Date.now()}-${rowIndex}-${Math.random().toString(36).substring(2, 7)}`;
-          }
-          validTasks.push(finalTask);
-        } else {
-          invalidRows.push({ rowIndex: rowIndex + 1, errors: validationAttempt.error.issues });
+        
+        if (taskRefFromCsv) { // Only process rows that could map to a taskReference
+           uniqueCsvRowsByRef.set(taskRefFromCsv, constructedTaskInput);
         }
       });
+      
+      newCsvTaskInputs.push(...Array.from(uniqueCsvRowsByRef.values()));
 
-      setProcessedTasks(validTasks); // Update preview table with only valid tasks
+      const validationErrors: { rowIndexGlobal: number; csvTaskRef?: string; errors: z.ZodIssue[] }[] = [];
+      let validNewOrUpdatedTasksCount = 0;
 
-      if (invalidRows.length > 0) {
-        const errorMessages = invalidRows.slice(0, 3).map(rowErr =>
-          `Fila ${rowErr.rowIndex}: ${rowErr.errors.map(e => `${t(`uploadData.systemColumns.${e.path.join('.')}` as any, e.path.join('.'))} - ${e.message}`).join('; ')}`
+      newCsvTaskInputs.forEach((csvTaskInput, csvIndex) => {
+        const taskRef = csvTaskInput.taskReference;
+        if (!taskRef) { // Should not happen due to previous filter, but as safeguard
+          console.warn("Skipping CSV row due to missing taskReference after pre-processing:", csvTaskInput);
+          return;
+        }
+
+        const existingTask = taskMap.get(taskRef);
+        
+        // Ensure `status` has a default if not provided, before Zod validation
+        if (csvTaskInput.status === undefined || csvTaskInput.status === "" || csvTaskInput.status === null) {
+            csvTaskInput.status = "Missing Estimated Dates"; // Default status for Zod
+        }
+        
+        // If it's a new task, ensure createdAt is set
+        const taskDataForValidation = {
+            ...csvTaskInput,
+            createdAt: existingTask?.createdAt || csvTaskInput.createdAt || new Date().toISOString(),
+            id: existingTask?.id || csvTaskInput.id, // Preserve existing ID
+        };
+
+
+        const validationAttempt = TaskSchema.safeParse(taskDataForValidation);
+
+        if (!validationAttempt.success) {
+          validationErrors.push({ 
+            // Find original row index for better error reporting if possible, or use csvIndex
+            rowIndexGlobal: rawCsvRows.findIndex(r => r.includes(taskRef)) + 1 || csvIndex +1 , 
+            csvTaskRef: taskRef, 
+            errors: validationAttempt.error.issues 
+          });
+          return; // Skip this invalid CSV task
+        }
+
+        let processedCsvTask = validationAttempt.data; // Now validated
+
+        if (existingTask) { // Update existing task
+          let mergedTask: Task = { 
+            ...existingTask, // Start with existing
+            ...processedCsvTask, // Overlay with new validated data
+            id: existingTask.id || processedCsvTask.id || generateTemporaryId(taskRef, csvIndex), // Ensure ID is preserved or generated
+            createdAt: existingTask.createdAt || processedCsvTask.createdAt, // Preserve original creation date
+          };
+
+          // Protected status logic:
+          // If existing task had a protected status, and new CSV tries to set it to 'Pendiente', keep existing.
+          if (existingTask.resolutionStatus && 
+              PROTECTED_RESOLUTION_STATUSES.includes(existingTask.resolutionStatus as TaskResolutionStatus) &&
+              processedCsvTask.resolutionStatus === 'Pendiente') {
+            mergedTask.resolutionStatus = existingTask.resolutionStatus;
+          }
+          
+          taskMap.set(taskRef, mergedTask);
+        } else { // Add new task
+          processedCsvTask.id = processedCsvTask.id || generateTemporaryId(taskRef, csvIndex);
+          // createdAt should have been set in taskDataForValidation and passed validation
+          taskMap.set(taskRef, processedCsvTask);
+        }
+        validNewOrUpdatedTasksCount++;
+      });
+      
+      // Handle tasks in existing storage that weren't in the new CSV (for SFP retention)
+      // The current taskMap approach already retains them if PROTECTED_RESOLUTION_STATUSES includes their status
+      // and they weren't updated.
+      // We just need to ensure those with SFP etc. are not accidentally removed if the logic was to only take from new CSV.
+      // Since taskMap was initialized with existingTasks, they are preserved if not updated.
+
+      let finalTaskList = Array.from(taskMap.values());
+
+      // Sort by netAmount descending
+      finalTaskList.sort((a, b) => (b.netAmount ?? -Infinity) - (a.netAmount ?? -Infinity));
+      
+      setProcessedTasksForPreview(finalTaskList.slice(0, 10));
+
+      if (validationErrors.length > 0) {
+        const errorMessages = validationErrors.slice(0, 5).map(err =>
+          `Fila CSV (Ref: ${err.csvTaskRef || 'N/A'}, aprox. original ${err.rowIndexGlobal}): ${err.errors.map(e => `${t(`uploadData.systemColumns.${e.path.join('.')}` as any, e.path.join('.'))} - ${e.message}`).join('; ')}`
         ).join('\n');
         toast({
-          title: t('uploadData.validationErrors.title', { count: invalidRows.length }),
+          title: t('uploadData.validationErrors.title', { count: validationErrors.length }),
           description: t('uploadData.validationErrors.description', {
             details: errorMessages,
-            count: invalidRows.length,
-            firstN: invalidRows.slice(0,3).length
+            count: validationErrors.length,
+            firstN: validationErrors.slice(0,5).length // Show details for first 5
           }),
           variant: "destructive",
-          duration: 15000, // Longer duration for detailed errors
+          duration: 20000,
         });
       }
 
-      if (validTasks.length > 0) {
+      if (validNewOrUpdatedTasksCount > 0 || (finalTaskList.length > 0 && existingTasks.length !== finalTaskList.length)) {
+        // Save if any new/updated tasks were processed OR if the final list length changed (e.g. SFP items retained)
         try {
-          localStorage.setItem('uploadedTasks', JSON.stringify(validTasks));
+          localStorage.setItem('uploadedTasks', JSON.stringify(finalTaskList));
           toast({ 
             title: t('uploadData.dataProcessed'), 
-            description: t('uploadData.tasksProcessedAndSavedWithSkipped', { savedCount: validTasks.length, skippedCount: invalidRows.length }) 
+            description: t('uploadData.tasksProcessedAndSavedWithSkipped', { savedCount: finalTaskList.length, skippedCount: validationErrors.length }) 
           });
-          router.push('/table');
+          // No auto-redirect to table on merge, user stays to see preview or upload another.
+          // router.push('/table'); 
+          setStep("done");
         } catch (error) {
           console.error("Error saving tasks to localStorage:", error);
           toast({
@@ -274,21 +349,20 @@ export default function UploadDataPage() {
           });
           setStep("done"); 
         }
-      } else if (invalidRows.length > 0) {
-        toast({
+      } else if (validationErrors.length > 0 && validNewOrUpdatedTasksCount === 0) {
+         toast({
           title: t('uploadData.noValidTasksProcessed'),
           description: t('uploadData.allRowsInvalid'),
           variant: "destructive",
         });
-        setStep("done"); 
-      } else if (rawCsvRows.length > 0 && validTasks.length === 0 && invalidRows.length === 0) {
-        // This case means rows were processed but somehow no valid or invalid tasks were categorized.
-        // This could happen if all rows were empty or only headers.
-         toast({ title: t('uploadData.noDataToProcess'), description: "No data rows found in the CSV or all rows were empty.", variant: "destructive" });
+        setStep("done");
+      } else if (rawCsvRows.length === 0) {
+         toast({ title: t('uploadData.noDataToProcess'), description: "The CSV file appears to be empty or had no data rows.", variant: "destructive" });
          setStep("upload");
       } else {
-         toast({ title: t('uploadData.noDataToProcess'), variant: "destructive" });
-         setStep("upload");
+         // No new valid tasks, no errors, no change in list length from existing.
+         toast({ title: t('uploadData.noEffectiveChanges'), description: t('uploadData.noEffectiveChangesDescription'), variant: "default" });
+         setStep("done");
       }
     });
   };
@@ -314,18 +388,12 @@ export default function UploadDataPage() {
   };
 
   const triggerProcessData = () => {
-    const requiredSystemCols = systemColumns.filter(sc => sc.required).map(sc => sc.name);
-    const mappedSystemCols = Object.values(userMappings);
-    const missingRequiredMappings = requiredSystemCols.filter(rc => !mappedSystemCols.includes(rc));
-
-    if (missingRequiredMappings.length > 0) {
-      const missingColumnDescriptions = missingRequiredMappings
-        .map(colName => systemColumns.find(sc => sc.name === colName)?.description || colName)
-        .map(descKey => t(descKey as any) || descKey)
-        .join(', ');
+    // TaskReference is the new key required for merging.
+    const taskRefMapped = Object.values(userMappings).includes('taskReference');
+    if (!taskRefMapped) {
       toast({
         title: t('uploadData.incompleteMapping'),
-        description: t('uploadData.pleaseMapRequired', { columns: missingColumnDescriptions }),
+        description: t('uploadData.pleaseMapRequired', { columns: t('uploadData.systemColumns.taskReference') }),
         variant: "destructive"
       });
       return;
@@ -373,7 +441,7 @@ export default function UploadDataPage() {
                 onMappingChange={handleMappingUpdate}
               />
               <div className="flex justify-end gap-2 mt-6">
-                <Button variant="outline" onClick={() => { setStep("upload"); setCsvFile(null); }}>{t('uploadData.cancel')}</Button>
+                <Button variant="outline" onClick={() => { setStep("upload"); setCsvFile(null); setProcessedTasksForPreview([]); }}>{t('uploadData.cancel')}</Button>
                 <Button onClick={triggerProcessData} disabled={isPending}>
                   {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowRight className="mr-2 h-4 w-4" />}
                   {t('uploadData.confirmAndProcess')}
@@ -382,13 +450,12 @@ export default function UploadDataPage() {
             </div>
           )}
 
-          {step === "done" && processedTasks.length > 0 && (
+          {step === "done" && processedTasksForPreview.length > 0 && (
             <div className="space-y-4">
               <Alert variant="default" className="bg-green-50 border-green-200 dark:bg-green-900 dark:border-green-700">
                 <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
                 <AlertTitle className="text-green-700 dark:text-green-300">{t('uploadData.dataProcessed')}</AlertTitle>
                 <AlertDescription className="text-green-600 dark:text-green-400">
-                  {/* Updated message handled by toast in actuallyProcessAndSaveData */}
                   {t('uploadData.previewTitle')}
                 </AlertDescription>
               </Alert>
@@ -397,19 +464,19 @@ export default function UploadDataPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      {/* Filter systemColumns to only those present in at least one processedTask or in userMappings */}
                       {systemColumns
-                        .filter(sc => processedTasks.length > 0 && Object.keys(processedTasks[0]).includes(sc.name))
+                        .filter(sc => processedTasksForPreview.length > 0 && processedTasksForPreview[0].hasOwnProperty(sc.name))
                         .map(col => (
                           <TableHead key={col.name}>{t(col.description as any) || col.description}</TableHead>
                       ))}
+                       <TableHead>{t('uploadData.systemColumns.createdAt')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {processedTasks.slice(0, 10).map((task, index) => (
+                    {processedTasksForPreview.map((task, index) => (
                       <TableRow key={task.id || `processed-${index}`}>
                         {systemColumns
-                          .filter(sc => processedTasks.length > 0 && Object.keys(processedTasks[0]).includes(sc.name))
+                          .filter(sc => processedTasksForPreview.length > 0 && processedTasksForPreview[0].hasOwnProperty(sc.name))
                           .map(col => {
                             const value = task[col.name as keyof Task];
                             if (col.name === 'netAmount') {
@@ -425,37 +492,48 @@ export default function UploadDataPage() {
                             }
                             if (col.name === 'resolutionStatus') {
                                if (value === undefined || value === null) return <TableCell key={col.name}>{t('interactiveTable.notAvailable')}</TableCell>;
-                              const keyMap: Record<Exclude<Task['resolutionStatus'], undefined>, string> = {
+                              const keyMap: Record<Exclude<Task['resolutionStatus'], undefined | null>, string> = {
                                 "Pendiente": "interactiveTable.resolutionStatus.pendiente",
                                 "SFP": "interactiveTable.resolutionStatus.sfp",
                                 "Resuelto": "interactiveTable.resolutionStatus.resuelto",
                               };
-                              return <TableCell key={col.name}>{t(keyMap[value as Exclude<Task['resolutionStatus'], undefined>] as any)}</TableCell>;
+                              return <TableCell key={col.name}>{t(keyMap[value as Exclude<Task['resolutionStatus'], undefined | null>] as any)}</TableCell>;
                             }
                             return <TableCell key={col.name}>{String(value === null || value === undefined ? t('interactiveTable.notAvailable') : value)}</TableCell>;
                         })}
+                        <TableCell>{task.createdAt ? new Date(task.createdAt).toLocaleDateString() : t('interactiveTable.notAvailable')}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               </div>
-              <Button onClick={() => { setStep("upload"); setCsvFile(null); setProcessedTasks([]); }} className="mt-4">
-                {t('uploadData.uploadAnotherFile')}
-              </Button>
+              <div className="flex justify-between items-center mt-4">
+                <Button onClick={() => router.push('/table')} variant="outline">
+                    {t('uploadData.goToTableButton')}
+                </Button>
+                <Button onClick={() => { setStep("upload"); setCsvFile(null); setProcessedTasksForPreview([]); }}>
+                    {t('uploadData.uploadAnotherFile')}
+                </Button>
+              </div>
             </div>
           )}
-           {step === "done" && processedTasks.length === 0 && ( // If "done" but no tasks, implies all were invalid or initial file was empty
+           {step === "done" && processedTasksForPreview.length === 0 && ( 
                 <div className="space-y-4">
                     <Alert variant="destructive">
                         <AlertCircle className="h-5 w-5" />
                         <AlertTitle>{t('uploadData.noValidTasksProcessed')}</AlertTitle>
                         <AlertDescription>
-                            {t('uploadData.allRowsInvalid')}
+                            {rawCsvRows.length > 0 ? t('uploadData.allRowsInvalid') : t('uploadData.noDataInFile')}
                         </AlertDescription>
                     </Alert>
-                    <Button onClick={() => { setStep("upload"); setCsvFile(null); setProcessedTasks([]); }} className="mt-4">
-                        {t('uploadData.uploadAnotherFile')}
-                    </Button>
+                     <div className="flex justify-between items-center mt-4">
+                        <Button onClick={() => router.push('/table')} variant="outline" disabled={!localStorage.getItem('uploadedTasks') || localStorage.getItem('uploadedTasks') === '[]'}>
+                            {t('uploadData.goToTableButton')}
+                        </Button>
+                        <Button onClick={() => { setStep("upload"); setCsvFile(null); setProcessedTasksForPreview([]); }}>
+                            {t('uploadData.uploadAnotherFile')}
+                        </Button>
+                    </div>
                 </div>
             )}
         </CardContent>

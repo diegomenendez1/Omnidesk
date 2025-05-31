@@ -16,13 +16,16 @@ export const TaskResolutionStatusSchema = z.enum([
 ]);
 export type TaskResolutionStatus = z.infer<typeof TaskResolutionStatusSchema>;
 
+// Define states that are considered "final" or "protected" from being reverted to 'Pendiente' by CSV import
+export const PROTECTED_RESOLUTION_STATUSES: ReadonlyArray<TaskResolutionStatus> = ['SFP', 'Resuelto'];
+
 export const TaskSchema = z.object({
   id: z.string().optional(),
   name: z.string().optional(),
   status: TaskStatusSchema, // Required
-  assignee: z.string().optional(), // Optional to allow empty string if not mapped or value is empty
+  assignee: z.string().optional(), 
 
-  taskReference: z.string().optional(),
+  taskReference: z.string().optional().describe("Unique reference for the task/order, used for matching."),
   delayDays: z.number().nullable().optional(),
   customerAccount: z.string().optional(),
   netAmount: z.number().nullable().optional(),
@@ -30,20 +33,25 @@ export const TaskSchema = z.object({
 
   comments: z.string().optional(),
   resolutionAdmin: z.string().optional(),
-  // resolutionStatus is optional; if not provided, it remains undefined.
-  // The application logic (e.g., in InteractiveTableClient or during display) can default it if necessary.
   resolutionStatus: TaskResolutionStatusSchema.optional(),
   resolutionTimeDays: z.number().nullable().optional(),
-  // Allow other dynamic keys that might come from CSV but are not strictly part of the core Task model
-  // This is a common pattern when dealing with flexible data imports.
-  // However, for stricter validation, this could be removed.
-  // For now, keeping it to avoid breaking if extra columns are mapped.
-}).catchall(z.any()); // Use .catchall(z.any()) or .passthrough() if you want to allow extra fields not defined in schema
+  
+  createdAt: z.string().datetime({ message: "Invalid datetime string for createdAt, expected ISO 8601 format" }).optional().describe("ISO datetime string when the task was first created/ingested."),
+  // Allow other dynamic keys from CSV. For stricter validation, remove .catchall(z.any()).
+}).catchall(z.any());
 
-// The main Task type derived from the Zod schema
 export type Task = z.infer<typeof TaskSchema>;
 
 // --- Other existing types ---
+export interface User {
+  uid: string;
+  email: string | null;
+  name?: string | null;
+  role?: 'owner' | 'admin' | 'user';
+  createdAt?: any; // Firestore Timestamp or Date
+  createdBy?: string;
+}
+
 export interface DataInconsistency {
   cell: string;
   description: string;
@@ -55,7 +63,7 @@ export interface ValidateDataConsistencyOutput {
 }
 
 export interface SystemColumnInfo {
-  name: keyof Task | string; // Now refers to keys of Zod-derived Task
+  name: keyof Task | string; 
   description: string;
   required?: boolean;
 }

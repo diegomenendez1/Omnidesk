@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState, useCallback } from 'react';
@@ -9,7 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import Image from 'next/image';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useLanguage } from '@/context/language-context';
-import type { Task, TaskStatus } from '@/types'; 
+import type { Task, TaskStatus, TaskResolutionStatus } from '@/types'; 
+import { PROTECTED_RESOLUTION_STATUSES } from '@/types'; // Import protected statuses
 
 interface TaskOverviewData {
   name: string;
@@ -54,7 +54,8 @@ export default function DashboardPage() {
             if (task.status && statusCounts.hasOwnProperty(task.status)) {
               statusCounts[task.status]++;
             }
-            if (task.resolutionStatus === "Resuelto") {
+            // Updated logic for completed count
+            if (task.resolutionStatus && PROTECTED_RESOLUTION_STATUSES.includes(task.resolutionStatus as TaskResolutionStatus)) {
               completedCount++;
             }
           });
@@ -94,10 +95,10 @@ export default function DashboardPage() {
         setTotalTasks(0);
         setTasksCompletedCount(0);
     }
-  }, [t]); // Dependencies for useCallback are now just 't'
+  }, [t]); 
 
   useEffect(() => {
-    loadAndProcessTasks(); // Initial load
+    loadAndProcessTasks(); 
 
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === 'uploadedTasks') {

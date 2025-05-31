@@ -1,4 +1,3 @@
-
 export type Locale = 'en' | 'es';
 
 // Helper type for ensuring key validity
@@ -116,6 +115,7 @@ export interface Translations {
         resolutionTimeDays: string;
         history: string; 
         actions: string; 
+        accumulatedBusinessDays: string; // New for business days
       };
       status: { 
         missingEstimates: string;
@@ -155,13 +155,13 @@ export interface Translations {
       pleaseMapRequired: string;
       dataProcessed: string;
       tasksProcessedAndSaved: string;
-      tasksProcessedAndSavedWithSkipped: string; // New
+      tasksProcessedAndSavedWithSkipped: string; 
       errorSavingLocally: string;
       errorSavingLocallyDescription: string;
       previewTitle: string;
       uploadAnotherFile: string;
       redirectingToTable: string;
-      systemColumns: { // These are also used for error messages path translation
+      systemColumns: { 
         status: string;
         assignee: string;
         taskReference: string;
@@ -173,8 +173,9 @@ export interface Translations {
         resolutionAdmin: string;
         resolutionStatus: string;
         resolutionTimeDays: string;
-        id: string; // Added for completeness if ID errors occur
-        name: string; // Added for completeness
+        id: string; 
+        name: string; 
+        createdAt: string; // New for createdAt
       };
       fileUploader: {
         dropzoneActive: string;
@@ -199,12 +200,16 @@ export interface Translations {
         successTitle: string;
         successDescription: string;
       };
-      validationErrors: { // New section for Zod validation
+      validationErrors: { 
         title: string;
         description: string;
       };
-      noValidTasksProcessed: string; // New
-      allRowsInvalid: string; // New
+      noValidTasksProcessed: string; 
+      allRowsInvalid: string; 
+      noDataInFile: string; // New for empty file case in "done" step
+      goToTableButton: string; // New button text
+      noEffectiveChanges: string; // New toast for no changes
+      noEffectiveChangesDescription: string; // New toast desc
     };
     dataValidationReport: {
       title: string;
@@ -220,6 +225,8 @@ export interface Translations {
       loadedTasksDescription: string;
       errorLoadingData: string;
       errorLoadingDataDescription: string;
+      errorSavingData: string; // New for saving errors
+      errorSavingDataDescription: string; // New for saving errors
     };
     loginPage: { 
       titleLogin: string;
@@ -347,6 +354,7 @@ export interface Translations {
         resolutionTimeDays: string;
         history: string; 
         actions: string;
+        accumulatedBusinessDays: string; // New for business days
       };
       status: {
         missingEstimates: string;
@@ -386,13 +394,13 @@ export interface Translations {
       pleaseMapRequired: string;
       dataProcessed: string;
       tasksProcessedAndSaved: string;
-      tasksProcessedAndSavedWithSkipped: string; // New
+      tasksProcessedAndSavedWithSkipped: string; 
       errorSavingLocally: string;
       errorSavingLocallyDescription: string;
       previewTitle: string;
       uploadAnotherFile: string;
       redirectingToTable: string;
-      systemColumns: { // These are also used for error messages path translation
+      systemColumns: { 
         status: string;
         assignee: string;
         taskReference: string;
@@ -404,8 +412,9 @@ export interface Translations {
         resolutionAdmin: string;
         resolutionStatus: string;
         resolutionTimeDays: string;
-        id: string; // Added for completeness
-        name: string; // Added for completeness
+        id: string; 
+        name: string; 
+        createdAt: string; // New for createdAt
       };
       fileUploader: {
         dropzoneActive: string;
@@ -430,12 +439,16 @@ export interface Translations {
         successTitle: string;
         successDescription: string;
       };
-      validationErrors: { // New section for Zod validation
+      validationErrors: { 
         title: string;
         description: string;
       };
-      noValidTasksProcessed: string; // New
-      allRowsInvalid: string; // New
+      noValidTasksProcessed: string; 
+      allRowsInvalid: string; 
+      noDataInFile: string; // New for empty file case in "done" step
+      goToTableButton: string; // New button text
+      noEffectiveChanges: string; // New toast for no changes
+      noEffectiveChangesDescription: string; // New toast desc
     };
     dataValidationReport: {
       title: string;
@@ -451,6 +464,8 @@ export interface Translations {
       loadedTasksDescription: string;
       errorLoadingData: string;
       errorLoadingDataDescription: string;
+      errorSavingData: string; // New for saving errors
+      errorSavingDataDescription: string; // New for saving errors
     };
     loginPage: { 
       titleLogin: string;
@@ -582,6 +597,7 @@ export const translations: Translations = {
         resolutionTimeDays: "Resolution Time (days)",
         history: "History", 
         actions: "Actions", 
+        accumulatedBusinessDays: "Accumulated Days (Business)"
       },
       status: { 
         missingEstimates: "Missing Estimated Dates",
@@ -605,11 +621,11 @@ export const translations: Translations = {
     },
     uploadData: {
       title: "Upload Data from CSV",
-      description: "Upload a CSV file, map columns, and update your data.",
+      description: "Upload a CSV file, map columns, and merge data with existing records.",
       fileAcceptedToastTitle: "CSV File Uploaded",
       fileAcceptedToastDescription: "Please review the column mapping.",
       columnMappingTitle: "Column Mapping",
-      columnMappingDescription: "Review and adjust how your CSV columns ({fileName}) map to system columns.",
+      columnMappingDescription: "Review and adjust how your CSV columns ({fileName}) map to system columns. 'TO Ref.' is crucial for matching records.",
       csvColumn: "CSV Column",
       mapToSystemColumn: "Map to System Column",
       doNotImport: "Do not import this column",
@@ -619,13 +635,13 @@ export const translations: Translations = {
       noDataToProcess: "No data to process",
       incompleteMapping: "Incomplete Mapping",
       pleaseMapRequired: "Please map the following required system columns: {columns}",
-      dataProcessed: "Data Processed",
-      tasksProcessedAndSaved: "{count} tasks processed and saved to local storage.",
-      tasksProcessedAndSavedWithSkipped: "{savedCount} tasks processed and saved. {skippedCount} rows skipped due to errors.",
+      dataProcessed: "Data Processed Successfully",
+      tasksProcessedAndSaved: "{count} tasks in total after processing. Check preview.",
+      tasksProcessedAndSavedWithSkipped: "{savedCount} tasks in total after processing. {skippedCount} CSV rows were skipped due to errors or missing TO Reference.",
       errorSavingLocally: "Error saving data locally",
       errorSavingLocallyDescription: "Could not save data for the interactive table. Preview is still available on this page.",
-      previewTitle: "Preview of Processed Data (first 10 rows)",
-      uploadAnotherFile: "Upload another file",
+      previewTitle: "Preview of Processed Data (first 10 rows of final list)",
+      uploadAnotherFile: "Upload Another File",
       redirectingToTable: " Redirecting to Interactive Table...",
       systemColumns: {
         status: "TO Status",
@@ -641,6 +657,7 @@ export const translations: Translations = {
         resolutionTimeDays: "Resolution Time (days)",
         id: "Internal ID",
         name: "Task Name",
+        createdAt: "Created At (System)",
       },
       fileUploader: {
         dropzoneActive: "Drop CSV file here...",
@@ -651,7 +668,7 @@ export const translations: Translations = {
         invalidFileToastTitle: "Invalid File",
         invalidFileToastDescription: "Please upload a .csv file.",
         emptyFileToastTitle: "CSV file empty or invalid",
-        emptyFileToastDescription: "The header is empty.",
+        emptyFileToastDescription: "The header is empty or no data rows found.",
         parseErrorToastTitle: "Error parsing CSV",
         parseErrorToastDescription: "Invalid CSV file format.",
       },
@@ -659,18 +676,22 @@ export const translations: Translations = {
       aiErrorToastDescription: "Some columns could not be mapped automatically. Please review them manually.",
       backup: {
         dialogTitle: "Backup Confirmation",
-        dialogDescription: "Existing data will be overwritten. Do you want to back up the current data before continuing?",
+        dialogDescription: "New data will be merged with existing records. It's recommended to back up the current data before continuing.",
         backupAndContinueButton: "Backup and Continue",
         continueWithoutBackupButton: "Continue without Backup",
         successTitle: "Backup Successful",
         successDescription: "Data backed up to {filename}.",
       },
-      validationErrors: {
-        title: "Validation Errors ({count} rows failed)",
-        description: "{count} rows had validation errors. Showing first {firstN}:\n{details}",
+      validationErrors: { 
+        title: "Validation Issues ({count} CSV rows)",
+        description: "{count} CSV rows had validation errors or critical missing data (like TO Ref). Details for first {firstN}:\n{details}",
       },
-      noValidTasksProcessed: "No Valid Tasks Processed",
-      allRowsInvalid: "All rows in the CSV file were invalid after validation. Please check the errors and try again.",
+      noValidTasksProcessed: "No Valid Tasks to Process",
+      allRowsInvalid: "All rows in the CSV file were invalid or could not be processed. Please check the errors and try again.",
+      noDataInFile: "No data rows were found in the uploaded CSV file.",
+      goToTableButton: "Go to Interactive Table",
+      noEffectiveChanges: "No Changes Detected",
+      noEffectiveChangesDescription: "The uploaded data did not result in any changes to the existing task list.",
     },
     dataValidationReport: {
       title: "AI Data Validation Report",
@@ -686,6 +707,8 @@ export const translations: Translations = {
       loadedTasksDescription: "{count} tasks have been loaded from the last import.",
       errorLoadingData: "Error Loading Data",
       errorLoadingDataDescription: "Could not load saved tasks.",
+      errorSavingData: "Error Saving Data",
+      errorSavingDataDescription: "Could not save tasks to local storage.",
     },
     loginPage: { 
       titleLogin: "Login",
@@ -732,7 +755,7 @@ export const translations: Translations = {
       english: "Inglés",
       spanish: "Español",
       login: "Iniciar Sesión",
-      admin: {
+      admin: { 
         userManagement: "Gestión de Usuarios",
         addNewUser: "Añadir Nuevo Usuario",
         nameLabel: "Nombre",
@@ -745,7 +768,7 @@ export const translations: Translations = {
         addUserButton: "Añadir Usuario",
         userAddedSuccessfully: "¡Usuario añadido con éxito!",
         errorAddingUser: "Error al añadir usuario.",
-      },
+      }, 
       theme: { 
         toggle: "Alternar tema",
         title: "Tema",
@@ -813,6 +836,7 @@ export const translations: Translations = {
         resolutionTimeDays: "Tiempo Resolución (días)",
         history: "Historial", 
         actions: "Acciones",
+        accumulatedBusinessDays: "Días Acumulados (Hábiles)"
       },
       status: {
         missingEstimates: "Fechas Estimadas Faltantes",
@@ -836,11 +860,11 @@ export const translations: Translations = {
     },
     uploadData: {
       title: "Cargar Datos desde CSV",
-      description: "Sube un archivo CSV, mapea las columnas y actualiza tus datos.",
+      description: "Sube un archivo CSV, mapea las columnas y fusiona los datos con los registros existentes.",
       fileAcceptedToastTitle: "Archivo CSV Cargado",
       fileAcceptedToastDescription: "Por favor, revisa el mapeo de columnas.",
       columnMappingTitle: "Mapeo de Columnas",
-      columnMappingDescription: "Revisa y ajusta cómo se asignan las columnas de tu archivo CSV ({fileName}) a las columnas del sistema.",
+      columnMappingDescription: "Revisa y ajusta cómo se asignan las columnas de tu archivo CSV ({fileName}) a las columnas del sistema. 'TO Ref.' es crucial para encontrar coincidencias.",
       csvColumn: "Columna CSV",
       mapToSystemColumn: "Mapear a Columna del Sistema",
       doNotImport: "No importar esta columna",
@@ -850,13 +874,13 @@ export const translations: Translations = {
       noDataToProcess: "No hay datos para procesar",
       incompleteMapping: "Mapeo Incompleto",
       pleaseMapRequired: "Por favor, mapea las siguientes columnas requeridas del sistema: {columns}",
-      dataProcessed: "Datos Procesados",
-      tasksProcessedAndSaved: "{count} tareas procesadas y guardadas en el almacenamiento local.",
-      tasksProcessedAndSavedWithSkipped: "{savedCount} tareas procesadas y guardadas. Se omitieron {skippedCount} filas debido a errores.",
+      dataProcessed: "Datos Procesados Correctamente",
+      tasksProcessedAndSaved: "{count} tareas en total después del procesamiento. Revisa la vista previa.",
+      tasksProcessedAndSavedWithSkipped: "{savedCount} tareas en total después del procesamiento. Se omitieron {skippedCount} filas CSV debido a errores o falta de TO Reference.",
       errorSavingLocally: "Error al guardar datos localmente",
       errorSavingLocallyDescription: "No se pudieron guardar los datos para la tabla interactiva. La vista previa sigue disponible en esta página.",
-      previewTitle: "Vista Previa de Datos Procesados (primeras 10 filas)",
-      uploadAnotherFile: "Cargar otro archivo",
+      previewTitle: "Vista Previa de Datos Procesados (primeras 10 filas de la lista final)",
+      uploadAnotherFile: "Cargar Otro Archivo",
       redirectingToTable: " Redirigiendo a la Tabla Interactiva...",
       systemColumns: {
         status: "Estado TO",
@@ -872,6 +896,7 @@ export const translations: Translations = {
         resolutionTimeDays: "Tiempo Resolución (días)",
         id: "ID Interno",
         name: "Nombre Tarea",
+        createdAt: "Fecha Creación (Sistema)",
       },
       fileUploader: {
         dropzoneActive: "Suelta el archivo CSV aquí...",
@@ -882,7 +907,7 @@ export const translations: Translations = {
         invalidFileToastTitle: "Archivo no válido",
         invalidFileToastDescription: "Por favor, sube un archivo .csv.",
         emptyFileToastTitle: "Archivo CSV vacío o inválido",
-        emptyFileToastDescription: "La cabecera está vacía.",
+        emptyFileToastDescription: "La cabecera está vacía o no se encontraron filas de datos.",
         parseErrorToastTitle: "Error al parsear CSV",
         parseErrorToastDescription: "Formato de archivo CSV no válido.",
       },
@@ -890,18 +915,22 @@ export const translations: Translations = {
       aiErrorToastDescription: "Algunas columnas no pudieron ser mapeadas automáticamente. Por favor, revísalas manualmente.",
       backup: {
         dialogTitle: "Confirmación de Respaldo",
-        dialogDescription: "Los datos existentes serán sobrescritos. ¿Desea hacer un respaldo de los datos actuales antes de continuar?",
+        dialogDescription: "Se fusionarán nuevos datos con los registros existentes. Se recomienda respaldar los datos actuales antes de continuar.",
         backupAndContinueButton: "Respaldar y Continuar",
         continueWithoutBackupButton: "Continuar sin Respaldo",
         successTitle: "Respaldo Exitoso",
         successDescription: "Datos respaldados en {filename}.",
       },
-      validationErrors: {
-        title: "Errores de Validación ({count} filas fallaron)",
-        description: "{count} filas tuvieron errores de validación. Mostrando las primeras {firstN}:\n{details}",
+      validationErrors: { 
+        title: "Problemas de Validación ({count} filas CSV)",
+        description: "{count} filas CSV tuvieron errores de validación o datos críticos faltantes (como TO Ref). Detalles de las primeras {firstN}:\n{details}",
       },
-      noValidTasksProcessed: "No se Procesaron Tareas Válidas",
-      allRowsInvalid: "Todas las filas del archivo CSV fueron inválidas después de la validación. Por favor, revisa los errores e inténtalo de nuevo.",
+      noValidTasksProcessed: "No Hay Tareas Válidas para Procesar",
+      allRowsInvalid: "Todas las filas del archivo CSV fueron inválidas o no pudieron procesarse. Por favor, revisa los errores e inténtalo de nuevo.",
+      noDataInFile: "No se encontraron filas de datos en el archivo CSV cargado.",
+      goToTableButton: "Ir a Tabla Interactiva",
+      noEffectiveChanges: "Sin Cambios Detectados",
+      noEffectiveChangesDescription: "Los datos cargados no resultaron en cambios efectivos en la lista de tareas existente.",
     },
     dataValidationReport: {
       title: "Reporte de Validación de Datos IA",
@@ -917,6 +946,8 @@ export const translations: Translations = {
       loadedTasksDescription: "Se han cargado {count} tareas desde la última importación.",
       errorLoadingData: "Error al Cargar Datos",
       errorLoadingDataDescription: "No se pudieron cargar las tareas guardadas.",
+      errorSavingData: "Error al Guardar Datos",
+      errorSavingDataDescription: "No se pudieron guardar las tareas en el almacenamiento local.",
     },
     loginPage: { 
       titleLogin: "Iniciar Sesión",

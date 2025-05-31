@@ -3,6 +3,7 @@
 
 import { useState, useTransition, type ChangeEvent, type KeyboardEvent, useEffect, useMemo } from 'react';
 import type { Task, TaskStatus, TaskResolutionStatus } from '@/types';
+import { PROTECTED_RESOLUTION_STATUSES } from '@/types';
 import { performDataValidation } from '@/app/table/actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +15,7 @@ import { DataValidationReport } from './data-validation-report';
 import type { ValidateDataConsistencyOutput } from '@/types';
 import { ScanSearch, ArrowUp, ArrowDown, Filter as FilterIcon, History } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, calculateBusinessDays } from '@/lib/utils'; // Import calculateBusinessDays
 import { useLanguage } from '@/context/language-context';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
@@ -25,7 +26,7 @@ const ALL_FILTER_VALUE = "_ALL_VALUES_";
 
 type SortDirection = 'ascending' | 'descending';
 interface SortConfig {
-  key: keyof Task | null;
+  key: keyof Task | 'accumulatedBusinessDays' | null; // Allow sorting by virtual column
   direction: SortDirection | null;
 }
 
@@ -72,20 +73,19 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [t]); // toast and t are stable, so this runs once on mount essentially
+  }, [t]); 
 
 
   const updateTasksInStateAndStorage = (updatedTasks: Task[]) => {
     setTasks(updatedTasks);
     try {
       localStorage.setItem('uploadedTasks', JSON.stringify(updatedTasks));
-      // Dispatch a custom event to notify other components (like Dashboard)
       window.dispatchEvent(new CustomEvent('tasksUpdatedInStorage'));
     } catch (error) {
       console.error("Error saving tasks to localStorage:", error);
       toast({
-        title: t('localStorage.errorSavingData'),
-        description: t('localStorage.errorSavingDataDescription'),
+        title: t('localStorage.errorSavingData' as TranslationKey),
+        description: t('localStorage.errorSavingDataDescription' as TranslationKey),
         variant: "destructive",
       });
     }
@@ -164,7 +164,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     updateTasksInStateAndStorage(updatedTasks);
     setEditingCellKey(null);
     setCurrentEditSelectValue('');
-    setIsSelectDropdownOpen(false); // Close dropdown after selection
+    setIsSelectDropdownOpen(false); 
     toast({ title: t('interactiveTable.fieldUpdated'), description: t('interactiveTable.changeSavedFor', { field: t(`interactiveTable.tableHeaders.${column}` as any, String(column))}) });
   };
 
@@ -217,7 +217,6 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                         ? t('interactiveTable.notAvailable') 
                         : String(val);
       
-      // Filter out empty strings if they are not 'N/A'
       if (stringVal.trim() !== "" || stringVal === t('interactiveTable.notAvailable')) { 
         values.add(stringVal);
       }
@@ -234,6 +233,8 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   
   const uniqueTaskReferences = useMemo(() => getUniqueValuesForColumn('taskReference'), [tasks, t]);
   const uniqueAssignees = useMemo(() => getUniqueValuesForColumn('assignee'), [tasks, t]);
+  // delayDays is now potentially dynamic based on createdAt for open tasks, so direct unique values might not be appropriate for filtering if it's displayed dynamically.
+  // For now, keeping uniqueDelayDays for the stored value, if any.
   const uniqueDelayDays = useMemo(() => getUniqueValuesForColumn('delayDays'), [tasks, t]);
   const uniqueCustomerAccounts = useMemo(() => getUniqueValuesForColumn('customerAccount'), [tasks, t]);
   const uniqueNetAmounts = useMemo(() => {
@@ -277,7 +278,22 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     });
   }), [tasks, filters, t]);
 
-  const requestSort = (key: keyof Task) => {
+  const calculateAccumulatedBusinessDaysForTask = (task: Task): number | null => {
+      if (task.createdAt && (!task.resolutionStatus || task.resolutionStatus === 'Pendiente')) {
+          try {
+            const startDate = new Date(task.createdAt);
+            const endDate = new Date(); // Today
+            return calculateBusinessDays(startDate, endDate);
+          } catch (e) {
+            console.error("Error calculating business days for task:", task.id, e);
+            return null;
+          }
+      }
+      return task.delayDays ?? null; // Fallback to delayDays if not pending or no createdAt
+  };
+
+
+  const requestSort = (key: keyof Task | 'accumulatedBusinessDays') => {
     let newDirection: SortDirection = 'ascending';
     if (sortConfig.key === key) {
       if (sortConfig.direction === 'ascending') {
@@ -293,8 +309,17 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
       sortableItems.sort((a, b) => {
         if (!sortConfig.key) return 0;
         const key = sortConfig.key;
-        const valA = a[key];
-        const valB = b[key];
+        
+        let valA, valB;
+
+        if (key === 'accumulatedBusinessDays') {
+            valA = calculateAccumulatedBusinessDaysForTask(a);
+            valB = calculateAccumulatedBusinessDaysForTask(b);
+        } else {
+            valA = a[key as keyof Task];
+            valB = b[key as keyof Task];
+        }
+        
 
         if ((valA === null || typeof valA === 'undefined') && (valB !== null && typeof valB !== 'undefined')) return sortConfig.direction === 'ascending' ? 1 : -1;
         if ((valB === null || typeof valB === 'undefined') && (valA !== null && typeof valA !== 'undefined')) return sortConfig.direction === 'ascending' ? -1 : 1;
@@ -316,7 +341,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   const allOptionLabel = t('interactiveTable.filterAllOption');
   const filterActionPlaceholder = t('interactiveTable.filterActionPlaceholder');
 
-  const renderSortIcon = (columnKey: keyof Task) => {
+  const renderSortIcon = (columnKey: keyof Task | 'accumulatedBusinessDays') => {
     if (sortConfig.key === columnKey) {
       return sortConfig.direction === 'ascending' 
         ? <ArrowUp className="ml-1 h-3 w-3 text-muted-foreground" /> 
@@ -428,14 +453,15 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                       {renderFilterPopover('assignee', 'interactiveTable.tableHeaders.logisticDeveloper', uniqueAssignees)}
                     </div>
                   </TableHead>
-
+                  
+                  {/* Accumulated Business Days Column */}
                   <TableHead className="group">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1 cursor-pointer flex-grow py-3 pr-2" onClick={() => requestSort('delayDays')}>
-                        {t('interactiveTable.tableHeaders.delayDays')}
-                        {renderSortIcon('delayDays')}
+                      <div className="flex items-center gap-1 cursor-pointer flex-grow py-3 pr-2" onClick={() => requestSort('accumulatedBusinessDays')}>
+                        {t('interactiveTable.tableHeaders.accumulatedBusinessDays')}
+                        {renderSortIcon('accumulatedBusinessDays')}
                       </div>
-                      {renderFilterPopover('delayDays', 'interactiveTable.tableHeaders.delayDays', uniqueDelayDays, true)}
+                      {/* Filtering for this dynamic column can be complex; skip for now or filter by delayDays as proxy */}
                     </div>
                   </TableHead>
 
@@ -514,7 +540,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                     </div>
                   </TableHead>
 
-                  <TableHead className="group text-center w-20"> {/* History Column */}
+                  <TableHead className="group text-center w-20">
                     <div className="flex items-center justify-center py-3">
                        {t('interactiveTable.tableHeaders.history')}
                     </div>
@@ -554,6 +580,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
               <TableBody>
                 {sortedTasks.map((task) => {
                   const taskId = task.id || task.taskReference || `task-${Math.random().toString(36).substring(2, 9)}`;
+                  const accumulatedDays = calculateAccumulatedBusinessDaysForTask(task);
                   return (
                     <TableRow key={taskId}>
                       <TableCell>{task.taskReference || t('interactiveTable.notAvailable')}</TableCell>
@@ -568,7 +595,9 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                         </span>
                       </TableCell>
                       <TableCell>{task.assignee || t('interactiveTable.notAvailable')}</TableCell>
-                      <TableCell>{task.delayDays === null || task.delayDays === undefined ? t('interactiveTable.notAvailable') : String(task.delayDays)}</TableCell>
+                      {/* Display accumulated business days */}
+                      <TableCell>{accumulatedDays === null ? t('interactiveTable.notAvailable') : String(accumulatedDays)}</TableCell>
+                      
                       <TableCell>{task.customerAccount || t('interactiveTable.notAvailable')}</TableCell>
                       <TableCell className="text-right">{formatCurrency(task.netAmount)}</TableCell>
                       <TableCell>{task.transportMode || t('interactiveTable.notAvailable')}</TableCell>
@@ -645,9 +674,10 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                           </Select>
                         ) : (
                           <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                            task.resolutionStatus === "Resuelto" ? "bg-green-100 text-green-700 dark:bg-green-700/20 dark:text-green-300" :
-                            task.resolutionStatus === "SFP" ? "bg-blue-100 text-blue-700 dark:bg-blue-700/20 dark:text-blue-300" :
-                            "bg-gray-100 text-gray-700 dark:bg-gray-700/20 dark:text-gray-300"
+                            task.resolutionStatus && PROTECTED_RESOLUTION_STATUSES.includes(task.resolutionStatus as TaskResolutionStatus) 
+                              ? "bg-green-100 text-green-700 dark:bg-green-700/20 dark:text-green-300" 
+                              : task.resolutionStatus === "SFP" ? "bg-blue-100 text-blue-700 dark:bg-blue-700/20 dark:text-blue-300" 
+                              : "bg-gray-100 text-gray-700 dark:bg-gray-700/20 dark:text-gray-300"
                           }`}>
                             {getResolutionStatusDisplay(task.resolutionStatus)}
                           </span>
@@ -668,8 +698,3 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     </div>
   );
 }
-    
-
-    
-
-    
