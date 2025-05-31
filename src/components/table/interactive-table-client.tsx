@@ -74,6 +74,24 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t]); // toast and t are stable, so this runs once on mount essentially
 
+
+  const updateTasksInStateAndStorage = (updatedTasks: Task[]) => {
+    setTasks(updatedTasks);
+    try {
+      localStorage.setItem('uploadedTasks', JSON.stringify(updatedTasks));
+      // Dispatch a custom event to notify other components (like Dashboard)
+      window.dispatchEvent(new CustomEvent('tasksUpdatedInStorage'));
+    } catch (error) {
+      console.error("Error saving tasks to localStorage:", error);
+      toast({
+        title: t('localStorage.errorSavingData'),
+        description: t('localStorage.errorSavingDataDescription'),
+        variant: "destructive",
+      });
+    }
+  };
+
+
   const handleValidateData = () => {
     startTransition(async () => {
       try {
@@ -120,32 +138,30 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     const taskIdentifier = tasks.find(t => t.id === taskId || t.taskReference === taskId);
      if (!editingCellKey || !taskIdentifier || (!editingCellKey.startsWith(taskIdentifier.id || String(Math.random())) && !editingCellKey.startsWith(taskIdentifier.taskReference || String(Math.random())))) return;
 
-    setTasks(prevTasks =>
-      prevTasks.map(task => {
+    const updatedTasks = tasks.map(task => {
         const currentId = task.id || task.taskReference;
         const targetId = taskId;
         if (currentId === targetId) {
           return { ...task, [column]: currentEditText };
         }
         return task;
-      })
-    );
+      });
+    updateTasksInStateAndStorage(updatedTasks);
     setEditingCellKey(null);
     setCurrentEditText("");
     toast({ title: t('interactiveTable.fieldUpdated'), description: t('interactiveTable.changeSavedFor', { field: t(`interactiveTable.tableHeaders.${column}` as any, String(column))}) });
   };
 
   const handleInlineSelectChange = (taskId: string, column: keyof Task, value: string) => {
-     setTasks(prevTasks =>
-      prevTasks.map(task => {
+    const updatedTasks = tasks.map(task => {
         const currentId = task.id || task.taskReference;
         const targetId = taskId;
         if (currentId === targetId) {
           return { ...task, [column]: value };
         }
         return task;
-      })
-    );
+      });
+    updateTasksInStateAndStorage(updatedTasks);
     setEditingCellKey(null);
     setCurrentEditSelectValue('');
     setIsSelectDropdownOpen(false); // Close dropdown after selection
@@ -657,4 +673,3 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     
 
     
-

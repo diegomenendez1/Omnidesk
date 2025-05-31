@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { MetricCard } from '@/components/dashboard/metric-card';
 import { SampleStatsChart } from '@/components/dashboard/sample-stats-chart';
 import { Users, Activity, CheckCircle2, Briefcase, ListChecks } from 'lucide-react';
@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import Image from 'next/image';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useLanguage } from '@/context/language-context';
-import type { Task, TaskStatus } from '@/types'; // Import Task and TaskStatus types
+import type { Task, TaskStatus } from '@/types'; 
 
 interface TaskOverviewData {
   name: string;
@@ -23,12 +23,10 @@ export default function DashboardPage() {
   const [totalTasks, setTotalTasks] = useState<number>(0);
   const [tasksCompletedCount, setTasksCompletedCount] = useState<number>(0);
 
-  // Chart fill colors (ensure these are defined in globals.css or adjust as needed)
   const chartFills: Record<TaskStatus, string> = {
     "Missing Estimated Dates": "hsl(var(--chart-1))",
     "Missing POD": "hsl(var(--chart-2))",
     "Pending to Invoice Out of Time": "hsl(var(--chart-3))",
-    // Add more if TaskStatus enum expands and you have more chart colors
   };
   const statusTranslationKeys: Record<TaskStatus, string> = {
     "Missing Estimated Dates": "interactiveTable.status.missingEstimates",
@@ -36,8 +34,7 @@ export default function DashboardPage() {
     "Pending to Invoice Out of Time": "interactiveTable.status.pendingInvoice",
   };
 
-
-  useEffect(() => {
+  const loadAndProcessTasks = useCallback(() => {
     const storedTasksJson = localStorage.getItem('uploadedTasks');
     if (storedTasksJson) {
       try {
@@ -62,15 +59,13 @@ export default function DashboardPage() {
           });
           setTasksCompletedCount(completedCount);
 
-
           const overviewData = (Object.keys(statusCounts) as TaskStatus[]).map(statusKey => ({
             name: t(statusTranslationKeys[statusKey] as any),
             value: statusCounts[statusKey],
-            fill: chartFills[statusKey] || "hsl(var(--chart-4))", // Fallback fill
+            fill: chartFills[statusKey] || "hsl(var(--chart-4))", 
           }));
           setTaskOverviewData(overviewData);
         } else {
-          // If loadedTasks is empty or not an array
           setTaskOverviewData([
               { name: t('interactiveTable.status.missingEstimates'), value: 0, fill: chartFills["Missing Estimated Dates"] },
               { name: t('interactiveTable.status.missingPOD'), value: 0, fill: chartFills["Missing POD"] },
@@ -81,26 +76,46 @@ export default function DashboardPage() {
         }
       } catch (error) {
         console.error("Error processing tasks from localStorage for dashboard:", error);
-        // Set to empty or default if error
         setTaskOverviewData([
             { name: t('interactiveTable.status.missingEstimates'), value: 0, fill: chartFills["Missing Estimated Dates"] },
             { name: t('interactiveTable.status.missingPOD'), value: 0, fill: chartFills["Missing POD"] },
             { name: t('interactiveTable.status.pendingInvoice'), value: 0, fill: chartFills["Pending to Invoice Out of Time"] },
         ]);
         setTotalTasks(0);
-        setTasksCompletedCount(0); // Explicitly reset here
+        setTasksCompletedCount(0);
       }
     } else {
-       // Default empty state if no tasks in localStorage
         setTaskOverviewData([
             { name: t('interactiveTable.status.missingEstimates'), value: 0, fill: chartFills["Missing Estimated Dates"] },
             { name: t('interactiveTable.status.missingPOD'), value: 0, fill: chartFills["Missing POD"] },
             { name: t('interactiveTable.status.pendingInvoice'), value: 0, fill: chartFills["Pending to Invoice Out of Time"] },
         ]);
         setTotalTasks(0);
-        setTasksCompletedCount(0); // Explicitly reset here
+        setTasksCompletedCount(0);
     }
-  }, [t]); // Rerun if language changes to update translations
+  }, [t, chartFills, statusTranslationKeys]); // Dependencies for useCallback
+
+  useEffect(() => {
+    loadAndProcessTasks(); // Initial load
+
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === 'uploadedTasks') {
+        loadAndProcessTasks();
+      }
+    };
+
+    const handleTasksUpdatedEvent = () => {
+      loadAndProcessTasks();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('tasksUpdatedInStorage', handleTasksUpdatedEvent);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('tasksUpdatedInStorage', handleTasksUpdatedEvent);
+    };
+  }, [loadAndProcessTasks]);
 
 
   const recentActivities = [
