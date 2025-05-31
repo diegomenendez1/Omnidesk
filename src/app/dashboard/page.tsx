@@ -17,22 +17,23 @@ interface TaskOverviewData {
   fill: string;
 }
 
+// Define these as constants outside the component for stable references
+const CHART_FILLS: Record<TaskStatus, string> = {
+  "Missing Estimated Dates": "hsl(var(--chart-1))",
+  "Missing POD": "hsl(var(--chart-2))",
+  "Pending to Invoice Out of Time": "hsl(var(--chart-3))",
+};
+const STATUS_TRANSLATION_KEYS: Record<TaskStatus, string> = {
+  "Missing Estimated Dates": "interactiveTable.status.missingEstimates",
+  "Missing POD": "interactiveTable.status.missingPOD",
+  "Pending to Invoice Out of Time": "interactiveTable.status.pendingInvoice",
+};
+
 export default function DashboardPage() {
   const { t } = useLanguage();
   const [taskOverviewData, setTaskOverviewData] = useState<TaskOverviewData[]>([]);
   const [totalTasks, setTotalTasks] = useState<number>(0);
   const [tasksCompletedCount, setTasksCompletedCount] = useState<number>(0);
-
-  const chartFills: Record<TaskStatus, string> = {
-    "Missing Estimated Dates": "hsl(var(--chart-1))",
-    "Missing POD": "hsl(var(--chart-2))",
-    "Pending to Invoice Out of Time": "hsl(var(--chart-3))",
-  };
-  const statusTranslationKeys: Record<TaskStatus, string> = {
-    "Missing Estimated Dates": "interactiveTable.status.missingEstimates",
-    "Missing POD": "interactiveTable.status.missingPOD",
-    "Pending to Invoice Out of Time": "interactiveTable.status.pendingInvoice",
-  };
 
   const loadAndProcessTasks = useCallback(() => {
     const storedTasksJson = localStorage.getItem('uploadedTasks');
@@ -60,16 +61,16 @@ export default function DashboardPage() {
           setTasksCompletedCount(completedCount);
 
           const overviewData = (Object.keys(statusCounts) as TaskStatus[]).map(statusKey => ({
-            name: t(statusTranslationKeys[statusKey] as any),
+            name: t(STATUS_TRANSLATION_KEYS[statusKey] as any),
             value: statusCounts[statusKey],
-            fill: chartFills[statusKey] || "hsl(var(--chart-4))", 
+            fill: CHART_FILLS[statusKey] || "hsl(var(--chart-4))", 
           }));
           setTaskOverviewData(overviewData);
         } else {
           setTaskOverviewData([
-              { name: t('interactiveTable.status.missingEstimates'), value: 0, fill: chartFills["Missing Estimated Dates"] },
-              { name: t('interactiveTable.status.missingPOD'), value: 0, fill: chartFills["Missing POD"] },
-              { name: t('interactiveTable.status.pendingInvoice'), value: 0, fill: chartFills["Pending to Invoice Out of Time"] },
+              { name: t('interactiveTable.status.missingEstimates'), value: 0, fill: CHART_FILLS["Missing Estimated Dates"] },
+              { name: t('interactiveTable.status.missingPOD'), value: 0, fill: CHART_FILLS["Missing POD"] },
+              { name: t('interactiveTable.status.pendingInvoice'), value: 0, fill: CHART_FILLS["Pending to Invoice Out of Time"] },
           ]);
           setTotalTasks(0);
           setTasksCompletedCount(0);
@@ -77,23 +78,23 @@ export default function DashboardPage() {
       } catch (error) {
         console.error("Error processing tasks from localStorage for dashboard:", error);
         setTaskOverviewData([
-            { name: t('interactiveTable.status.missingEstimates'), value: 0, fill: chartFills["Missing Estimated Dates"] },
-            { name: t('interactiveTable.status.missingPOD'), value: 0, fill: chartFills["Missing POD"] },
-            { name: t('interactiveTable.status.pendingInvoice'), value: 0, fill: chartFills["Pending to Invoice Out of Time"] },
+            { name: t('interactiveTable.status.missingEstimates'), value: 0, fill: CHART_FILLS["Missing Estimated Dates"] },
+            { name: t('interactiveTable.status.missingPOD'), value: 0, fill: CHART_FILLS["Missing POD"] },
+            { name: t('interactiveTable.status.pendingInvoice'), value: 0, fill: CHART_FILLS["Pending to Invoice Out of Time"] },
         ]);
         setTotalTasks(0);
         setTasksCompletedCount(0);
       }
     } else {
         setTaskOverviewData([
-            { name: t('interactiveTable.status.missingEstimates'), value: 0, fill: chartFills["Missing Estimated Dates"] },
-            { name: t('interactiveTable.status.missingPOD'), value: 0, fill: chartFills["Missing POD"] },
-            { name: t('interactiveTable.status.pendingInvoice'), value: 0, fill: chartFills["Pending to Invoice Out of Time"] },
+            { name: t('interactiveTable.status.missingEstimates'), value: 0, fill: CHART_FILLS["Missing Estimated Dates"] },
+            { name: t('interactiveTable.status.missingPOD'), value: 0, fill: CHART_FILLS["Missing POD"] },
+            { name: t('interactiveTable.status.pendingInvoice'), value: 0, fill: CHART_FILLS["Pending to Invoice Out of Time"] },
         ]);
         setTotalTasks(0);
         setTasksCompletedCount(0);
     }
-  }, [t, chartFills, statusTranslationKeys]); // Dependencies for useCallback
+  }, [t]); // Dependencies for useCallback are now just 't'
 
   useEffect(() => {
     loadAndProcessTasks(); // Initial load
