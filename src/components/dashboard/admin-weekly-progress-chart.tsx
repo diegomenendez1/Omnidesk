@@ -1,7 +1,7 @@
 
 "use client";
 
-import { Bar, BarChart, Line, ComposedChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from "recharts";
+import { Bar, BarChart, Line, ComposedChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid, LabelList } from "recharts";
 import {
   ChartContainer,
   ChartTooltipContent,
@@ -34,23 +34,34 @@ const ADMIN_COLORS = [
   "hsl(50, 70%, 50%)",
 ];
 
+const DataLabel = ({ x, y, value }: { x?: number; y?: number; value?: number }) => {
+  if (x === undefined || y === undefined || value === undefined || value === null) return null;
+  return (
+    <text x={x} y={y} dy={-4} fill="hsl(var(--foreground))" fontSize={10} textAnchor="middle">
+      {`${Math.round(value)}%`}
+    </text>
+  );
+};
+
+
 export function AdminWeeklyProgressChart({ data, admins }: AdminWeeklyProgressChartProps) {
   const { t } = useLanguage();
 
   const chartConfig = useMemo(() => {
     const config: any = {
       teamAverage: {
-        label: t('dashboard.adminWeeklyProgress.teamAverage'),
+        label: t('dashboard.adminWeeklyProgressChart.teamAverage'), // Ensured key is specific
         color: "hsl(var(--foreground))",
       },
       goalLine: {
-        label: t('dashboard.adminWeeklyProgress.goalLine'),
+        label: t('dashboard.adminWeeklyProgressChart.goalLine'), // Ensured key is specific
         color: "hsl(var(--destructive))",
       },
     };
     admins.forEach((admin, index) => {
-      config[admin.replace(/\s+/g, '') + 'Progress'] = { // Sanitize admin name for key
-        label: admin,
+      const sanitizedAdminName = admin.replace(/\s+/g, '') + 'Progress';
+      config[sanitizedAdminName] = { 
+        label: admin, // Admin names directly from data
         color: ADMIN_COLORS[index % ADMIN_COLORS.length],
       };
     });
@@ -58,13 +69,15 @@ export function AdminWeeklyProgressChart({ data, admins }: AdminWeeklyProgressCh
   }, [admins, t]);
 
   if (!data || data.length === 0) {
-    return <p className="text-center text-muted-foreground py-10">{t('dashboard.adminWeeklyProgress.noData')}</p>;
+    // This message is shown if the 'data' prop itself is empty.
+    // The dashboard page might show a more general "upload data" prompt if no tasks exist at all.
+    return <p className="text-center text-muted-foreground py-10">{t('dashboard.adminWeeklyProgressChart.noDataForChart')}</p>;
   }
 
-  const chartMargin = { top: 5, right: 30, left: 0, bottom: 20 };
+  const chartMargin = { top: 20, right: 30, left: 20, bottom: 20 };
 
   return (
-    <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
+    <ChartContainer config={chartConfig} className="min-h-[350px] w-full">
       <ResponsiveContainer width="100%" height={350}>
         <ComposedChart data={data} margin={chartMargin}>
           <CartesianGrid vertical={false} strokeDasharray="3 3" />
@@ -74,7 +87,7 @@ export function AdminWeeklyProgressChart({ data, admins }: AdminWeeklyProgressCh
             axisLine={false} 
             stroke="hsl(var(--muted-foreground))" 
             fontSize={12}
-            tickFormatter={(value) => value.substring(5)} // Show only "Www"
+            tickFormatter={(value) => t('dashboard.adminWeeklyProgressChart.weekLabel', { week: value.substring(5).replace('W','') })}
           />
           <YAxis 
             stroke="hsl(var(--muted-foreground))" 
@@ -83,64 +96,66 @@ export function AdminWeeklyProgressChart({ data, admins }: AdminWeeklyProgressCh
             axisLine={false}
             domain={[0, 100]}
             tickFormatter={(value) => `${value}%`}
+            label={{ value: t('dashboard.adminWeeklyProgressChart.yAxisLabel'), angle: -90, position: 'insideLeft', offset: -5, style: {textAnchor: 'middle', fontSize: '12px', fill: 'hsl(var(--muted-foreground))'} }}
           />
           <Tooltip
             content={<ChartTooltipContent 
                         formatter={(value, name, item) => {
-                            const config = chartConfig[item.dataKey as string];
+                            const configKey = item.dataKey as string;
+                            const currentConfig = chartConfig[configKey];
                             return (
                                 <div className="flex items-center gap-2">
-                                    {config?.label || name}: <span className="font-bold">{typeof value === 'number' ? `${value.toFixed(1)}%` : value}</span>
+                                    <span style={{color: currentConfig?.color || item.color}}>●</span>
+                                    {currentConfig?.label || name}: <span className="font-bold">{typeof value === 'number' ? `${value.toFixed(1)}%` : value}</span>
                                 </div>
                             );
                         }} 
                      />} 
             cursor={{ fill: "hsl(var(--muted))" }}
           />
-          <Legend content={<ChartLegendContent />} verticalAlign="top" height={40}/>
+          <Legend content={<ChartLegendContent />} verticalAlign="top" wrapperStyle={{paddingBottom: '10px'}} />
 
-          {admins.map((admin, index) => (
-            <Bar 
-              key={admin} 
-              dataKey={`${admin.replace(/\s+/g, '')}Progress`} // Use sanitized key
-              name={admin} 
-              fill={ADMIN_COLORS[index % ADMIN_COLORS.length]} 
-              radius={[4, 4, 0, 0]}
-              barSize={Math.max(10, 60 / admins.length)} // Adjust bar size
-            />
-          ))}
+          {admins.map((admin, index) => {
+            const dataKey = `${admin.replace(/\s+/g, '')}Progress`;
+            return (
+              <Bar 
+                key={admin} 
+                dataKey={dataKey}
+                name={admin} // This name appears in default legend and tooltip
+                fill={ADMIN_COLORS[index % ADMIN_COLORS.length]} 
+                radius={[4, 4, 0, 0]}
+                barSize={Math.max(10, 60 / admins.length)}
+              >
+                <LabelList dataKey={dataKey} content={<DataLabel />} />
+              </Bar>
+            );
+          })}
 
           <Line 
             type="monotone" 
             dataKey="teamAverage" 
-            name={t('dashboard.adminWeeklyProgress.teamAverage')}
+            name={t('dashboard.adminWeeklyProgressChart.teamAverage')} // Name for legend/tooltip
             stroke="hsl(var(--foreground))" 
             strokeWidth={2} 
-            dot={{ r: 4 }} 
-            activeDot={{ r: 6 }}
-          />
+            dot={{ r: 4, fill: 'hsl(var(--foreground))' }} 
+            activeDot={{ r: 6, fill: 'hsl(var(--foreground))' }}
+          >
+             <LabelList dataKey="teamAverage" content={<DataLabel />} />
+          </Line>
           <Line 
             type="monotone" 
             dataKey="goalLine" 
-            name={t('dashboard.adminWeeklyProgress.goalLine')}
+            name={t('dashboard.adminWeeklyProgressChart.goalLine')} // Name for legend/tooltip
             stroke="hsl(var(--destructive))" 
             strokeWidth={2} 
             strokeDasharray="5 5" 
-            dot={{ r: 4 }} 
-            activeDot={{ r: 6 }}
-          />
+            dot={{ r: 4, fill: 'hsl(var(--destructive))' }} 
+            activeDot={{ r: 6, fill: 'hsl(var(--destructive))' }}
+          >
+            <LabelList dataKey="goalLine" content={<DataLabel />} />
+          </Line>
         </ComposedChart>
       </ResponsiveContainer>
     </ChartContainer>
   );
 }
-
-// Add new translation keys to your translations file:
-// dashboard.adminWeeklyProgress.teamAverage = "Team Average"
-// dashboard.adminWeeklyProgress.goalLine = "Goal Line"
-// dashboard.adminWeeklyProgress.noData = "No data available for admin progress."
-// in Spanish:
-// dashboard.adminWeeklyProgress.teamAverage = "Promedio Equipo"
-// dashboard.adminWeeklyProgress.goalLine = "Línea Objetivo"
-// dashboard.adminWeeklyProgress.noData = "No hay datos disponibles para el progreso de administradores."
-
