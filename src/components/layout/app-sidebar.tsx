@@ -15,7 +15,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react'; // Added useMemo
 import { useLanguage } from '@/context/language-context';
 import { useAuth } from "@/context/auth-context";
 
@@ -82,12 +82,17 @@ export function AppSidebar() {
             
             const translatedLabel = t(item.labelKey as any);
 
+            const tooltipConfig = useMemo(() => ({
+              children: translatedLabel,
+              side: "right" as const, // Explicitly type 'side' for stability
+            }), [translatedLabel]);
+
             return (
               <SidebarMenuItem key={item.href}>
                 <SidebarMenuButton
                   asChild
                   isActive={isActive}
-                  tooltip={{ children: translatedLabel, side: "right" }}
+                  tooltip={tooltipConfig} // Use the memoized tooltip object
                   className="justify-start"
                 >
                   <Link href={item.href}>
