@@ -1,0 +1,194 @@
+
+"use client";
+
+import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid, ReferenceLine, LabelList } from "recharts";
+import {
+  ChartContainer,
+  ChartTooltipContent,
+  ChartLegendContent,
+} from "@/components/ui/chart";
+import { useLanguage } from "@/context/language-context";
+import { useMemo } from "react";
+
+export interface OverallAdminProgressDataPoint {
+  adminName: string;
+  progressPercent: number | null; 
+}
+
+interface OverallAdminProgressChartProps {
+  data: OverallAdminProgressDataPoint[];
+  teamAveragePercent: number | null;
+  goalPercent: number;
+  allAdmins: string[]; 
+}
+
+const ADMIN_COLORS = [
+  "hsl(var(--chart-1))",
+  "hsl(var(--chart-2))",
+  "hsl(var(--chart-3))",
+  "hsl(var(--chart-4))",
+  "hsl(var(--chart-5))",
+  "hsl(200, 70%, 50%)",
+  "hsl(280, 70%, 50%)",
+  "hsl(50, 70%, 50%)",
+];
+
+const DataLabel = ({ x, y, value, unit = "%" }: { x?: number; y?: number; value?: number | null; unit?: string }) => {
+  if (x === undefined || y === undefined || value === undefined || value === null) return null;
+  const numericX = Number(x);
+  const numericY = Number(y);
+  if (isNaN(numericX) || isNaN(numericY)) return null;
+
+  return (
+    <text x={numericX} y={numericY} dy={-4} fill="hsl(var(--foreground))" fontSize={12} textAnchor="middle">
+      {`${value.toFixed(0)}${unit}`}
+    </text>
+  );
+};
+
+export function OverallAdminProgressChart({ data, teamAveragePercent, goalPercent, allAdmins }: OverallAdminProgressChartProps) {
+  const { t } = useLanguage();
+
+  const chartConfig = useMemo(() => {
+    const config: any = {
+      progressPercent: { 
+        label: t('dashboard.overallAdminProgress.yAxisLabel'),
+      },
+      teamAverage: {
+        label: t('dashboard.overallAdminProgress.teamAverageLabel'),
+        color: "hsl(var(--foreground))", 
+      },
+      goalLine: {
+        label: t('dashboard.overallAdminProgress.goalLineLabel'),
+        color: "hsl(var(--destructive))", 
+      },
+    };
+    allAdmins.forEach((admin, index) => {
+        config[admin] = { 
+            label: admin,
+            color: ADMIN_COLORS[index % ADMIN_COLORS.length]
+        };
+    });
+    return config;
+  }, [t, allAdmins]);
+  
+  const chartData = useMemo(() => {
+    return allAdmins.map(adminName => {
+      const adminData = data.find(d => d.adminName === adminName);
+      return {
+        adminName,
+        progressPercent: adminData ? adminData.progressPercent : null,
+      };
+    }).sort((a, b) => { // Sort by progressPercent descending, nulls (no progress) at the end
+        if (a.progressPercent === null && b.progressPercent === null) return a.adminName.localeCompare(b.adminName);
+        if (a.progressPercent === null) return 1;
+        if (b.progressPercent === null) return -1;
+        return b.progressPercent - a.progressPercent;
+    });
+  }, [allAdmins, data]);
+
+
+  if (!chartData || chartData.length === 0) {
+    // This case implies no admins were passed, or data for allAdmins resulted in empty chartData
+    // Let's also consider if 'data' itself is empty but 'allAdmins' has names.
+     if (allAdmins.length > 0 && data.every(d => d.progressPercent === null)) {
+        // Admins exist, but none have progress data.
+    } else if (allAdmins.length === 0) {
+        return <p className="text-center text-muted-foreground py-10">{t('dashboard.overallAdminProgress.uploadDataPrompt')}</p>;
+    }
+    // If chartData is empty despite allAdmins having entries, it means no progress data was found for any admin.
+    // This might be covered by the check for data.every(...) above, but a general fallback is good.
+    // The component will still render with axes if chartData is empty but not strictly null/undefined, so we provide data to it.
+  }
+  
+
+  const chartMargin = { top: 20, right: 30, left: 20, bottom: 50 }; 
+
+  return (
+    <ChartContainer config={chartConfig} className="min-h-[350px] w-full">
+      <ResponsiveContainer width="100%" height={350}>
+        <BarChart data={chartData} margin={chartMargin}>
+          <CartesianGrid vertical={false} strokeDasharray="3 3" />
+          <XAxis
+            dataKey="adminName"
+            tickLine={false}
+            axisLine={false}
+            stroke="hsl(var(--muted-foreground))"
+            fontSize={12}
+            interval={0} 
+            angle={-30} 
+            textAnchor="end" 
+          />
+          <YAxis
+            stroke="hsl(var(--muted-foreground))"
+            fontSize={12}
+            tickLine={false}
+            axisLine={false}
+            domain={[0, 100]}
+            tickFormatter={(value) => `${value}%`}
+            label={{ value: t('dashboard.overallAdminProgress.yAxisLabel'), angle: -90, position: 'insideLeft', offset: -5, style: { textAnchor: 'middle', fontSize: '12px', fill: 'hsl(var(--muted-foreground))' } }}
+          />
+          <Tooltip
+            content={<ChartTooltipContent
+              formatter={(value, name, item) => {
+                const adminName = item.payload.adminName;
+                const adminConfig = chartConfig[adminName] || {};
+
+                return (
+                  <div className="flex items-center gap-2">
+                    <span style={{color: adminConfig.color || item.color || item.payload.fill }}>●</span>
+                    {adminName}: <span className="font-bold">{typeof value === 'number' ? `${value.toFixed(0)}%` : (value === null ? t('interactiveTable.notAvailable') : value)}</span>
+                  </div>
+                );
+              }}
+            />}
+            cursor={{ fill: "hsl(var(--muted))" }}
+          />
+          <Legend 
+            content={<ChartLegendContent />} 
+            verticalAlign="bottom" 
+            wrapperStyle={{paddingTop: '20px'}}
+          />
+
+          <Bar dataKey="progressPercent" nameKey="adminName" radius={[4, 4, 0, 0]}>
+            {chartData.map((entry, index) => (
+              <Bar key={entry.adminName} dataKey="progressPercent" fill={ADMIN_COLORS[allAdmins.indexOf(entry.adminName) % ADMIN_COLORS.length]} name={entry.adminName} />
+            ))}
+            <LabelList dataKey="progressPercent" content={<DataLabel />} />
+          </Bar>
+          
+          {teamAveragePercent !== null && (
+            <ReferenceLine
+              y={teamAveragePercent}
+              stroke="hsl(var(--primary))" // Changed from foreground to primary for better visibility
+              strokeWidth={2}
+              ifOverflow="extendDomain"
+              label={{
+                value: `${t('dashboard.overallAdminProgress.teamAverageLabel')}: ${teamAveragePercent.toFixed(0)}%`,
+                position: "insideTopRight",
+                fill: "hsl(var(--primary))", // Consistent with stroke
+                fontSize: 10,
+                dy: -5
+              }}
+            />
+          )}
+          
+          <ReferenceLine
+            y={goalPercent}
+            stroke="hsl(var(--destructive))" 
+            strokeDasharray="5 5"
+            strokeWidth={2}
+            ifOverflow="extendDomain"
+            label={{
+              value: `${t('dashboard.overallAdminProgress.goalLineLabel')}: ${goalPercent.toFixed(0)}%`,
+              position: "insideTopLeft", 
+              fill: "hsl(var(--destructive))",
+              fontSize: 10,
+              dy: -5
+            }}
+          />
+        </BarChart>
+      </ResponsiveContainer>
+    </ChartContainer>
+  );
+}
