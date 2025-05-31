@@ -77,7 +77,7 @@ export interface Translations {
     inProgress: string;
     completed: string;
     blocked: string;
-    overallAdminProgress: { // Renamed from adminWeeklyProgress
+    overallAdminProgress: {
       title: string;
       description: string;
       yAxisLabel: string;
@@ -93,7 +93,7 @@ export interface Translations {
       teamAverageLabel: string;
       noData: string;
       noResolvedTasks: string;
-      adminLabel: string; // For tooltips or specific admin references if needed
+      adminLabel: string;
       avgDaysSuffix: string;
       uploadDataPrompt: string;
     };
@@ -262,6 +262,52 @@ export interface Translations {
       networkError: string;
       apiKeyInvalid: string;
     };
+  };
+  history: {
+    dialogTitle: string;
+    dialogDescription: string;
+    timestamp: string;
+    user: string;
+    systemUser: string;
+    fieldChanged: string;
+    oldValue: string;
+    newValue: string;
+    noHistory: string;
+    fields: {
+      status: string;
+      assignee: string;
+      taskReference: string;
+      delayDays: string;
+      customerAccount: string;
+      netAmount: string;
+      transportMode: string;
+      comments: string;
+      resolutionAdmin: string;
+      resolutionStatus: string;
+      resolutionTimeDays: string;
+      createdAt: string;
+      resolvedAt: string;
+      taskCreation: string;
+    };
+  };
+  migration: {
+    title: string;
+    description: string;
+    localDataDetected: string;
+    localDataDetectedDescription: string;
+    migrateButton: string;
+    migratingButton: string;
+    noDataToMigrate: string;
+    migrationSuccessTitle: string;
+    migrationSuccessDescription: string;
+    migrationErrorTitle: string;
+    migrationErrorDescription: string;
+    deleteLocalDataDialogTitle: string;
+    deleteLocalDataDialogDescription: string;
+    deleteLocalButton: string;
+    keepLocalButton: string;
+    localDataDeleted: string;
+    localDataKept: string;
   };
   // This structure must be present for each locale
   [key: string]: any;
@@ -530,6 +576,52 @@ export const translations: Translations = {
         apiKeyInvalid: "The Firebase API key is invalid. Please check your Firebase project setup.",
       },
     },
+    history: {
+      dialogTitle: "Change History for Task: {taskRef}",
+      dialogDescription: "Review the history of changes made to this task.",
+      timestamp: "Timestamp",
+      user: "User",
+      systemUser: "System",
+      fieldChanged: "Field Changed",
+      oldValue: "Old Value",
+      newValue: "New Value",
+      noHistory: "This task has no change history yet.",
+      fields: {
+        status: "TO Status",
+        assignee: "Logistic Developer",
+        taskReference: "TO Ref.",
+        delayDays: "Delay Days",
+        customerAccount: "Customer Account",
+        netAmount: "Net Amount $",
+        transportMode: "Transport Mode",
+        comments: "Comments",
+        resolutionAdmin: "Resolution Admin",
+        resolutionStatus: "Resolution Status",
+        resolutionTimeDays: "Resolution Time (days)",
+        createdAt: "Created At",
+        resolvedAt: "Resolved At",
+        taskCreation: "Task Creation",
+      },
+    },
+    migration: {
+      title: "Data Migration",
+      description: "Manage migration of local task data to the cloud (Firestore).",
+      localDataDetected: "Local Task Data Detected",
+      localDataDetectedDescription: "Tasks found in this browser's local storage. You can migrate them to Firestore for cloud storage and collaboration.",
+      migrateButton: "Migrate Local Tasks to Cloud",
+      migratingButton: "Migrating...",
+      noDataToMigrate: "No local task data found to migrate.",
+      migrationSuccessTitle: "Migration Successful",
+      migrationSuccessDescription: "{count} tasks were successfully migrated to Firestore.",
+      migrationErrorTitle: "Migration Error",
+      migrationErrorDescription: "An error occurred during migration: {error}",
+      deleteLocalDataDialogTitle: "Delete Local Data?",
+      deleteLocalDataDialogDescription: "Tasks have been migrated to the cloud. Do you want to remove the local copy from this browser? You can keep it as a temporary backup.",
+      deleteLocalButton: "Delete Local Data",
+      keepLocalButton: "Keep Local Data",
+      localDataDeleted: "Local task data has been deleted.",
+      localDataKept: "Local task data has been kept.",
+    },
   },
   es: {
     appName: "OmniDeck",
@@ -605,7 +697,7 @@ export const translations: Translations = {
       inProgress: "En Progreso",
       completed: "Completado",
       blocked: "Bloqueado",
-      overallAdminProgress: { // Renamed from adminWeeklyProgress and keys updated
+      overallAdminProgress: {
         title: "Avance General por Administrador",
         description: "Avance individual de cada administrador basado en tareas asignadas vs. resueltas.",
         yAxisLabel: "Porcentaje de avance (%)",
@@ -791,6 +883,52 @@ export const translations: Translations = {
         apiKeyInvalid: "La clave API de Firebase no es válida. Por favor, revisa la configuración de tu proyecto Firebase.",
       },
     },
+    history: {
+      dialogTitle: "Historial de Cambios para Tarea: {taskRef}",
+      dialogDescription: "Revisa el historial de cambios realizados en esta tarea.",
+      timestamp: "Fecha y Hora",
+      user: "Usuario",
+      systemUser: "Sistema",
+      fieldChanged: "Campo Modificado",
+      oldValue: "Valor Anterior",
+      newValue: "Valor Nuevo",
+      noHistory: "Esta tarea aún no tiene historial de cambios.",
+      fields: {
+        status: "Estado TO",
+        assignee: "Desarrollador Logístico",
+        taskReference: "Ref. TO",
+        delayDays: "Días de Atraso",
+        customerAccount: "Cuenta Cliente",
+        netAmount: "Monto Neto $",
+        transportMode: "Modo Transporte",
+        comments: "Comentarios",
+        resolutionAdmin: "Administrador Resolución",
+        resolutionStatus: "Estado Resolución",
+        resolutionTimeDays: "Tiempo Resolución (días)",
+        createdAt: "Fecha Creación",
+        resolvedAt: "Fecha Resolución",
+        taskCreation: "Creación de Tarea",
+      },
+    },
+    migration: {
+      title: "Migración de Datos",
+      description: "Gestiona la migración de datos de tareas locales a la nube (Firestore).",
+      localDataDetected: "Datos de Tareas Locales Detectados",
+      localDataDetectedDescription: "Se encontraron tareas en el almacenamiento local de este navegador. Puedes migrarlas a Firestore para almacenamiento en la nube y colaboración.",
+      migrateButton: "Migrar Tareas Locales a la Nube",
+      migratingButton: "Migrando...",
+      noDataToMigrate: "No se encontraron datos de tareas locales para migrar.",
+      migrationSuccessTitle: "Migración Exitosa",
+      migrationSuccessDescription: "{count} tareas fueron migradas exitosamente a Firestore.",
+      migrationErrorTitle: "Error de Migración",
+      migrationErrorDescription: "Ocurrió un error durante la migración: {error}",
+      deleteLocalDataDialogTitle: "¿Eliminar Datos Locales?",
+      deleteLocalDataDialogDescription: "Las tareas han sido migradas a la nube. ¿Deseas eliminar la copia local de este navegador? Puedes conservarla como respaldo temporal.",
+      deleteLocalButton: "Eliminar Datos Locales",
+      keepLocalButton: "Conservar Datos Locales",
+      localDataDeleted: "Los datos de tareas locales han sido eliminados.",
+      localDataKept: "Se han conservado los datos de tareas locales.",
+    },
   },
 };
 
@@ -808,4 +946,5 @@ type Path<T> = PathImpl<T, keyof T>;
 // Use Translations['en'] to derive keys from a specific locale structure
 export type TranslationKey = Path<Translations['en']>;
 
+    
     

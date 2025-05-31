@@ -16,6 +16,7 @@ import { OverallAdminProgressChart, type OverallAdminProgressDataPoint } from '@
 import { AverageResolutionTimeChart, type AdminResolutionTimeDataPoint } from '@/components/dashboard/average-resolution-time-chart';
 import { calculateBusinessDays } from '@/lib/utils'; 
 import { parseISO, isValid } from 'date-fns';
+import { MigrationControls } from '@/components/migration/migration-controls'; // Import MigrationControls
 
 
 interface TaskOverviewData {
@@ -331,6 +332,8 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      <MigrationControls /> {/* Add MigrationControls here */}
+      
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <MetricCard title={t('dashboard.totalTasks')} value={totalTasks} icon={<ListChecks className="h-6 w-6 text-primary" />} description={t('dashboard.acrossAllProjects')} />
         <MetricCard title={t('dashboard.activeProjects')} value="15" icon={<Briefcase className="h-6 w-6 text-primary" />} description={t('dashboard.fromLastWeek')} />
@@ -446,4 +449,6 @@ export default function DashboardPage() {
   );
 }
 
+    
+    
     
