@@ -21,7 +21,7 @@ export default function DashboardPage() {
   const { t } = useLanguage();
   const [taskOverviewData, setTaskOverviewData] = useState<TaskOverviewData[]>([]);
   const [totalTasks, setTotalTasks] = useState<number>(0);
-  const [tasksCompletedCount, setTasksCompletedCount] = useState<number>(0); // For MetricCard if logic changes
+  const [tasksCompletedCount, setTasksCompletedCount] = useState<number>(0);
 
   // Chart fill colors (ensure these are defined in globals.css or adjust as needed)
   const chartFills: Record<TaskStatus, string> = {
@@ -56,7 +56,6 @@ export default function DashboardPage() {
             if (task.status && statusCounts.hasOwnProperty(task.status)) {
               statusCounts[task.status]++;
             }
-            // Example logic for "tasks completed" metric, adjust as needed
             if (task.resolutionStatus === "Resuelto") {
               completedCount++;
             }
@@ -70,6 +69,15 @@ export default function DashboardPage() {
             fill: chartFills[statusKey] || "hsl(var(--chart-4))", // Fallback fill
           }));
           setTaskOverviewData(overviewData);
+        } else {
+          // If loadedTasks is empty or not an array
+          setTaskOverviewData([
+              { name: t('interactiveTable.status.missingEstimates'), value: 0, fill: chartFills["Missing Estimated Dates"] },
+              { name: t('interactiveTable.status.missingPOD'), value: 0, fill: chartFills["Missing POD"] },
+              { name: t('interactiveTable.status.pendingInvoice'), value: 0, fill: chartFills["Pending to Invoice Out of Time"] },
+          ]);
+          setTotalTasks(0);
+          setTasksCompletedCount(0);
         }
       } catch (error) {
         console.error("Error processing tasks from localStorage for dashboard:", error);
@@ -80,7 +88,7 @@ export default function DashboardPage() {
             { name: t('interactiveTable.status.pendingInvoice'), value: 0, fill: chartFills["Pending to Invoice Out of Time"] },
         ]);
         setTotalTasks(0);
-        setTasksCompletedCount(0);
+        setTasksCompletedCount(0); // Explicitly reset here
       }
     } else {
        // Default empty state if no tasks in localStorage
@@ -90,7 +98,7 @@ export default function DashboardPage() {
             { name: t('interactiveTable.status.pendingInvoice'), value: 0, fill: chartFills["Pending to Invoice Out of Time"] },
         ]);
         setTotalTasks(0);
-        setTasksCompletedCount(0);
+        setTasksCompletedCount(0); // Explicitly reset here
     }
   }, [t]); // Rerun if language changes to update translations
 
@@ -106,7 +114,6 @@ export default function DashboardPage() {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <MetricCard title={t('dashboard.totalTasks')} value={totalTasks} icon={<ListChecks className="h-6 w-6 text-primary" />} description={t('dashboard.acrossAllProjects')} />
         <MetricCard title={t('dashboard.activeProjects')} value="15" icon={<Briefcase className="h-6 w-6 text-primary" />} description={t('dashboard.fromLastWeek')} />
-        {/* For "Tasks Completed", you might want specific logic based on a 'completed' status if available or resolutionStatus */}
         <MetricCard title={t('dashboard.tasksCompleted')} value={tasksCompletedCount} icon={<CheckCircle2 className="h-6 w-6 text-[hsl(var(--success))]" />} description={t('dashboard.thisMonth')} />
         <MetricCard title={t('dashboard.teamMembers')} value="12" icon={<Users className="h-6 w-6 text-primary" />} description={t('dashboard.activeUsers')} />
       </div>
