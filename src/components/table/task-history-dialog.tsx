@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from 'date-fns';
+import { enUS, es } from 'date-fns/locale'; // Import date-fns locales
 import { useLanguage } from '@/context/language-context';
 import { Button } from '@/components/ui/button';
 import { History } from 'lucide-react';
@@ -21,9 +22,14 @@ function formatHistoryValue(value: any, field: string, t: Function): string {
   if (value === null || value === undefined || value === "") {
     return t('interactiveTable.notAvailable');
   }
-  if (field === 'resolvedAt' || field === 'createdAt') {
+  if (field === 'resolvedAt' || field === 'createdAt' || field === 'timestamp') { // Added 'timestamp' for consistency if ever needed
     try {
-      return format(new Date(value), 'PPpp');
+      // Date formatting is now handled directly in the table cell for timestamp
+      // For oldValue/newValue, specific date formatting might still be needed if they are date strings
+      if (value instanceof Date || !isNaN(new Date(value).getTime())) {
+        return format(new Date(value), 'PPpp', { locale: t('localeObject') === 'es' ? es : enUS }); // Placeholder, main formatting in cell
+      }
+      return String(value);
     } catch {
       return String(value);
     }
@@ -50,7 +56,9 @@ function formatHistoryValue(value: any, field: string, t: Function): string {
 
 
 export function TaskHistoryDialog({ history, taskReference, triggerButton }: TaskHistoryDialogProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+
+  const dateFnsLocale = language === 'es' ? es : enUS;
 
   const sortedHistory = history ? [...history].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) : [];
 
@@ -88,7 +96,7 @@ export function TaskHistoryDialog({ history, taskReference, triggerButton }: Tas
                   entry.changes.map((change, changeIndex) => (
                     <TableRow key={`${entry.id}-${changeIndex}`}>
                       <TableCell className="text-xs">
-                        {format(new Date(entry.timestamp), 'PPpp', { locale: t('localeObject') })}
+                        {format(new Date(entry.timestamp), 'PPpp', { locale: dateFnsLocale })}
                       </TableCell>
                       <TableCell>
                         <Badge variant="secondary" className="text-xs">{entry.userName || entry.userId || t('history.systemUser')}</Badge>
