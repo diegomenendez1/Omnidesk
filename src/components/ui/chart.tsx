@@ -193,7 +193,7 @@ const ChartTooltipContent = React.forwardRef<
 
             return (
               <div
-                key={item.name || item.dataKey || `tooltip-item-${index}`} // Updated key
+                key={item.name || item.dataKey || `tooltip-item-${index}`} // Corrected key
                 className={cn(
                   "flex w-full flex-wrap items-stretch gap-2 [&>svg]:h-2.5 [&>svg]:w-2.5 [&>svg]:text-muted-foreground",
                   indicator === "dot" && "items-center"
@@ -239,7 +239,7 @@ const ChartTooltipContent = React.forwardRef<
                           {itemConfig?.label || item.name}
                         </span>
                       </div>
-                      {item.value !== undefined && item.value !== null && ( // check for undefined and null
+                      {item.value !== undefined && item.value !== null && ( // Improved check for value
                         <span className="font-mono font-medium tabular-nums text-foreground">
                           {typeof item.value === 'number' ? item.value.toLocaleString() : String(item.value)}
                         </span>
