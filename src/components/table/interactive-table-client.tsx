@@ -18,7 +18,7 @@ import { ScanSearch, ArrowUp, ArrowDown, Filter as FilterIcon, History as Histor
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, calculateBusinessDays } from '@/lib/utils';
 import { useLanguage } from '@/context/language-context';
-import { useAuth } from '@/context/auth-context'; // Assuming auth context provides current user
+import { auth } from '@/lib/firebase'; // Firebase Auth for current user
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '@/lib/firebase'; // Import Firestore instance
@@ -45,7 +45,6 @@ export function InteractiveTableClient({ }: InteractiveTableClientProps) {
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
   const { t } = useLanguage();
-  const { user: currentUser } = useAuth();
 
   const [editingCellKey, setEditingCellKey] = useState<string | null>(null);
   const [currentEditText, setCurrentEditText] = useState<string>("");
@@ -163,6 +162,7 @@ export function InteractiveTableClient({ }: InteractiveTableClientProps) {
   };
 
   const logChangeHistory = useCallback(async (taskId: string, action: 'created' | 'updated' | 'deleted', changes: TaskHistoryChangeDetail[] = []) => {
+    const user = auth.currentUser; // Fetch user inside the callback
     if (!taskId) {
       console.error("Cannot log history without a task ID.");
       return;
@@ -170,8 +170,8 @@ export function InteractiveTableClient({ }: InteractiveTableClientProps) {
     try {
       await logTaskHistory(
         taskId,
-        currentUser?.uid || 'system_change',
-        currentUser?.name || currentUser?.email || 'System Change',
+        user?.uid || 'system_change',
+        user?.name || user?.email || 'System Change',
         action,
         changes
       );
@@ -183,7 +183,7 @@ export function InteractiveTableClient({ }: InteractiveTableClientProps) {
         variant: "destructive",
       });
     }
-  }, [currentUser, t]);
+  }, [t]);
 
 
   const handleValidateData = () => {
