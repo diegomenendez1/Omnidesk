@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, type ChangeEvent, type KeyboardEvent, useEffect, useMemo, useCallback } from 'react';
+import { useState, useTransition, type ChangeEvent, type KeyboardEvent, useEffect, useMemo, useCallback, useRef } from 'react';
 import { collection, query, onSnapshot, doc, updateDoc, deleteDoc, addDoc, FieldValue, serverTimestamp } from 'firebase/firestore';
 import type { Task, TaskStatus, TaskResolutionStatus, TaskHistoryEntry, TaskHistoryChangeDetail } from '@/types';
 import { PROTECTED_RESOLUTION_STATUSES, TaskSchema } from '@/types';
@@ -18,7 +18,7 @@ import { ScanSearch, ArrowUp, ArrowDown, Filter as FilterIcon, History as Histor
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, calculateBusinessDays } from '@/lib/utils';
 import { useLanguage } from '@/context/language-context';
-import { useAuth } from '@/context/auth-context'; // Assuming auth context provides current user
+import { auth } from '@/lib/firebase'; // Firebase Auth for current user
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '@/lib/firebase'; // Import Firestore instance
@@ -41,11 +41,11 @@ interface InteractiveTableClientProps {
 
 export function InteractiveTableClient({ }: InteractiveTableClientProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const tasksRef = useRef<Task[]>([]);
   const [validationResult, setValidationResult] = useState<ValidateDataConsistencyOutput | null>(null);
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
   const { t } = useLanguage();
-  const { user: currentUser } = useAuth();
 
   const [editingCellKey, setEditingCellKey] = useState<string | null>(null);
   const [currentEditText, setCurrentEditText] = useState<string>("");
@@ -57,6 +57,11 @@ export function InteractiveTableClient({ }: InteractiveTableClientProps) {
 
   const [filters, setFilters] = useState<Partial<Record<keyof Task, string | undefined>>>({});
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: null, direction: null });
+
+  // Keep a ref to the latest tasks for cleanup purposes
+  useEffect(() => {
+    tasksRef.current = tasks;
+  }, [tasks]);
 
   // Fetch tasks and their history from Firestore
   useEffect(() => {
@@ -76,7 +81,7 @@ export function InteractiveTableClient({ }: InteractiveTableClientProps) {
 
         // Fetch history subcollection for each task
         const historyCollectionRef = collection(docSnapshot.ref, 'history');
-        const historySnapshot = await onSnapshot(historyCollectionRef, (historySnap) => {
+        const historyUnsubscribe = onSnapshot(historyCollectionRef, (historySnap) => {
           const historyData: TaskHistoryEntry[] = historySnap.docs.map(histDoc => ({
             id: histDoc.id,
             ...histDoc.data() as TaskHistoryEntry // Ensure TaskHistoryEntry type
@@ -91,7 +96,7 @@ export function InteractiveTableClient({ }: InteractiveTableClientProps) {
         });
 
         // Store the history unsubscribe function to clean up later
-        (task as any)._historyUnsubscribe = historySnapshot;
+        (task as any)._historyUnsubscribe = historyUnsubscribe;
 
         return task;
       });
@@ -127,7 +132,7 @@ export function InteractiveTableClient({ }: InteractiveTableClientProps) {
     // Cleanup the main listener and all history listeners when the component unmounts
     return () => {
       unsubscribe();
-      tasks.forEach(task => {
+      tasksRef.current.forEach(task => {
         if ((task as any)._historyUnsubscribe) {
            (task as any)._historyUnsubscribe();
         }
@@ -163,6 +168,7 @@ export function InteractiveTableClient({ }: InteractiveTableClientProps) {
   };
 
   const logChangeHistory = useCallback(async (taskId: string, action: 'created' | 'updated' | 'deleted', changes: TaskHistoryChangeDetail[] = []) => {
+    const user = auth.currentUser; // Fetch user inside the callback
     if (!taskId) {
       console.error("Cannot log history without a task ID.");
       return;
@@ -170,8 +176,8 @@ export function InteractiveTableClient({ }: InteractiveTableClientProps) {
     try {
       await logTaskHistory(
         taskId,
-        currentUser?.uid || 'system_change',
-        currentUser?.name || currentUser?.email || 'System Change',
+        user?.uid || 'system_change',
+        user?.name || user?.email || 'System Change',
         action,
         changes
       );
@@ -183,7 +189,7 @@ export function InteractiveTableClient({ }: InteractiveTableClientProps) {
         variant: "destructive",
       });
     }
-  }, [currentUser, t]);
+  }, [t]);
 
 
   const handleValidateData = () => {
