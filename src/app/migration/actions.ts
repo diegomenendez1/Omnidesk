@@ -6,6 +6,7 @@ import { collection, addDoc } from 'firebase/firestore';
 
 export async function migrateLocalTasksToFirestore(
   tasksToMigrate: Task[],
+
   keepLocalCopy: boolean
 ): Promise<{ success: boolean; migratedCount: number; error?: string }> {
   if (!tasksToMigrate || tasksToMigrate.length === 0) {
@@ -16,6 +17,7 @@ export async function migrateLocalTasksToFirestore(
   let migratedCount = 0;
 
   try {
+
     for (const task of tasksToMigrate) {
       await addDoc(tasksCollection, { ...task });
       migratedCount++;
@@ -27,6 +29,7 @@ export async function migrateLocalTasksToFirestore(
     return { success: false, migratedCount, error: error.message };
   }
 }
+
 
 export async function migrateTasksToFirestoreAction(
   tasksToMigrate: Task[],

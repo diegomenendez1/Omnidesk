@@ -269,19 +269,34 @@ export default function DashboardPage() {
 
   // Recalculate metrics whenever the allTasks state changes
 
+  const loadAndProcessTasks = useCallback(() => {
+    console.log('Dashboard: loadAndProcessTasks placeholder triggered.');
+    // Placeholder for actual reloading logic
+  }, []);
+
+  const handleStorageChange = useCallback(() => {
+    console.log('Dashboard: storage event detected.');
+    loadAndProcessTasks();
+  }, [loadAndProcessTasks]);
+
   useEffect(() => {
+
     console.log("Dashboard: Recalculating metrics based on updated tasks data.");
     const { chartData: overallProgress, teamAveragePercent, allAdmins } =
       calculateOverallAdminProgress(allTasks);
+    
     setOverallAdminProgressData(overallProgress);
     setTeamAverageProgress(teamAveragePercent);
     setAdminsForProgressChart(allAdmins);
+
+
 
     const { adminAverages, teamAverage } =
       calculateAverageResolutionTimeByAdmin(allTasks);
     setAverageResolutionTimeData(adminAverages);
     setTeamAverageResolutionTime(teamAverage);
   }, [allTasks]);
+
 
 
   const recentActivities = [

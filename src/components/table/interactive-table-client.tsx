@@ -1,5 +1,7 @@
 "use client";
 
+
+
 import { useState, useTransition, type ChangeEvent, type KeyboardEvent, useEffect, useMemo, useCallback, useRef } from 'react';
 import { collection, query, onSnapshot, doc, updateDoc, deleteDoc, addDoc, FieldValue, serverTimestamp } from 'firebase/firestore';
 import type { Task, TaskStatus, TaskResolutionStatus, TaskHistoryEntry, TaskHistoryChangeDetail } from '@/types';
@@ -36,8 +38,9 @@ interface SortConfig {
 }
 
 interface InteractiveTableClientProps {
-  // No initialData prop needed as data is fetched via onSnapshot
+  initialData: Task[];
 }
+
 
 export function InteractiveTableClient({ }: InteractiveTableClientProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -705,48 +708,10 @@ export function InteractiveTableClient({ }: InteractiveTableClientProps) {
     );
   }
 
+
   return (
-    <div className="space-y-4 w-full">
-      <div className="flex justify-between items-center flex-wrap gap-x-4 gap-y-2">
-        <h2 className="text-2xl font-semibold truncate min-w-0">{t('interactiveTable.title')}</h2>
-        <div className="flex gap-2 flex-shrink-0">
-          <Button onClick={handleValidateData} disabled={isPending} variant="default">
-            <ScanSearch className="mr-2 h-4 w-4" />
-            {isPending ? t('interactiveTable.validating') : t('interactiveTable.validateWithAI')}\n          </Button>
-        </div>
-      </div>
-
-      <Card className="w-full">
-        <CardContent className="p-0">
-          <div className="overflow-x-auto w-full">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="group">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1 cursor-pointer flex-grow py-3 pr-2" onClick={() => requestSort('taskReference')}>
-                        {t('interactiveTable.tableHeaders.toRef')}
-                        {renderSortIcon('taskReference')}
-                      </div>
-                      {renderFilterPopover('taskReference', 'interactiveTable.tableHeaders.toRef', uniqueTaskReferences)}
-                    </div>
-                  </TableHead>
-
-                  <TableHead className="group">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1 cursor-pointer flex-grow py-3 pr-2" onClick={() => requestSort('status')}>
-                        {t('interactiveTable.tableHeaders.toStatus')}
-                        {renderSortIcon('status')}
-                      </div>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                           <Button variant="ghost" size="icon" className="h-7 w-7 opacity-60 hover:opacity-100 data-[state=open]:opacity-100 data-[state=open]:bg-accent">
-                            <FilterIcon className="h-4 w-4" />
-                            <span className="sr-only">{t('interactiveTable.filterBy', {columnName: t('interactiveTable.tableHeaders.toStatus')})}</span>
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-60 p-2" align="start">
-                          <Select value={filters.status || ALL_FILTER_VALUE} onValueChange={(value) => handleFilterChange('status', value as TaskStatus)}>
-                            <SelectTrigger className="h-8"><SelectValue placeholder={filterActionPlaceholder} /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value={ALL_FILTER_VALUE}>{t('interactiveTable.allStatuses')}</
+    <div className="w-full text-center py-10">
+      Interactive table placeholder ({initialData.length} tasks).
+    </div>
+  );
+}
