@@ -271,26 +271,17 @@ export default function DashboardPage() {
 
   useEffect(() => {
     console.log("Dashboard: Recalculating metrics based on updated tasks data.");
-     const { chartData: overallProgress, teamAveragePercent, allAdmins } = calculateOverallAdminProgress(allTasks);
-      setOverallAdminProgressData(overallProgress);
-      setTeamAverageProgress(teamAveragePercent);
-    const handleTasksUpdatedEvent = () => {
-      console.log("Dashboard: Detected 'tasksUpdatedInStorage' event. Reloading data.");
-      loadAndProcessTasks();
-    };
+    const { chartData: overallProgress, teamAveragePercent, allAdmins } =
+      calculateOverallAdminProgress(allTasks);
+    setOverallAdminProgressData(overallProgress);
+    setTeamAverageProgress(teamAveragePercent);
+    setAdminsForProgressChart(allAdmins);
 
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('tasksUpdatedInStorage', handleTasksUpdatedEvent);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('tasksUpdatedInStorage', handleTasksUpdatedEvent);
-    };
-      setAdminsForProgressChart(allAdmins);
-
-      const { adminAverages, teamAverage } = calculateAverageResolutionTimeByAdmin(allTasks);
-      setAverageResolutionTimeData(adminAverages);
-      setTeamAverageResolutionTime(teamAverage);
+    const { adminAverages, teamAverage } =
+      calculateAverageResolutionTimeByAdmin(allTasks);
+    setAverageResolutionTimeData(adminAverages);
+    setTeamAverageResolutionTime(teamAverage);
+  }, [allTasks]);
 
 
   const recentActivities = [
