@@ -5,7 +5,16 @@ import { suggestCsvMappings } from '@/ai/flows/suggest-csv-mapping-flow';
 import { db } from '@/lib/firebase';
 import { logTaskHistory } from '@/lib/firestore';
 import type { Task } from '@/types/task';
-import { collection, doc, getDoc, setDoc } from 'firebase/firestore';
+import {
+  collection,
+  doc,
+  getDoc,
+  setDoc,
+  query,
+  where,
+  limit,
+  getDocs,
+} from 'firebase/firestore';
 import { getCurrentUser } from '@/lib/auth';
 import type { SuggestCsvMappingInput, SuggestCsvMappingOutput, SystemColumnDefinition } from '@/ai/flows/suggest-csv-mapping-flow';
 
@@ -61,9 +70,14 @@ export async function processCsvData(data: any[], mappedColumns: Record<string, 
       // Check if the row corresponds to an existing task (e.g., by a unique identifier like referenceId)
       // This is a simplified example, you might need more sophisticated matching
       if (taskData.referenceId) {
-        const tasksQuery = await db.collection('tasks').where('referenceId', '==', taskData.referenceId).limit(1).get();
-        if (!tasksQuery.empty) {
-          const existingTaskDoc = tasksQuery.docs[0];
+        const tasksQuery = query(
+          collection(db, 'tasks'),
+          where('referenceId', '==', taskData.referenceId),
+          limit(1)
+        );
+        const querySnapshot = await getDocs(tasksQuery);
+        if (!querySnapshot.empty) {
+          const existingTaskDoc = querySnapshot.docs[0];
           taskId = existingTaskDoc.id;
           const existingTask = existingTaskDoc.data() as Task;
 
