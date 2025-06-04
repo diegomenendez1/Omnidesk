@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, type ChangeEvent, type KeyboardEvent, useEffect, useMemo, useCallback } from 'react';
+import { useState, useTransition, type ChangeEvent, type KeyboardEvent, useEffect, useMemo, useCallback, useRef } from 'react';
 import { collection, query, onSnapshot, doc, updateDoc, deleteDoc, addDoc, FieldValue, serverTimestamp } from 'firebase/firestore';
 import type { Task, TaskStatus, TaskResolutionStatus, TaskHistoryEntry, TaskHistoryChangeDetail } from '@/types';
 import { PROTECTED_RESOLUTION_STATUSES, TaskSchema } from '@/types';
@@ -41,6 +41,7 @@ interface InteractiveTableClientProps {
 
 export function InteractiveTableClient({ }: InteractiveTableClientProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const tasksRef = useRef<Task[]>([]);
   const [validationResult, setValidationResult] = useState<ValidateDataConsistencyOutput | null>(null);
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
@@ -56,6 +57,11 @@ export function InteractiveTableClient({ }: InteractiveTableClientProps) {
 
   const [filters, setFilters] = useState<Partial<Record<keyof Task, string | undefined>>>({});
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: null, direction: null });
+
+  // Keep a ref to the latest tasks for cleanup purposes
+  useEffect(() => {
+    tasksRef.current = tasks;
+  }, [tasks]);
 
   // Fetch tasks and their history from Firestore
   useEffect(() => {
@@ -75,7 +81,7 @@ export function InteractiveTableClient({ }: InteractiveTableClientProps) {
 
         // Fetch history subcollection for each task
         const historyCollectionRef = collection(docSnapshot.ref, 'history');
-        const historySnapshot = await onSnapshot(historyCollectionRef, (historySnap) => {
+        const historyUnsubscribe = onSnapshot(historyCollectionRef, (historySnap) => {
           const historyData: TaskHistoryEntry[] = historySnap.docs.map(histDoc => ({
             id: histDoc.id,
             ...histDoc.data() as TaskHistoryEntry // Ensure TaskHistoryEntry type
@@ -90,7 +96,7 @@ export function InteractiveTableClient({ }: InteractiveTableClientProps) {
         });
 
         // Store the history unsubscribe function to clean up later
-        (task as any)._historyUnsubscribe = historySnapshot;
+        (task as any)._historyUnsubscribe = historyUnsubscribe;
 
         return task;
       });
@@ -126,7 +132,7 @@ export function InteractiveTableClient({ }: InteractiveTableClientProps) {
     // Cleanup the main listener and all history listeners when the component unmounts
     return () => {
       unsubscribe();
-      tasks.forEach(task => {
+      tasksRef.current.forEach(task => {
         if ((task as any)._historyUnsubscribe) {
            (task as any)._historyUnsubscribe();
         }
