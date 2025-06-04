@@ -1,30 +1,40 @@
-
 'use server';
 
 import type { Task } from '@/types';
 import { db } from '@/lib/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 
-
 export async function migrateLocalTasksToFirestore(
-  tasksToMigrate: Task[]
+  tasksToMigrate: Task[],
+  keepLocalCopy: boolean
 ): Promise<{ success: boolean; migratedCount: number; error?: string }> {
- try {
-    if (!tasksToMigrate || tasksToMigrate.length === 0) {
- return { success: true, migratedCount: 0 };
-    }
+  if (!tasksToMigrate || tasksToMigrate.length === 0) {
+    return { success: true, migratedCount: 0 };
+  }
 
-    const tasksCollection = collection(db, 'tasks');
-    let migratedCount = 0;
+  const tasksCollection = collection(db, 'tasks');
+  let migratedCount = 0;
 
+  try {
     for (const task of tasksToMigrate) {
-      // Basic mapping - adjust as needed based on your Task type and Firestore schema
       await addDoc(tasksCollection, { ...task });
       migratedCount++;
     }
+    // keepLocalCopy flag will be acted upon in the client after success
+    return { success: true, migratedCount };
+  } catch (error: any) {
+    console.error('migrateLocalTasksToFirestore: Error migrating tasks:', error);
+    return { success: false, migratedCount, error: error.message };
+  }
+}
 
-    if (!keepLocalCopy) {
-      // Clear localStorage - This part also needs to be handled on the client side
- return { success: false, migratedCount: 0, error: error.message };
- }
+export async function migrateTasksToFirestoreAction(
+  tasksToMigrate: Task[],
+  userId: string,
+  keepLocalCopy = true
+): Promise<{ success: boolean; migratedCount: number; error?: string }> {
+  console.log(
+    `migrateTasksToFirestoreAction: user ${userId} migrating ${tasksToMigrate.length} tasks.`
+  );
+  return migrateLocalTasksToFirestore(tasksToMigrate, keepLocalCopy);
 }

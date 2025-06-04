@@ -2,7 +2,7 @@
 
 import { validateDataConsistency } from '@/ai/flows/validate-data-consistency';
 import { logTaskHistory } from '@/lib/firestore';
-import { auth } from '@/lib/firebase'; // Assuming Firebase Auth is used for user info
+import { auth } from '@/lib/firebase'; // Firebase Auth instance for user info
 import type { ValidateDataConsistencyInput, ValidateDataConsistencyOutput } from '@/ai/flows/validate-data-consistency';
 
 export async function performDataValidation(input: ValidateDataConsistencyInput): Promise<ValidateDataConsistencyOutput> {
@@ -31,7 +31,9 @@ export async function performDataValidation(input: ValidateDataConsistencyInput)
 }
 
 export async function updateTask(taskId: string, updatedData: Partial<any>) { // Replace 'any' with your Task interface
-  const user = auth.currentUser;
+
+  const user = auth.currentUser; // Retrieve current user from Firebase Auth
+
   const userId = user ? user.uid : 'anonymous'; // Get user ID
 
   // Fetch the current task data to compare for logging
