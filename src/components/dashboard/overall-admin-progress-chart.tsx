@@ -1,7 +1,6 @@
 
 "use client";
 
-import * as React from "react"; // Added this line
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid, ReferenceLine, LabelList } from "recharts";
 import {
   ChartContainer,
@@ -73,7 +72,7 @@ export function OverallAdminProgressChart({ data, teamAveragePercent, goalPercen
     return config;
   }, [t, allAdmins]);
 
-  const chartData = React.useMemo(() => { 
+  const chartData = React.useMemo(() => {
     return allAdmins.map(adminName => {
       const adminData = data.find(d => d.adminName === adminName);
       return {

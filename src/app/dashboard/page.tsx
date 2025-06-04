@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from 'react';
+import { collection, onSnapshot, query } from 'firebase/firestore';
 import { MetricCard } from '@/components/dashboard/metric-card';
 import { SampleStatsChart } from '@/components/dashboard/sample-stats-chart';
 import { Users, Activity, CheckCircle2, Briefcase, ListChecks, TrendingUp, Clock3 } from 'lucide-react';
@@ -15,7 +16,8 @@ import { PROTECTED_RESOLUTION_STATUSES } from '@/types';
 import { OverallAdminProgressChart, type OverallAdminProgressDataPoint } from '@/components/dashboard/overall-admin-progress-chart'; 
 import { AverageResolutionTimeChart, type AdminResolutionTimeDataPoint } from '@/components/dashboard/average-resolution-time-chart';
 import { calculateBusinessDays } from '@/lib/utils'; 
-import { parseISO, isValid } from 'date-fns';
+import { parseISO, isValid, fromUnixTime } from 'date-fns';
+import { db } from '@/lib/firebase'; // Import Firestore instance
 import { MigrationControls } from '@/components/migration/migration-controls'; // Import MigrationControls
 
 
@@ -41,6 +43,7 @@ const GOAL_PERCENTAGE = 50; // Define a goal percentage for overall progress
 export default function DashboardPage() {
   const { t } = useLanguage();
   const [taskOverviewData, setTaskOverviewData] = useState<TaskOverviewData[]>([]);
+  const [allTasks, setAllTasks] = useState<Task[]>([]); // State to hold all tasks from Firestore
   const [totalTasks, setTotalTasks] = useState<number>(0);
   const [tasksCompletedCount, setTasksCompletedCount] = useState<number>(0);
   
@@ -132,7 +135,7 @@ export default function DashboardPage() {
   }, []);
 
 
-  const calculateAverageResolutionTimeByAdmin = useCallback((tasks: Task[]): { adminAverages: AdminResolutionTimeDataPoint[], teamAverage: number | null } => {
+  const calculateAverageResolutionTimeByAdmin = useCallback((tasks: Task[]): { adminAverages: AdminResolutionTimeDataPoint[]; teamAverage: number | null } => {
     console.log("AverageResolutionTime: Starting calculation...");
     if (!tasks || tasks.length === 0) {
       console.log("AverageResolutionTime: No tasks provided.");
@@ -156,8 +159,8 @@ export default function DashboardPage() {
         task.resolvedAt
       ) {
         try {
-          const createdAtDate = parseISO(task.createdAt);
-          const resolvedAtDate = parseISO(task.resolvedAt);
+          const createdAtDate = typeof task.createdAt === 'string' ? parseISO(task.createdAt) : fromUnixTime(task.createdAt.seconds);
+          const resolvedAtDate = typeof task.resolvedAt === 'string' ? parseISO(task.resolvedAt) : fromUnixTime(task.resolvedAt.seconds);
 
           if (isValid(createdAtDate) && isValid(resolvedAtDate) && resolvedAtDate >= createdAtDate) {
             const businessDays = calculateBusinessDays(createdAtDate, resolvedAtDate);
@@ -206,70 +209,48 @@ export default function DashboardPage() {
   }, []);
 
 
-  const loadAndProcessTasks = useCallback(() => {
-    console.log("Dashboard: Attempting to load tasks from localStorage key 'uploadedTasks'.");
-    const storedTasksJson = localStorage.getItem('uploadedTasks');
-    if (storedTasksJson) {
-      try {
-        const loadedTasks: Task[] = JSON.parse(storedTasksJson);
-        console.log(`Dashboard: Successfully parsed ${loadedTasks.length} tasks from localStorage.`);
-        if (loadedTasks && loadedTasks.length > 0) {
-          setTotalTasks(loadedTasks.length);
+  useEffect(() => {
+    const tasksCollectionRef = collection(db, 'tasks');
+    const q = query(tasksCollectionRef);
 
-          const statusCounts: Record<TaskStatus, number> = {
-            "Missing Estimated Dates": 0,
-            "Missing POD": 0,
-            "Pending to Invoice Out of Time": 0,
-          };
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      console.log("Dashboard: Firestore snapshot received.");
+      const tasksData = snapshot.docs.map(doc => ({
+        id: doc.id, // Include document ID
+        ...doc.data()
+      })) as Task[]; // Cast to Task array
 
-          let completedCount = 0;
-          loadedTasks.forEach(task => {
-            if (task.status && statusCounts.hasOwnProperty(task.status)) {
-              statusCounts[task.status]++;
-            }
-            if (task.resolutionStatus && PROTECTED_RESOLUTION_STATUSES.includes(task.resolutionStatus as TaskResolutionStatus)) {
-              completedCount++;
-            }
-          });
-          setTasksCompletedCount(completedCount);
+      setAllTasks(tasksData); // Update the state with fetched tasks
+      setTotalTasks(tasksData.length);
 
-          const overviewData = (Object.keys(statusCounts) as TaskStatus[]).map(statusKey => ({
-            name: t(STATUS_TRANSLATION_KEYS[statusKey] as any),
-            value: statusCounts[statusKey],
-            fill: CHART_FILLS[statusKey] || "hsl(var(--chart-4))", 
-          }));
-          setTaskOverviewData(overviewData);
+      const statusCounts: Record<TaskStatus, number> = {
+        "Missing Estimated Dates": 0,
+        "Missing POD": 0,
+        "Pending to Invoice Out of Time": 0,
+      };
 
-          const { chartData: overallProgress, teamAveragePercent, allAdmins } = calculateOverallAdminProgress(loadedTasks);
-          setOverallAdminProgressData(overallProgress);
-          setTeamAverageProgress(teamAveragePercent);
-          setAdminsForProgressChart(allAdmins);
-
-
-          const { adminAverages, teamAverage } = calculateAverageResolutionTimeByAdmin(loadedTasks);
-          setAverageResolutionTimeData(adminAverages);
-          setTeamAverageResolutionTime(teamAverage);
-
-        } else {
-          console.log("Dashboard: No tasks found in localStorage or tasks array is empty after parsing.");
-          // Reset all states related to tasks
-          setTaskOverviewData([
-              { name: t(STATUS_TRANSLATION_KEYS["Missing Estimated Dates"] as any), value: 0, fill: CHART_FILLS["Missing Estimated Dates"] },
-              { name: t(STATUS_TRANSLATION_KEYS["Missing POD"] as any), value: 0, fill: CHART_FILLS["Missing POD"] },
-              { name: t(STATUS_TRANSLATION_KEYS["Pending to Invoice Out of Time"] as any), value: 0, fill: CHART_FILLS["Pending to Invoice Out of Time"] },
-          ]);
-          setTotalTasks(0);
-          setTasksCompletedCount(0);
-          setOverallAdminProgressData([]);
-          setTeamAverageProgress(null);
-          setAdminsForProgressChart([]);
-          setAverageResolutionTimeData([]);
-          setTeamAverageResolutionTime(null);
+      let completedCount = 0;
+      tasksData.forEach(task => {
+        if (task.status && statusCounts.hasOwnProperty(task.status)) {
+          statusCounts[task.status]++;
         }
-      } catch (error) {
-        console.error("Error processing tasks from localStorage for dashboard:", error);
-         setTaskOverviewData([
-            { name: t(STATUS_TRANSLATION_KEYS["Missing Estimated Dates"] as any), value: 0, fill: CHART_FILLS["Missing Estimated Dates"] },
+        if (task.resolutionStatus && PROTECTED_RESOLUTION_STATUSES.includes(task.resolutionStatus as TaskResolutionStatus)) {
+          completedCount++;
+        }
+      });
+      setTasksCompletedCount(completedCount);
+
+      const overviewData = (Object.keys(statusCounts) as TaskStatus[]).map(statusKey => ({
+        name: t(STATUS_TRANSLATION_KEYS[statusKey] as any),
+        value: statusCounts[statusKey],
+        fill: CHART_FILLS[statusKey] || "hsl(var(--chart-4))",
+      }));
+      setTaskOverviewData(overviewData);
+
+      // Calculations are now triggered by changes in allTasks state
+    }, (error) => {
+      console.error("Dashboard: Error fetching tasks from Firestore:", error);
+       setTaskOverviewData([
             { name: t(STATUS_TRANSLATION_KEYS["Missing POD"] as any), value: 0, fill: CHART_FILLS["Missing POD"] },
             { name: t(STATUS_TRANSLATION_KEYS["Pending to Invoice Out of Time"] as any), value: 0, fill: CHART_FILLS["Pending to Invoice Out of Time"] },
         ]);
@@ -280,35 +261,19 @@ export default function DashboardPage() {
         setAdminsForProgressChart([]);
         setAverageResolutionTimeData([]);
         setTeamAverageResolutionTime(null);
-      }
-    } else {
-        console.log("Dashboard: 'uploadedTasks' not found in localStorage.");
-        setTaskOverviewData([
-            { name: t(STATUS_TRANSLATION_KEYS["Missing Estimated Dates"] as any), value: 0, fill: CHART_FILLS["Missing Estimated Dates"] },
-            { name: t(STATUS_TRANSLATION_KEYS["Missing POD"] as any), value: 0, fill: CHART_FILLS["Missing POD"] },
-            { name: t(STATUS_TRANSLATION_KEYS["Pending to Invoice Out of Time"] as any), value: 0, fill: CHART_FILLS["Pending to Invoice Out of Time"] },
-        ]);
-        setTotalTasks(0);
-        setTasksCompletedCount(0);
-        setOverallAdminProgressData([]);
-        setTeamAverageProgress(null);
-        setAdminsForProgressChart([]);
-        setAverageResolutionTimeData([]);
-        setTeamAverageResolutionTime(null);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [t, calculateOverallAdminProgress, calculateAverageResolutionTimeByAdmin]); 
+    });
+
+    // Cleanup the listener when the component unmounts
+    return () => unsubscribe();
+  }, [t]); // Re-run effect if language changes
+
+  // Recalculate metrics whenever the allTasks state changes
 
   useEffect(() => {
-    loadAndProcessTasks(); 
-
-    const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === 'uploadedTasks') {
-        console.log("Dashboard: Detected storage change for 'uploadedTasks'. Reloading data.");
-        loadAndProcessTasks();
-      }
-    };
-
+    console.log("Dashboard: Recalculating metrics based on updated tasks data.");
+     const { chartData: overallProgress, teamAveragePercent, allAdmins } = calculateOverallAdminProgress(allTasks);
+      setOverallAdminProgressData(overallProgress);
+      setTeamAverageProgress(teamAveragePercent);
     const handleTasksUpdatedEvent = () => {
       console.log("Dashboard: Detected 'tasksUpdatedInStorage' event. Reloading data.");
       loadAndProcessTasks();
@@ -321,7 +286,11 @@ export default function DashboardPage() {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('tasksUpdatedInStorage', handleTasksUpdatedEvent);
     };
-  }, [loadAndProcessTasks]);
+      setAdminsForProgressChart(allAdmins);
+
+      const { adminAverages, teamAverage } = calculateAverageResolutionTimeByAdmin(allTasks);
+      setAverageResolutionTimeData(adminAverages);
+      setTeamAverageResolutionTime(teamAverage);
 
 
   const recentActivities = [

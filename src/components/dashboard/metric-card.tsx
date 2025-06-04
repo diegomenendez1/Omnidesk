@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface MetricCardProps {
   title: string;
@@ -17,7 +17,7 @@ export function MetricCard({ title, value, icon, description }: MetricCardProps)
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-bold text-foreground">{value}</div>
-        {description && <p className="text-xs text-muted-foreground pt-1">{description}</p>}
+        {description && <p className="text-xs text-muted-foreground">{description}</p>}
       </CardContent>
     </Card>
   );

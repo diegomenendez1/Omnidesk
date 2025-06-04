@@ -1,10 +1,10 @@
-
 "use client";
 
-import { useState, useTransition, type ChangeEvent, type KeyboardEvent, useEffect, useMemo } from 'react';
+import { useState, useTransition, type ChangeEvent, type KeyboardEvent, useEffect, useMemo, useCallback } from 'react';
+import { collection, query, onSnapshot, doc, updateDoc, deleteDoc, addDoc, FieldValue, serverTimestamp } from 'firebase/firestore';
 import type { Task, TaskStatus, TaskResolutionStatus, TaskHistoryEntry, TaskHistoryChangeDetail } from '@/types';
 import { PROTECTED_RESOLUTION_STATUSES, TaskSchema } from '@/types';
-import { performDataValidation } from '@/app/table/actions';
+import { performDataValidation } from '@/app/table/actions'; // Assuming this action remains for AI validation
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -16,29 +16,31 @@ import { TaskHistoryDialog } from './task-history-dialog';
 import type { ValidateDataConsistencyOutput } from '@/types';
 import { ScanSearch, ArrowUp, ArrowDown, Filter as FilterIcon, History as HistoryIcon } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
-import { formatCurrency, calculateBusinessDays } from '@/lib/utils'; 
+import { formatCurrency, calculateBusinessDays } from '@/lib/utils';
 import { useLanguage } from '@/context/language-context';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/context/auth-context'; // Assuming auth context provides current user
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { v4 as uuidv4 } from 'uuid';
+import { db } from '@/lib/firebase'; // Import Firestore instance
+import { logTaskHistory } from '@/lib/firestore'; // Import logTaskHistory function
 
 const resolutionStatusOptions: TaskResolutionStatus[] = ["Pendiente", "SFP", "Resuelto"];
 const statusOptions: TaskStatus[] = ["Missing Estimated Dates", "Missing POD", "Pending to Invoice Out of Time"];
 
-const ALL_FILTER_VALUE = "_ALL_VALUES_"; 
+const ALL_FILTER_VALUE = "_ALL_VALUES_";
 
 type SortDirection = 'ascending' | 'descending';
 interface SortConfig {
-  key: keyof Task | 'accumulatedBusinessDays' | null; 
+  key: keyof Task | 'accumulatedBusinessDays' | null;
   direction: SortDirection | null;
 }
 
 interface InteractiveTableClientProps {
-  initialData: Task[];
+  // No initialData prop needed as data is fetched via onSnapshot
 }
 
-export function InteractiveTableClient({ initialData }: InteractiveTableClientProps) {
-  const [tasks, setTasks] = useState<Task[]>(initialData.map(task => ({ ...task, history: task.history || [] })));
+export function InteractiveTableClient({ }: InteractiveTableClientProps) {
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [validationResult, setValidationResult] = useState<ValidateDataConsistencyOutput | null>(null);
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
@@ -50,49 +52,89 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   const [currentEditSelectValue, setCurrentEditSelectValue] = useState<TaskResolutionStatus | TaskStatus | ''>('');
   const [isSelectDropdownOpen, setIsSelectDropdownOpen] = useState(false);
 
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [filters, setFilters] = useState<Partial<Record<keyof Task, string | undefined>>>({});
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: null, direction: null });
-  
+
+  // Fetch tasks and their history from Firestore
   useEffect(() => {
-    const storedTasksJson = localStorage.getItem('uploadedTasks');
-    if (storedTasksJson) {
-      try {
-        const loadedTasks: Task[] = JSON.parse(storedTasksJson);
-        if (loadedTasks && loadedTasks.length > 0) {
-          setTasks(loadedTasks.map(task => ({ ...task, history: task.history || [] })));
-          toast({
-            title: t('localStorage.loadedData'),
-            description: t('localStorage.loadedTasksDescription', { count: loadedTasks.length }),
-            variant: "default",
-          });
-        }
-      } catch (error) {
-        console.error("Error parsing tasks from localStorage:", error);
-        toast({
-          title: t('localStorage.errorLoadingData'),
-          description: t('localStorage.errorLoadingDataDescription'),
-          variant: "destructive",
+    const tasksCollectionRef = collection(db, 'tasks');
+    const q = query(tasksCollectionRef);
+
+    setLoading(true);
+    setError(null);
+
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      console.log("InteractiveTable: Firestore snapshot received.");
+      const tasksDataPromises = snapshot.docs.map(async docSnapshot => {
+        const task = {
+          id: docSnapshot.id,
+          ...docSnapshot.data() as Task
+        };
+
+        // Fetch history subcollection for each task
+        const historyCollectionRef = collection(docSnapshot.ref, 'history');
+        const historySnapshot = await onSnapshot(historyCollectionRef, (historySnap) => {
+          const historyData: TaskHistoryEntry[] = historySnap.docs.map(histDoc => ({
+            id: histDoc.id,
+            ...histDoc.data() as TaskHistoryEntry // Ensure TaskHistoryEntry type
+          }));
+          // Update the specific task's history in the tasks state
+          setTasks(currentTasks => currentTasks.map(t =>
+            t.id === task.id ? { ...t, history: historyData.sort((a, b) => new Date(a.timestamp as any).getTime() - new Date(b.timestamp as any).getTime()) } : t
+          ));
+        }, (historyErr) => {
+          console.error(`InteractiveTable: Error fetching history for task ${task.id}:`, historyErr);
+          // Handle history fetching error if necessary
         });
-      }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [t]); 
 
+        // Store the history unsubscribe function to clean up later
+        (task as any)._historyUnsubscribe = historySnapshot;
 
-  const updateTasksInStateAndStorage = (updatedTasks: Task[]) => {
-    setTasks(updatedTasks);
-    try {
-      localStorage.setItem('uploadedTasks', JSON.stringify(updatedTasks));
-      window.dispatchEvent(new CustomEvent('tasksUpdatedInStorage'));
-    } catch (error) {
-      console.error("Error saving tasks to localStorage:", error);
-      toast({
-        title: t('localStorage.errorSavingData'),
-        description: t('localStorage.errorSavingDataDescription'),
-        variant: "destructive",
+        return task;
       });
-    }
-  };
+
+      const fetchedTasks = await Promise.all(tasksDataPromises);
+
+      setTasks(currentTasks => {
+        // Clean up old history listeners for tasks that are no longer in the snapshot
+        currentTasks.forEach(oldTask => {
+          if (!fetchedTasks.find(newTask => newTask.id === oldTask.id) && (oldTask as any)._historyUnsubscribe) {
+            (oldTask as any)._historyUnsubscribe();
+          }
+        });
+         // Merge newly fetched tasks, keeping existing history listeners
+        const newTasksMap = new Map(fetchedTasks.map(task => [task.id, task]));
+        return currentTasks
+            .filter(task => newTasksMap.has(task.id)) // Keep only tasks still in the snapshot
+            .map(task => { // Update existing tasks
+                const updatedTask = newTasksMap.get(task.id)!;
+                // Keep the old history listener if it exists, otherwise add the new one
+                return { ...updatedTask, history: task.history, _historyUnsubscribe: task._historyUnsubscribe || updatedTask._historyUnsubscribe };
+            });
+      });
+
+      setLoading(false);
+    }, (err) => {
+      console.error("InteractiveTable: Error fetching tasks from Firestore:", err);
+      setError("Failed to load tasks."); // User-friendly error message
+      setLoading(false);
+    });
+
+
+    // Cleanup the main listener and all history listeners when the component unmounts
+    return () => {
+      unsubscribe();
+      tasks.forEach(task => {
+        if ((task as any)._historyUnsubscribe) {
+           (task as any)._historyUnsubscribe();
+        }
+      });
+    };
+  }, []); // Empty dependency array ensures this runs only once on mount
+
 
   const getFieldLabel = (fieldKey: keyof Task | string): string => {
     const keyMap: Record<string, string> = {
@@ -113,27 +155,41 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     };
     // Try to translate if it's a known key, otherwise return the fieldKey itself
     const translation = t(keyMap[fieldKey] || `history.fields.${fieldKey}`);
+    // Check if translation is the same as the key path, meaning it wasn't found
+    if (translation === `history.fields.${fieldKey}` && keyMap[fieldKey]) {
+         return t(keyMap[fieldKey]); // Fallback to getting the translation from the key map
+    }
     return translation === `history.fields.${fieldKey}` ? fieldKey : translation;
   };
 
-  const addHistoryEntry = (task: Task, changes: TaskHistoryChangeDetail[]): TaskHistoryEntry[] => {
-    const history = task.history || [];
-    if (changes.length === 0) return history;
-
-    const newEntry: TaskHistoryEntry = {
-      id: uuidv4(),
-      timestamp: new Date().toISOString(),
-      userId: currentUser?.uid || 'system_change',
-      userName: currentUser?.name || currentUser?.email || 'System Change',
-      changes: changes,
-    };
-    return [...history, newEntry];
-  };
+  const logChangeHistory = useCallback(async (taskId: string, action: 'created' | 'updated' | 'deleted', changes: TaskHistoryChangeDetail[] = []) => {
+    if (!taskId) {
+      console.error("Cannot log history without a task ID.");
+      return;
+    }
+    try {
+      await logTaskHistory(
+        taskId,
+        currentUser?.uid || 'system_change',
+        currentUser?.name || currentUser?.email || 'System Change',
+        action,
+        changes
+      );
+    } catch (error) {
+      console.error(`Failed to log history entry for task ${taskId}:`, error);
+      toast({
+        title: t('interactiveTable.historyLogFailedTitle'),
+        description: t('interactiveTable.historyLogFailedDescription'),
+        variant: "destructive",
+      });
+    }
+  }, [currentUser, t]);
 
 
   const handleValidateData = () => {
     startTransition(async () => {
       try {
+        // Use the current state of tasks from Firestore
         const tableDataString = JSON.stringify(tasks.map((task, index) => ({
           rowIndex: index + 1,
           ...task
@@ -157,7 +213,8 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   };
 
   const startEdit = (task: Task, column: keyof Task) => {
-    const cellKey = `${task.id || task.taskReference}-${String(column)}`;
+    // Use task.id for cell key if available, fallback to taskReference if not
+    const cellKey = `${task.id || task.taskReference || uuidv4()}-${String(column)}`;
     setEditingCellKey(cellKey);
     const value = task[column];
 
@@ -165,60 +222,137 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
       setCurrentEditText(String(value || ""));
     } else if (column === 'resolutionStatus') {
       setCurrentEditSelectValue((value as TaskResolutionStatus) || resolutionStatusOptions[0]);
-      setIsSelectDropdownOpen(true); 
+      setIsSelectDropdownOpen(true);
     }
   };
-  
+
   const handleInlineTextChange = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setCurrentEditText(event.target.value);
   };
 
-  const saveInlineEdit = (taskId: string, column: keyof Task) => {
-    const taskToUpdate = tasks.find(t => (t.id || t.taskReference) === taskId);
-    if (!editingCellKey || !taskToUpdate || (!editingCellKey.startsWith(taskToUpdate.id || String(Math.random())) && !editingCellKey.startsWith(taskToUpdate.taskReference || String(Math.random())))) return;
+  const saveInlineEdit = (taskIdOrRef: string, column: keyof Task) => {
+    const taskToUpdate = tasks.find(t => t.id === taskIdOrRef || t.taskReference === taskIdOrRef);
+
+    if (!taskToUpdate) {
+      console.error("Task not found for update:", taskIdOrRef);
+      toast({ title: t('interactiveTable.saveFailed'), description: t('interactiveTable.taskNotFound'), variant: "destructive" });
+      setEditingCellKey(null);
+      setCurrentEditText("");
+      return;
+    }
+
+    if (!taskToUpdate.id) {
+       console.error("Task found but without Firestore ID. Cannot save edit:", taskToUpdate);
+       toast({ title: t('interactiveTable.saveFailed'), description: t('interactiveTable.taskWithoutId'), variant: "destructive" });
+       setEditingCellKey(null);
+       setCurrentEditText("");
+       return;
+    }
+
+    const cellKey = `${taskToUpdate.id}-${String(column)}`;
+     if (editingCellKey !== cellKey) {
+        // This edit was triggered by a stale cellKey or parallel edit attempt
+        console.warn("Ignoring stale edit attempt:", editingCellKey, cellKey);
+        setEditingCellKey(null);
+        setCurrentEditText("");
+        return;
+     }
+
 
     const oldValue = taskToUpdate[column];
     const newValue = currentEditText;
 
+    // Check if value actually changed
     if (String(oldValue || "") === String(newValue || "")) {
       setEditingCellKey(null);
       setCurrentEditText("");
       return;
     }
-    
-    const updatedTasks = tasks.map(task => {
-        if ((task.id || task.taskReference) === taskId) {
-          const changeDetail: TaskHistoryChangeDetail = {
-            field: String(column),
-            fieldLabel: getFieldLabel(column),
-            oldValue,
-            newValue,
-          };
-          const newHistory = addHistoryEntry(task, [changeDetail]);
-          return { ...task, [column]: newValue, history: newHistory };
-        }
-        return task;
+
+    const updatedFields = {
+      [column]: newValue
+    };
+
+    try {
+      // Validate the specific field being updated using Zod
+      // Note: For 'netAmount', the value from currentEditText would be a string.
+      // If TaskSchema expects a number, parsing/coercion should happen here or within the schema.
+      // For simplicity, assuming TaskSchema can handle string inputs for these fields.
+      const partialTaskSchema = TaskSchema.partial().pick({ [column]: true });
+      // Using parse will throw an error if validation fails
+      partialTaskSchema.parse(updatedFields);
+
+      const taskRef = doc(db, 'tasks', taskToUpdate.id);
+      updateDoc(taskRef, updatedFields)
+        .then(() => {
+        console.log(`Task ${taskToUpdate.id} field ${String(column)} updated successfully.`);
+        // Log history after successful update
+        logChangeHistory(taskToUpdate.id!, 'updated', [{ field: String(column), fieldLabel: getFieldLabel(column), oldValue, newValue }]);
+        toast({ title: t('interactiveTable.fieldUpdated'), description: t('interactiveTable.changeSavedFor', { field: getFieldLabel(column) }) });
+      })
+        .catch(error => {
+        console.error("Error updating document:", error);
+        toast({ title: t('interactiveTable.saveFailed'), description: t('interactiveTable.errorSavingChange'), variant: "destructive' });
+      })
+        .finally(() => {
+        setEditingCellKey(null);
+        setCurrentEditText("");
       });
-    updateTasksInStateAndStorage(updatedTasks);
-    setEditingCellKey(null);
-    setCurrentEditText("");
-    toast({ title: t('interactiveTable.fieldUpdated'), description: t('interactiveTable.changeSavedFor', { field: getFieldLabel(column)}) });
+    } catch (validationError: any) {
+      console.error("Zod validation failed for inline edit:", validationError);
+      toast({
+        title: t('interactiveTable.validationFailedTitle'),
+        description: t('interactiveTable.validationErrorMessage', { error: validationError.message || 'Invalid data format.' }),
+        variant: "destructive",
+      });
+      setEditingCellKey(null);
+      setCurrentEditText("");
+    }
   };
 
-  const handleInlineSelectChange = (taskId: string, column: keyof Task, value: string) => {
-    const taskToUpdate = tasks.find(t => (t.id || t.taskReference) === taskId);
-    if (!taskToUpdate) return;
+  const handleInlineSelectChange = (taskIdOrRef: string, column: keyof Task, value: string) => {
+    const taskToUpdate = tasks.find(t => t.id === taskIdOrRef || t.taskReference === taskIdOrRef);
 
-    const oldValue = taskToUpdate[column];
-    const newValue = value;
+     if (!taskToUpdate) {
+      console.error("Task not found for select update:", taskIdOrRef);
+      toast({ title: t('interactiveTable.saveFailed'), description: t('interactiveTable.taskNotFound'), variant: "destructive" });
+      setEditingCellKey(null);
+      setCurrentEditSelectValue('');
+      setIsSelectDropdownOpen(false);
+      return;
+    }
 
-    if (String(oldValue || "") === String(newValue || "")) {
+    if (!taskToUpdate.id) {
+       console.error("Task found but without Firestore ID. Cannot save select change:", taskToUpdate);
+       toast({ title: t('interactiveTable.saveFailed'), description: t('interactiveTable.taskWithoutId'), variant: "destructive" });
+       setEditingCellKey(null);
+       setCurrentEditSelectValue('');
+       setIsSelectDropdownOpen(false);
+       return;
+    }
+
+     const cellKey = `${taskToUpdate.id}-${String(column)}`;
+     if (editingCellKey !== cellKey) {
+        // This edit was triggered by a stale cellKey or parallel edit attempt
+        console.warn("Ignoring stale select edit attempt:", editingCellKey, cellKey);
         setEditingCellKey(null);
         setCurrentEditSelectValue('');
         setIsSelectDropdownOpen(false);
         return;
+     }
+
+
+    const oldValue = taskToUpdate[column];
+    const newValue = value;
+
+    // Check if value actually changed
+    if (String(oldValue || "") === String(newValue || "")) {
+      setEditingCellKey(null);
+      setCurrentEditSelectValue('');
+      setIsSelectDropdownOpen(false);
+      return;
     }
-    
+
     const changesForHistory: TaskHistoryChangeDetail[] = [{
         field: String(column),
         fieldLabel: getFieldLabel(column),
@@ -226,49 +360,58 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
         newValue,
     }];
 
-    const updatedTasks = tasks.map(task => {
-        if ((task.id || task.taskReference) === taskId) {
-          const updatedTaskPartial: Partial<Task> = { [column]: newValue };
-          
-          if (column === 'resolutionStatus') {
-            const oldResolvedAt = task.resolvedAt;
-            if (PROTECTED_RESOLUTION_STATUSES.includes(newValue as TaskResolutionStatus)) {
-              if (!task.resolvedAt) { // Only set if not already set
-                (updatedTaskPartial as any).resolvedAt = new Date().toISOString();
-                 changesForHistory.push({
+    const updateData: Partial<Task> = { [column]: newValue as any }; // Use any for now due to conditional types
+
+    // Handle resolvedAt date update based on resolutionStatus
+    if (column === 'resolutionStatus') {
+        const oldResolvedAt = taskToUpdate.resolvedAt;
+        if (PROTECTED_RESOLUTION_STATUSES.includes(newValue as TaskResolutionStatus)) {
+            // Set resolvedAt only if it's changing to a protected status and not already set
+            if (!taskToUpdate.resolvedAt) {
+                updateData.resolvedAt = new Date().toISOString(); // Or use serverTimestamp() if needed
+                changesForHistory.push({
                     field: 'resolvedAt',
                     fieldLabel: getFieldLabel('resolvedAt'),
                     oldValue: oldResolvedAt,
-                    newValue: (updatedTaskPartial as any).resolvedAt,
+                    newValue: updateData.resolvedAt,
                 });
-              }
-            } else if (newValue === 'Pendiente' && task.resolvedAt) { // If moved back to Pendiente and resolvedAt was set
-              (updatedTaskPartial as any).resolvedAt = null;
-               changesForHistory.push({
+            }
+        } else if (newValue === 'Pendiente' && taskToUpdate.resolvedAt) {
+            // Clear resolvedAt if changing back to Pendiente and resolvedAt was set
+            updateData.resolvedAt = null;
+             changesForHistory.push({
                   field: 'resolvedAt',
                   fieldLabel: getFieldLabel('resolvedAt'),
                   oldValue: oldResolvedAt,
                   newValue: null,
               });
-            }
-          }
-          const newHistory = addHistoryEntry(task, changesForHistory);
-          return { ...task, ...updatedTaskPartial, history: newHistory };
         }
-        return task;
-      });
-    updateTasksInStateAndStorage(updatedTasks);
-    setEditingCellKey(null);
-    setCurrentEditSelectValue('');
-    setIsSelectDropdownOpen(false); 
-    toast({ title: t('interactiveTable.fieldUpdated'), description: t('interactiveTable.changeSavedFor', { field: getFieldLabel(column)}) });
+    }
+
+    const taskRef = doc(db, 'tasks', taskToUpdate.id);
+    updateDoc(taskRef, updateData)
+      .then(() => {
+        console.log(`Task ${taskToUpdate.id} field ${String(column)} updated successfully.`);
+         // Log history after successful update
+        logChangeHistory(taskToUpdate.id!, 'updated', changesForHistory);
+        toast({ title: t('interactiveTable.fieldUpdated'), description: t('interactiveTable.changeSavedFor', { field: getFieldLabel(column)}) });
+      })
+      .catch(error => {
+        console.error("Error updating document:", error);
+        toast({ title: t('interactiveTable.saveFailed'), description: t('interactiveTable.errorSavingChange'), variant: "destructive" });
+      })
+       .finally(() => {
+         setEditingCellKey(null);
+         setCurrentEditSelectValue('');
+         setIsSelectDropdownOpen(false);
+       });
   };
 
-  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>, taskId: string, column: keyof Task) => {
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>, taskIdOrRef: string, column: keyof Task) => {
     if (event.key === 'Enter') {
       if (!event.shiftKey && event.currentTarget.tagName !== 'TEXTAREA') {
         event.preventDefault();
-        saveInlineEdit(taskId, column);
+        saveInlineEdit(taskIdOrRef, column);
       }
     } else if (event.key === 'Escape') {
       setEditingCellKey(null);
@@ -277,7 +420,30 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
       setIsSelectDropdownOpen(false);
     }
   };
-  
+
+   const deleteTask = (taskId: string) => {
+     if (!taskId) {
+        console.error("Cannot delete task without Firestore ID.");
+        toast({ title: t('interactiveTable.deleteFailed'), description: t('interactiveTable.taskWithoutId'), variant: "destructive" });
+        return;
+     }
+
+     const taskRef = doc(db, 'tasks', taskId);
+     deleteDoc(taskRef)
+       .then(() => {
+         console.log(`Task ${taskId} deleted successfully.`);
+         // History logging for deletion might need a separate trigger or be handled server-side
+         // if you want to log it after the document is gone. Or log before deletion attempt.
+         logChangeHistory(taskId, 'deleted'); // Log deletion attempt
+         toast({ title: t('interactiveTable.taskDeleted'), description: t('interactiveTable.taskDeletedSuccessfully') });
+       })
+       .catch(error => {
+         console.error("Error deleting document:", error);
+         toast({ title: t('interactiveTable.deleteFailed'), description: t('interactiveTable.errorDeletingTask'), variant: "destructive" });
+       });
+   };
+
+
   const getStatusDisplay = (statusValue?: TaskStatus) => {
     if (!statusValue) return t('interactiveTable.notAvailable');
     const keyMap: Record<TaskStatus, string> = {
@@ -289,7 +455,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   };
 
   const getResolutionStatusDisplay = (statusValue?: TaskResolutionStatus) => {
-    if (!statusValue) return t('interactiveTable.resolutionStatus.pendiente'); 
+    if (!statusValue) return t('interactiveTable.resolutionStatus.pendiente');
     const keyMap: Record<TaskResolutionStatus, string> = {
       "Pendiente": "interactiveTable.resolutionStatus.pendiente",
       "SFP": "interactiveTable.resolutionStatus.sfp",
@@ -309,19 +475,24 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     const values = new Set<string>();
     tasks.forEach(task => {
       const val = task[columnKey];
-      let stringVal = (val === null || val === undefined) 
-                        ? t('interactiveTable.notAvailable') 
+      let stringVal = (val === null || val === undefined)
+                        ? t('interactiveTable.notAvailable')
                         : String(val);
-      
+
       if (columnKey === 'resolvedAt' && val) {
         try {
-            stringVal = new Date(val as string).toLocaleDateString();
+             // Handle potential Firestore Timestamp objects
+            if (typeof val === 'object' && val !== null && 'seconds' in val) {
+                 stringVal = new Date((val as any).seconds * 1000).toLocaleDateString();
+            } else {
+                 stringVal = new Date(val as string).toLocaleDateString();
+            }
         } catch {
             // keep original stringVal if date parsing fails
         }
       }
 
-      if (stringVal.trim() !== "" || stringVal === t('interactiveTable.notAvailable')) { 
+      if (stringVal.trim() !== "" || stringVal === t('interactiveTable.notAvailable')) {
         values.add(stringVal);
       }
     });
@@ -334,7 +505,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
         return a.localeCompare(b, undefined, { sensitivity: 'base' });
     });
   };
-  
+
   const uniqueTaskReferences = useMemo(() => getUniqueValuesForColumn('taskReference'), [tasks, t]);
   const uniqueAssignees = useMemo(() => getUniqueValuesForColumn('assignee'), [tasks, t]);
   const uniqueCustomerAccounts = useMemo(() => getUniqueValuesForColumn('customerAccount'), [tasks, t]);
@@ -355,7 +526,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   }, [tasks, t]);
   const uniqueTransportModes = useMemo(() => getUniqueValuesForColumn('transportMode'), [tasks, t]);
   const uniqueResolutionAdmins = useMemo(() => getUniqueValuesForColumn('resolutionAdmin'), [tasks, t]);
-  const uniqueResolutionTimeDays = useMemo(() => getUniqueValuesForColumn('resolutionTimeDays'), [tasks, t]); 
+  const uniqueResolutionTimeDays = useMemo(() => getUniqueValuesForColumn('resolutionTimeDays'), [tasks, t]);
   const uniqueResolvedAtDates = useMemo(() => getUniqueValuesForColumn('resolvedAt'), [tasks, t]);
 
 
@@ -371,15 +542,19 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
         taskValueString = t('interactiveTable.notAvailable');
       } else if (columnKey === 'resolvedAt' && taskValue) {
          try {
-            taskValueString = new Date(taskValue as string).toLocaleDateString();
+             if (typeof taskValue === 'object' && taskValue !== null && 'seconds' in taskValue) {
+                 taskValueString = new Date((taskValue as any).seconds * 1000).toLocaleDateString();
+             } else {
+                taskValueString = new Date(taskValue as string).toLocaleDateString();
+             }
         } catch {
             taskValueString = String(taskValue);
         }
       } else {
         taskValueString = String(taskValue);
       }
-      
-      if (columnKey === 'comments') { 
+
+      if (columnKey === 'comments') {
         return taskValueString.toLowerCase().includes(String(filterValue).toLowerCase());
       }
       return taskValueString === filterValue;
@@ -387,18 +562,27 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
   }), [tasks, filters, t]);
 
   const calculateAccumulatedBusinessDaysForTask = (task: Task): number | null => {
-      if (task.createdAt && (!task.resolutionStatus || task.resolutionStatus === 'Pendiente')) {
+      // Use resolvedAt if the task is resolved, otherwise use the current date
+      const endDate = (task.resolutionStatus && PROTECTED_RESOLUTION_STATUSES.includes(task.resolutionStatus) && task.resolvedAt)
+         ? (typeof task.resolvedAt === 'object' && task.resolvedAt !== null && 'seconds' in task.resolvedAt ? new Date((task.resolvedAt as any).seconds * 1000) : new Date(task.resolvedAt as string))
+         : new Date();
+
+
+      if (task.createdAt) {
           try {
-            const startDate = new Date(task.createdAt);
-            const endDate = new Date(); 
+            const startDate = typeof task.createdAt === 'object' && task.createdAt !== null && 'seconds' in task.createdAt ? new Date((task.createdAt as any).seconds * 1000) : new Date(task.createdAt as string);
+
             if (isNaN(startDate.getTime())) return task.delayDays ?? null; // Invalid createdAt
+            // Calculate business days until resolved date (if resolved) or until today (if pending)
+             if (endDate < startDate) return 0; // Handle cases where resolvedAt is before createdAt
             return calculateBusinessDays(startDate, endDate);
           } catch (e) {
             console.error("Error calculating business days for task:", task.id, e);
             return null;
           }
       }
-      return task.delayDays ?? null; 
+       // If createdAt is missing, use the existing delayDays if available
+      return task.delayDays ?? null;
   };
 
 
@@ -418,50 +602,54 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
       sortableItems.sort((a, b) => {
         if (!sortConfig.key) return 0;
         const key = sortConfig.key;
-        
+
         let valA, valB;
 
         if (key === 'accumulatedBusinessDays') {
             valA = calculateAccumulatedBusinessDaysForTask(a);
             valB = calculateAccumulatedBusinessDaysForTask(b);
         } else if (key === 'createdAt' || key === 'resolvedAt') {
-            valA = a[key] ? new Date(a[key] as string).getTime() : null;
-            valB = b[key] ? new Date(b[key] as string).getTime() : null;
+            // Handle Firestore Timestamp objects for sorting dates
+            const dateA = a[key];
+            const dateB = b[key];
+             valA = dateA ? (typeof dateA === 'object' && dateA !== null && 'seconds' in dateA ? (dateA as any).seconds * 1000 : new Date(dateA as string).getTime()) : null;
+            valB = dateB ? (typeof dateB === 'object' && dateB !== null && 'seconds' in dateB ? (dateB as any).seconds * 1000 : new Date(dateB as string).getTime()) : null;
+
             if (valA && isNaN(valA)) valA = null;
             if (valB && isNaN(valB)) valB = null;
         } else {
             valA = a[key as keyof Task];
             valB = b[key as keyof Task];
         }
-        
+
 
         if ((valA === null || typeof valA === 'undefined') && (valB !== null && typeof valB !== 'undefined')) return sortConfig.direction === 'ascending' ? 1 : -1;
         if ((valB === null || typeof valB === 'undefined') && (valA !== null && typeof valA !== 'undefined')) return sortConfig.direction === 'ascending' ? -1 : 1;
         if ((valA === null || typeof valA === 'undefined') && (valB === null || typeof valB === 'undefined')) return 0;
-  
+
         let comparison = 0;
         if (typeof valA === 'number' && typeof valB === 'number') {
           comparison = valA - valB;
         } else {
           comparison = String(valA).toLowerCase().localeCompare(String(valB).toLowerCase());
         }
-  
+
         return sortConfig.direction === 'ascending' ? comparison : -comparison;
       });
     }
     return sortableItems;
-  }, [filteredTasks, sortConfig]);
-  
+  }, [filteredTasks, sortConfig, calculateAccumulatedBusinessDaysForTask]);
+
   const allOptionLabel = t('interactiveTable.filterAllOption');
   const filterActionPlaceholder = t('interactiveTable.filterActionPlaceholder');
 
   const renderSortIcon = (columnKey: keyof Task | 'accumulatedBusinessDays') => {
     if (sortConfig.key === columnKey) {
-      return sortConfig.direction === 'ascending' 
-        ? <ArrowUp className="ml-1 h-3 w-3 text-muted-foreground" /> 
+      return sortConfig.direction === 'ascending'
+        ? <ArrowUp className="ml-1 h-3 w-3 text-muted-foreground" />
         : <ArrowDown className="ml-1 h-3 w-3 text-muted-foreground" />;
     }
-    return <span className="ml-1 h-3 w-3"></span>; 
+    return <span className="ml-1 h-3 w-3"></span>;
   };
 
   const renderFilterPopover = (columnKey: keyof Task, columnLabelKey: string, uniqueValues: string[], isNumeric: boolean = false) => {
@@ -495,6 +683,22 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
     );
   };
 
+  if (loading) {
+    return (
+      <div className="space-y-4 w-full text-center py-10">
+        <p>{t('interactiveTable.loadingData')}</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-4 w-full text-center py-10 text-red-500">
+        <p>{error}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4 w-full">
       <div className="flex justify-between items-center flex-wrap gap-x-4 gap-y-2">
@@ -502,8 +706,7 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
         <div className="flex gap-2 flex-shrink-0">
           <Button onClick={handleValidateData} disabled={isPending} variant="default">
             <ScanSearch className="mr-2 h-4 w-4" />
-            {isPending ? t('interactiveTable.validating') : t('interactiveTable.validateWithAI')}
-          </Button>
+            {isPending ? t('interactiveTable.validating') : t('interactiveTable.validateWithAI')}\n          </Button>
         </div>
       </div>
 
@@ -540,266 +743,4 @@ export function InteractiveTableClient({ initialData }: InteractiveTableClientPr
                           <Select value={filters.status || ALL_FILTER_VALUE} onValueChange={(value) => handleFilterChange('status', value as TaskStatus)}>
                             <SelectTrigger className="h-8"><SelectValue placeholder={filterActionPlaceholder} /></SelectTrigger>
                             <SelectContent>
-                              <SelectItem value={ALL_FILTER_VALUE}>{t('interactiveTable.allStatuses')}</SelectItem>
-                              {statusOptions.map(opt => (<SelectItem key={opt} value={opt}>{getStatusDisplay(opt)}</SelectItem>))}
-                            </SelectContent>
-                          </Select>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  </TableHead>
-                  
-                  <TableHead className="group">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1 cursor-pointer flex-grow py-3 pr-2" onClick={() => requestSort('assignee')}>
-                        {t('interactiveTable.tableHeaders.logisticDeveloper')}
-                        {renderSortIcon('assignee')}
-                      </div>
-                      {renderFilterPopover('assignee', 'interactiveTable.tableHeaders.logisticDeveloper', uniqueAssignees)}
-                    </div>
-                  </TableHead>
-                  
-                  <TableHead className="group">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1 cursor-pointer flex-grow py-3 pr-2" onClick={() => requestSort('accumulatedBusinessDays')}>
-                        {t('interactiveTable.tableHeaders.accumulatedBusinessDays')}
-                        {renderSortIcon('accumulatedBusinessDays')}
-                      </div>
-                    </div>
-                  </TableHead>
-
-                  <TableHead className="group">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1 cursor-pointer flex-grow py-3 pr-2" onClick={() => requestSort('customerAccount')}>
-                        {t('interactiveTable.tableHeaders.customerAccount')}
-                        {renderSortIcon('customerAccount')}
-                      </div>
-                      {renderFilterPopover('customerAccount', 'interactiveTable.tableHeaders.customerAccount', uniqueCustomerAccounts)}
-                    </div>
-                  </TableHead>
-
-                  <TableHead className="group text-right">
-                     <div className="flex items-center justify-between">
-                       <div className="flex items-center justify-end gap-1 cursor-pointer flex-grow py-3 pr-2" onClick={() => requestSort('netAmount')}>
-                        {t('interactiveTable.tableHeaders.amount')}
-                        {renderSortIcon('netAmount')}
-                      </div>
-                      {renderFilterPopover('netAmount', 'interactiveTable.tableHeaders.amount', uniqueNetAmounts, true)}
-                    </div>
-                  </TableHead>
-
-                  <TableHead className="group">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1 cursor-pointer flex-grow py-3 pr-2" onClick={() => requestSort('transportMode')}>
-                        {t('interactiveTable.tableHeaders.transportMode')}
-                        {renderSortIcon('transportMode')}
-                      </div>
-                      {renderFilterPopover('transportMode', 'interactiveTable.tableHeaders.transportMode', uniqueTransportModes)}
-                    </div>
-                  </TableHead>
-
-                  <TableHead className="group">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1 cursor-pointer flex-grow py-3 pr-2" onClick={() => requestSort('comments')}>
-                        {t('interactiveTable.tableHeaders.comments')}
-                        {renderSortIcon('comments')}
-                      </div>
-                       <Popover>
-                        <PopoverTrigger asChild>
-                           <Button variant="ghost" size="icon" className="h-7 w-7 opacity-60 hover:opacity-100 data-[state=open]:opacity-100 data-[state=open]:bg-accent">
-                            <FilterIcon className="h-4 w-4" />
-                            <span className="sr-only">{t('interactiveTable.filterBy', {columnName: t('interactiveTable.tableHeaders.comments')})}</span>
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-72 p-2" align="start">
-                          <Input
-                            placeholder={t('interactiveTable.filterBy', { columnName: t('interactiveTable.tableHeaders.comments') })}
-                            value={String(filters.comments || '')}
-                            onChange={(e) => handleFilterChange('comments', e.target.value)}
-                            className="h-8"
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  </TableHead>
-
-                  <TableHead className="group">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1 cursor-pointer flex-grow py-3 pr-2" onClick={() => requestSort('resolutionAdmin')}>
-                        {t('interactiveTable.tableHeaders.admin')}
-                        {renderSortIcon('resolutionAdmin')}
-                      </div>
-                      {renderFilterPopover('resolutionAdmin', 'interactiveTable.tableHeaders.admin', uniqueResolutionAdmins)}
-                    </div>
-                  </TableHead>
-
-                  <TableHead className="group text-right">
-                     <div className="flex items-center justify-between">
-                       <div className="flex items-center justify-end gap-1 cursor-pointer flex-grow py-3 pr-2" onClick={() => requestSort('resolutionTimeDays')}>
-                         {t('interactiveTable.tableHeaders.resolutionTimeDays')}
-                         {renderSortIcon('resolutionTimeDays')}
-                      </div>
-                      {renderFilterPopover('resolutionTimeDays', 'interactiveTable.tableHeaders.resolutionTimeDays', uniqueResolutionTimeDays, true)}
-                    </div>
-                  </TableHead>
-                  
-                  <TableHead className="group">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1 cursor-pointer flex-grow py-3 pr-2" onClick={() => requestSort('resolvedAt')}>
-                        {t('interactiveTable.tableHeaders.resolvedAt')}
-                        {renderSortIcon('resolvedAt')}
-                      </div>
-                      {renderFilterPopover('resolvedAt', 'interactiveTable.tableHeaders.resolvedAt', uniqueResolvedAtDates)}
-                    </div>
-                  </TableHead>
-
-                  <TableHead className="group text-center w-[100px]">
-                    <div className="flex items-center justify-center py-3 px-1">
-                       {t('interactiveTable.tableHeaders.history')}
-                    </div>
-                  </TableHead>
-
-                  <TableHead className="group text-left"> 
-                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1 cursor-pointer flex-grow py-3 pr-2" onClick={() => requestSort('resolutionStatus')}>
-                        {t('interactiveTable.tableHeaders.actions')} 
-                        {renderSortIcon('resolutionStatus')}
-                      </div>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                           <Button variant="ghost" size="icon" className="h-7 w-7 opacity-60 hover:opacity-100 data-[state=open]:opacity-100 data-[state=open]:bg-accent">
-                            <FilterIcon className="h-4 w-4" />
-                             <span className="sr-only">{t('interactiveTable.filterBy', {columnName: t('interactiveTable.tableHeaders.actions')})}</span>
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-60 p-2" align="start">
-                          <Select 
-                            value={filters.resolutionStatus || ALL_FILTER_VALUE} 
-                            onValueChange={(value) => handleFilterChange('resolutionStatus', value as TaskResolutionStatus)}
-                          >
-                            <SelectTrigger className="h-8"><SelectValue placeholder={filterActionPlaceholder} /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value={ALL_FILTER_VALUE}>{t('interactiveTable.allStatuses')}</SelectItem>
-                              {resolutionStatusOptions.map(opt => (<SelectItem key={opt} value={opt}>{getResolutionStatusDisplay(opt)}</SelectItem>))}
-                            </SelectContent>
-                          </Select>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sortedTasks.map((task) => {
-                  const taskId = task.id || task.taskReference || `task-${Math.random().toString(36).substring(2, 9)}`;
-                  const accumulatedDays = calculateAccumulatedBusinessDaysForTask(task);
-                  return (
-                    <TableRow key={taskId}>
-                      <TableCell>{task.taskReference || t('interactiveTable.notAvailable')}</TableCell>
-                      <TableCell>
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          task.status === "Pending to Invoice Out of Time" ? "bg-orange-100 text-orange-700 dark:bg-orange-700/20 dark:text-orange-300" :
-                          task.status === "Missing POD" ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-700/20 dark:text-yellow-300" :
-                          task.status === "Missing Estimated Dates" ? "bg-purple-100 text-purple-700 dark:bg-purple-700/20 dark:text-purple-300" :
-                          "bg-gray-100 text-gray-700 dark:bg-gray-700/20 dark:text-gray-300"
-                        }`}>
-                          {getStatusDisplay(task.status)}
-                        </span>
-                      </TableCell>
-                      <TableCell>{task.assignee || t('interactiveTable.notAvailable')}</TableCell>
-                      <TableCell>{accumulatedDays === null ? t('interactiveTable.notAvailable') : String(accumulatedDays)}</TableCell>
-                      
-                      <TableCell>{task.customerAccount || t('interactiveTable.notAvailable')}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(task.netAmount)}</TableCell>
-                      <TableCell>{task.transportMode || t('interactiveTable.notAvailable')}</TableCell>
-                      
-                      <TableCell onClick={() => editingCellKey !== `${taskId}-comments` && startEdit(task, 'comments')} className="max-w-xs truncate cursor-pointer hover:bg-muted/50">
-                        {editingCellKey === `${taskId}-comments` ? (
-                          <Textarea
-                            value={currentEditText}
-                            onChange={handleInlineTextChange}
-                            onBlur={() => saveInlineEdit(taskId, 'comments')}
-                            onKeyDown={(e) => handleKeyDown(e, taskId, 'comments')}
-                            autoFocus
-                            className="w-full text-sm min-h-[60px]"
-                          />
-                        ) : (
-                          task.comments || <span className="text-muted-foreground italic">{t('interactiveTable.notAvailable')}</span>
-                        )}
-                      </TableCell>
-
-                      <TableCell onClick={() => editingCellKey !== `${taskId}-resolutionAdmin` && startEdit(task, 'resolutionAdmin')} className="cursor-pointer hover:bg-muted/50">
-                        {editingCellKey === `${taskId}-resolutionAdmin` ? (
-                          <Input
-                            type="text"
-                            value={currentEditText}
-                            onChange={handleInlineTextChange}
-                            onBlur={() => saveInlineEdit(taskId, 'resolutionAdmin')}
-                            onKeyDown={(e) => handleKeyDown(e, taskId, 'resolutionAdmin')}
-                            autoFocus
-                            className="w-full text-sm"
-                          />
-                        ) : (
-                          task.resolutionAdmin || <span className="text-muted-foreground italic">{t('interactiveTable.notAvailable')}</span>
-                        )}
-                      </TableCell>
-                      
-                      <TableCell className="text-right">{task.resolutionTimeDays === null || task.resolutionTimeDays === undefined ? t('interactiveTable.notAvailable') : String(task.resolutionTimeDays)}</TableCell>
-                      <TableCell>
-                        {task.resolvedAt ? new Date(task.resolvedAt).toLocaleDateString() : (task.resolutionStatus && PROTECTED_RESOLUTION_STATUSES.includes(task.resolutionStatus) ? t('interactiveTable.notAvailable') : '')}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <TaskHistoryDialog history={task.history} taskReference={task.taskReference} />
-                      </TableCell>
-
-                      <TableCell
-                        onClick={() => { if (editingCellKey !== `${taskId}-resolutionStatus`) { startEdit(task, 'resolutionStatus'); } }}
-                        className="text-left cursor-pointer hover:bg-muted/50"
-                      >
-                        {editingCellKey === `${taskId}-resolutionStatus` ? (
-                          <Select
-                            value={currentEditSelectValue as TaskResolutionStatus || resolutionStatusOptions[0]}
-                            onValueChange={(value) => handleInlineSelectChange(taskId, 'resolutionStatus', value as TaskResolutionStatus)}
-                            open={isSelectDropdownOpen}
-                            onOpenChange={(openState) => {
-                              setIsSelectDropdownOpen(openState);
-                              if (!openState && editingCellKey === `${taskId}-resolutionStatus`) { 
-                                setEditingCellKey(null); 
-                              }
-                            }}
-                          >
-                            <SelectTrigger className="w-full text-sm h-8" autoFocus>
-                              <SelectValue placeholder={t('interactiveTable.selectStatus')} />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {resolutionStatusOptions.map(opt => (
-                                <SelectItem key={opt} value={opt}>{getResolutionStatusDisplay(opt)}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                            task.resolutionStatus && PROTECTED_RESOLUTION_STATUSES.includes(task.resolutionStatus as TaskResolutionStatus) 
-                              ? "bg-green-100 text-green-700 dark:bg-green-700/20 dark:text-green-300" 
-                              : task.resolutionStatus === "SFP" ? "bg-blue-100 text-blue-700 dark:bg-blue-700/20 dark:text-blue-300" 
-                              : "bg-gray-100 text-gray-700 dark:bg-gray-700/20 dark:text-gray-300"
-                          }`}>
-                            {getResolutionStatusDisplay(task.resolutionStatus)}
-                          </span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
-
-      {validationResult && (
-        <DataValidationReport result={validationResult} />
-      )}
-    </div>
-  );
-}
+                              <SelectItem value={ALL_FILTER_VALUE}>{t('interactiveTable.allStatuses')}</

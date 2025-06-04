@@ -7,14 +7,8 @@ import {
   ChartTooltipContent,
   ChartLegendContent,
 } from "@/components/ui/chart";
-import { useLanguage } from "@/context/language-context";
-import { useMemo } from "react";
-
-export interface AdminResolutionTimeDataPoint {
-  adminName: string;
-  averageDays: number | null; // Can be null if admin has no resolved tasks
-}
-
+import { useLanguage } from '@/context/language-context';
+import { useMemo } from 'react';
 interface AverageResolutionTimeChartProps {
   data: AdminResolutionTimeDataPoint[];
   teamAverageDays: number | null;
@@ -31,7 +25,7 @@ const ADMIN_COLORS = [
   "hsl(var(--chart-3) / 0.7)",
 ];
 
-const DataLabel = ({ x, y, value, unitSuffixKey }: { x?: number; y?: number; value?: number | null; unitSuffixKey?: string }) => {
+const DataLabel = ({ x, y, value, unitSuffixKey }: { x?: number; y?: number; value?: number | null; unitSuffixKey?: string; }) => {
   const { t } = useLanguage();
   if (x === undefined || y === undefined || value === undefined || value === null) return null;
   const unit = unitSuffixKey ? ` ${t(unitSuffixKey as any)}` : "";
@@ -46,16 +40,16 @@ export function AverageResolutionTimeChart({ data, teamAverageDays }: AverageRes
   const { t } = useLanguage();
 
   const chartConfig = useMemo(() => {
-    const config: any = {
+    const config: any = { // TODO: Define a proper type for chartConfig
       averageDays: { // General key for bars
         label: t('dashboard.averageResolutionTimeChart.yAxisLabel'),
       },
       teamAverage: {
         label: t('dashboard.averageResolutionTimeChart.teamAverageLabel'),
-        color: "hsl(var(--foreground))", // Solid distinct color for team average line
+ color: 'hsl(var(--foreground))', // Solid distinct color for team average line
       },
     };
-     data.forEach((item, index) => {
+    data.forEach((item, index) => {
         if (item.adminName) {
             config[item.adminName] = {
                 label: item.adminName,
@@ -67,14 +61,13 @@ export function AverageResolutionTimeChart({ data, teamAverageDays }: AverageRes
   }, [t, data]);
 
   const validData = data.filter(d => d.averageDays !== null);
-  if (validData.length === 0) {
-    // This condition is if NO admin has resolved tasks.
-    // If some admins have data and others don't, those without data just won't have a bar.
+ if (validData.length === 0 && teamAverageDays === null) {
+ // Only show "no resolved tasks" if there's truly no data at all.
     return <p className="text-center text-muted-foreground py-10">{t('dashboard.averageResolutionTimeChart.noResolvedTasks')}</p>;
   }
 
 
-  const chartMargin = { top: 20, right: 30, left: 20, bottom: 50 }; // Increased bottom for legend
+  const chartMargin = { top: 20, right: 30, left: 20, bottom: 50 }; // Increased bottom for legend space
 
   return (
     <ChartContainer config={chartConfig} className="min-h-[350px] w-full">
@@ -93,7 +86,7 @@ export function AverageResolutionTimeChart({ data, teamAverageDays }: AverageRes
           />
           <YAxis
             stroke="hsl(var(--muted-foreground))"
-            fontSize={12}
+ fontSize={10}
             tickLine={false}
             axisLine={false}
             label={{ value: t('dashboard.averageResolutionTimeChart.yAxisLabel'), angle: -90, position: 'insideLeft', offset: -10, style: { textAnchor: 'middle', fontSize: '12px', fill: 'hsl(var(--muted-foreground))' } }}
@@ -123,8 +116,8 @@ export function AverageResolutionTimeChart({ data, teamAverageDays }: AverageRes
           />
           
           <Bar dataKey="averageDays" nameKey="adminName" radius={[4, 4, 0, 0]}>
-             {data.map((entry, index) => (
-                 // Each Bar needs a unique fill, name is for legend
+ {data.map((entry, index) => (
+ // Each Bar needs a unique fill, name is for legend
                 <Bar key={entry.adminName} dataKey="averageDays" fill={ADMIN_COLORS[index % ADMIN_COLORS.length]} name={entry.adminName} />
             ))}
             <LabelList dataKey="averageDays" content={<DataLabel unitSuffixKey="dashboard.averageResolutionTimeChart.avgDaysSuffix" />} />
