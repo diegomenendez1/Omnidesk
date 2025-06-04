@@ -31,7 +31,7 @@ export async function performDataValidation(input: ValidateDataConsistencyInput)
 }
 
 export async function updateTask(taskId: string, updatedData: Partial<any>) { // Replace 'any' with your Task interface
-  const user = await auth().currentUser;
+  const user = auth.currentUser;
   const userId = user ? user.uid : 'anonymous'; // Get user ID
 
   // Fetch the current task data to compare for logging
