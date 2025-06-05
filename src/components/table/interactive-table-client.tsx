@@ -3,7 +3,7 @@
 
 
 import { useState, useTransition, type ChangeEvent, type KeyboardEvent, useEffect, useMemo, useCallback, useRef } from 'react';
-import { collection, query, onSnapshot, doc, updateDoc, deleteDoc, addDoc, FieldValue, serverTimestamp } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, updateDoc, deleteDoc, addDoc, FieldValue, serverTimestamp } from '@/lib/firebase';
 import type { Task, TaskStatus, TaskResolutionStatus, TaskHistoryEntry, TaskHistoryChangeDetail } from '@/types';
 import { PROTECTED_RESOLUTION_STATUSES, TaskSchema } from '@/types';
 import { performDataValidation } from '@/app/table/actions'; // Assuming this action remains for AI validation
