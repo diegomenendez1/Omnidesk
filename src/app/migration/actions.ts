@@ -1,8 +1,7 @@
 'use server';
 
 import type { Task } from '@/types';
-import { db } from '@/lib/firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { db, collection, addDoc } from '@/lib/firebase';
 
 export async function migrateLocalTasksToFirestore(
   tasksToMigrate: Task[],

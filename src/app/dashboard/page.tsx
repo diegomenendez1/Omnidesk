@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from 'react';
-import { collection, onSnapshot, query } from 'firebase/firestore';
+import { collection, onSnapshot, query } from '@/lib/firebase';
 import { MetricCard } from '@/components/dashboard/metric-card';
 import { SampleStatsChart } from '@/components/dashboard/sample-stats-chart';
 import { Users, Activity, CheckCircle2, Briefcase, ListChecks, TrendingUp, Clock3 } from 'lucide-react';

@@ -1,9 +1,8 @@
 
 'use server';
 
-import { db } from '@/lib/firebase';
-import type { Task, TaskHistoryEntry, TaskHistoryChangeDetail } from '@/types';
 import {
+  db,
   collection,
   doc,
   addDoc,
@@ -18,7 +17,8 @@ import {
   Timestamp,
   where,
   WriteBatch,
-} from 'firebase/firestore';
+} from '@/lib/firebase';
+import type { Task, TaskHistoryEntry, TaskHistoryChangeDetail } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 
 /**

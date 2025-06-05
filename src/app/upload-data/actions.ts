@@ -2,10 +2,8 @@
 'use server';
 
 import { suggestCsvMappings } from '@/ai/flows/suggest-csv-mapping-flow';
-import { db } from '@/lib/firebase';
-import { logTaskHistory } from '@/lib/firestore';
-import type { Task } from '@/types/task';
 import {
+  db,
   collection,
   doc,
   getDoc,
@@ -14,7 +12,9 @@ import {
   where,
   limit,
   getDocs,
-} from 'firebase/firestore';
+} from '@/lib/firebase';
+import { logTaskHistory } from '@/lib/firestore';
+import type { Task } from '@/types/task';
 import { getCurrentUser } from '@/lib/auth';
 import type { SuggestCsvMappingInput, SuggestCsvMappingOutput, SystemColumnDefinition } from '@/ai/flows/suggest-csv-mapping-flow';
 
