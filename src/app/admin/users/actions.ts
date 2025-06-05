@@ -1,9 +1,8 @@
 
 'use server';
 
-import { db } from '@/lib/firebase';
-import type { User } from '@/types';
 import {
+  db,
   collection,
   doc,
   addDoc,
@@ -14,7 +13,8 @@ import {
   serverTimestamp,
   query,
   orderBy,
-} from 'firebase/firestore';
+} from '@/lib/firebase';
+import type { User } from '@/types';
 
 // Acción para obtener los datos de un usuario específico de Firestore
 export async function getUserDataAction(uid: string): Promise<User | null> {

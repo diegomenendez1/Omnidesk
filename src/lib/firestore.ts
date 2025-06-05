@@ -1,5 +1,5 @@
 import { db } from './firebase';
-import { collection, doc, addDoc, serverTimestamp, FieldValue } from 'firebase/firestore';
+import { collection, doc, addDoc, serverTimestamp, type FieldValue } from './firebase';
 
 export const logTaskHistory = async (
   taskId: string,
@@ -7,7 +7,7 @@ export const logTaskHistory = async (
   action: string,
   field?: string,
   oldValue?: any,
-  newValue?: any
+  newValue?: any,
 ): Promise<void> => {
   try {
     const historyCollectionRef = collection(doc(db, 'tasks', taskId), 'history');
@@ -35,14 +35,11 @@ export const logTaskHistory = async (
       historyEntry.newValue = newValue;
     }
 
-
     await addDoc(historyCollectionRef, historyEntry);
 
     console.log(`History logged for task ${taskId}: Action - ${action}`);
   } catch (error) {
     console.error('Error logging task history:', error);
-    // Depending on your application's needs, you might want to throw the error
-    // or handle it differently.
     throw error;
   }
 };
