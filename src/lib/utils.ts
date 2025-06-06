@@ -112,19 +112,41 @@ export function getEndOfISOWeek(year: number, week: number): Date {
 }
 
 export function parseWeekIdentifier(weekIdentifier: string): { year: number; week: number; startOfWeek: Date; endOfWeek: Date } {
-  const [yearStr, weekStr] = weekIdentifier.split('-W');
-  const year = parseInt(yearStr, 10);
-  const week = parseInt(weekStr, 10);
+  const [year, week] = weekIdentifier.split('-W').map(Number);
+  const startOfWeek = getStartOfISOWeek(year, week);
+  const endOfWeek = getEndOfISOWeek(year, week);
   
-  // For robust conversion from ISO year and week to Date, date-fns is better.
-  // Here's an approach using startOfISOWeek after setting the week.
-  let date = new Date(year, 0, 4); // Jan 4th is always in week 1 of its ISO year
-  date = startOfISOWeek(date); // Go to start of week 1 of 'year'
-  date.setDate(date.getDate() + (week - 1) * 7); // Add weeks
-  
-  const startOfWeek = startOfISOWeek(date);
-  const endOfWeek = endOfISOWeek(startOfWeek);
+  return {
+    year,
+    week,
+    startOfWeek,
+    endOfWeek
+  };
+}
 
-  return { year, week, startOfWeek, endOfWeek };
+/**
+ * Calculates task statistics for chart display
+ * @param tasks Array of tasks to analyze
+ * @param groupBy Field to group tasks by (default: 'status')
+ * @returns Array of chart data objects with name and value
+ */
+export function calculateTaskStats(
+  tasks: any[],
+  groupBy: string = 'status'
+): Array<{ name: string; value: number }> {
+  if (!tasks || tasks.length === 0) return [];
+
+  // Group tasks by the specified field
+  const grouped = tasks.reduce((acc, task) => {
+    const key = task[groupBy] || 'Unknown';
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  // Convert to array of { name, value } objects
+  return Object.entries(grouped).map(([name, value]) => ({
+    name,
+    value: value as number
+  }));
 }
 
