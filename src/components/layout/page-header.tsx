@@ -21,7 +21,7 @@ import { useState, useEffect } from 'react';
 import { useLanguage } from '@/context/language-context';
 import type { Locale } from '@/lib/translations';
 import { useTheme } from '@/context/theme-context';
-import { useAuth } from "@/context/auth-context"; // Import useAuth
+import { useAuth } from "@/context/AuthContext"; // Import useAuth
 
 function getPageTitleKey(pathname: string | null): string {
   if (!pathname) return "pageHeader.appName";

@@ -20,7 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/context/language-context';
 import type { Task } from '@/types';
 import { migrateTasksToFirestoreAction } from '@/app/migration/actions';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/context/AuthContext';
 
 export function MigrationControls() {
   const [localTasks, setLocalTasks] = useState<Task[]>([]);

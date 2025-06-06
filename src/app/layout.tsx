@@ -8,7 +8,7 @@ import { MainContentArea } from '@/components/layout/main-content-area';
 import { Toaster } from "@/components/ui/toaster";
 import { LanguageProvider } from '@/context/language-context';
 import { ThemeProvider } from '@/context/theme-context';
-import { AuthProvider, useAuth } from '@/context/auth-context';
+import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { usePathname, useRouter } from 'next/navigation'; 
 import { useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
