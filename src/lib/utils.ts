@@ -41,18 +41,30 @@ export function isBusinessDay(date: Date): boolean {
  * @returns The number of business days.
  */
 export function calculateBusinessDays(startDate: Date, endDate: Date): number {
-  let count = 0;
-  const currentDate = new Date(startDate.valueOf());
-
   if (endDate < startDate) return 0;
 
-  while (currentDate <= endDate) {
-    if (isBusinessDay(currentDate)) {
-      count++;
+  // Normalize times to midnight to avoid timezone issues
+  const start = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+  const end = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+
+  // Total days including start and end
+  const totalDays = Math.floor((end.getTime() - start.getTime()) / 86400000) + 1;
+
+  // Full weeks contribute 5 business days each
+  const fullWeeks = Math.floor(totalDays / 7);
+  let businessDays = fullWeeks * 5;
+
+  // Handle remaining days after full weeks
+  const remainingDays = totalDays % 7;
+  let dayOfWeek = start.getDay();
+  for (let i = 0; i < remainingDays; i++) {
+    if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+      businessDays++;
     }
-    currentDate.setDate(currentDate.getDate() + 1);
+    dayOfWeek = (dayOfWeek + 1) % 7;
   }
-  return count;
+
+  return businessDays;
 }
 
 /**
