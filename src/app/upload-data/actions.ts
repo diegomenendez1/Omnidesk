@@ -15,7 +15,7 @@ import {
   limit,
   getDocs,
 } from 'firebase/firestore';
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser } from '../../lib/auth';
 import type { SuggestCsvMappingInput, SuggestCsvMappingOutput, SystemColumnDefinition } from '@/ai/flows/suggest-csv-mapping-flow';
 
 // Re-exporting types for client-side usage if needed
