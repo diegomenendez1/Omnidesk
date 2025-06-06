@@ -3,6 +3,8 @@ import { v4 as uuidv4 } from 'uuid';
 import type { User } from '../types';
 import { getUsers, saveUsers } from './local-db';
 
+let currentUser: User | null = null;
+
 function hashPassword(password: string): string {
   return crypto.createHash('sha256').update(password).digest('hex');
 }
@@ -32,7 +34,8 @@ export async function login(email: string, password: string): Promise<User | nul
   const user = users.find(u => u.email === email);
   if (user && user.passwordHash === hashPassword(password)) {
     const { passwordHash, ...rest } = user;
-    return rest as User;
+    currentUser = rest as User;
+    return currentUser;
   }
   return null;
 }
@@ -43,4 +46,8 @@ export async function getUserById(uid: string): Promise<User | null> {
   if (!user) return null;
   const { passwordHash, ...rest } = user;
   return rest as User;
+}
+
+export async function getCurrentUser(): Promise<User | null> {
+  return currentUser;
 }

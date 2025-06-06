@@ -301,7 +301,7 @@ export function InteractiveTableClient({ }: InteractiveTableClientProps) {
       })
         .catch(error => {
         console.error("Error updating document:", error);
-        toast({ title: t('interactiveTable.saveFailed'), description: t('interactiveTable.errorSavingChange'), variant: "destructive' });
+        toast({ title: t('interactiveTable.saveFailed'), description: t('interactiveTable.errorSavingChange'), variant: 'destructive' });
       })
         .finally(() => {
         setEditingCellKey(null);
