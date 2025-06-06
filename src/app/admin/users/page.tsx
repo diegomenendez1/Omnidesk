@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/context/language-context';
 import type { User } from '@/types';
 import { Button } from "@/components/ui/button";

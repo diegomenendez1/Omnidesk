@@ -27,7 +27,7 @@ import type { SuggestCsvMappingOutput, SystemColumn } from './actions';
 import { useRouter } from 'next/navigation';
 import { formatCurrency } from '@/lib/utils';
 import { useLanguage } from '@/context/language-context';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/context/AuthContext';
 import type { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 

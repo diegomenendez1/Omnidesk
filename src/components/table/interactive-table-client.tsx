@@ -42,8 +42,8 @@ interface InteractiveTableClientProps {
 }
 
 
-export function InteractiveTableClient({ }: InteractiveTableClientProps) {
-  const [tasks, setTasks] = useState<Task[]>([]);
+export function InteractiveTableClient({ initialData }: InteractiveTableClientProps) {
+  const [tasks, setTasks] = useState<Task[]>(initialData || []);
   const tasksRef = useRef<Task[]>([]);
   const [validationResult, setValidationResult] = useState<ValidateDataConsistencyOutput | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -301,7 +301,7 @@ export function InteractiveTableClient({ }: InteractiveTableClientProps) {
       })
         .catch(error => {
         console.error("Error updating document:", error);
-        toast({ title: t('interactiveTable.saveFailed'), description: t('interactiveTable.errorSavingChange'), variant: "destructive' });
+        toast({ title: t('interactiveTable.saveFailed'), description: t('interactiveTable.errorSavingChange'), variant: 'destructive' });
       })
         .finally(() => {
         setEditingCellKey(null);

@@ -58,14 +58,42 @@ export const TaskSchema = z.object({
 export type Task = z.infer<typeof TaskSchema>;
 
 
+// Type for dates that can be either Firestore Timestamp or ISO string
+type DateLike = string | Date | { toDate: () => Date } | { seconds: number; nanoseconds: number };
+
+// Convert DateLike to ISO string for consistent client-side usage
+const toISOString = (date: DateLike): string => {
+  if (!date) return new Date().toISOString();
+  if (typeof date === 'string') return date;
+  if (date instanceof Date) return date.toISOString();
+  if ('toDate' in date) return date.toDate().toISOString();
+  if ('seconds' in date) return new Date(date.seconds * 1000).toISOString();
+  return new Date().toISOString();
+};
+
+// Base User type
 export interface User {
   uid: string;
   email: string | null;
   name?: string | null;
   role?: 'owner' | 'admin' | 'user';
-  createdAt?: any; // Firestore Timestamp or Date string from server action
+  createdAt?: string; // Always stored as ISO string in the client
+  updatedAt?: string; // Always stored as ISO string in the client
   createdBy?: string;
 }
+
+// Helper function to convert Firestore data to User
+export const userFromFirestore = (data: any): User => {
+  return {
+    uid: data.uid,
+    email: data.email || null,
+    name: data.name || null,
+    role: data.role || 'user',
+    createdAt: toISOString(data.createdAt || new Date()),
+    updatedAt: toISOString(data.updatedAt || new Date()),
+    createdBy: data.createdBy || null,
+  };
+};
 
 export interface DataInconsistency {
   cell: string;

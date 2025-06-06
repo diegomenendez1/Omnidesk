@@ -9,7 +9,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Geist, Geist_Mono } from 'next/font/google';
 import { LanguageProvider } from '@/context/language-context';
 import { ThemeProvider } from '@/context/theme-context';
-import { AuthProvider, useAuth } from '@/context/auth-context';
+import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { usePathname, useRouter } from 'next/navigation'; 
 import { useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
