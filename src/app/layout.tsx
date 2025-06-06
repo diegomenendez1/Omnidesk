@@ -6,7 +6,6 @@ import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/app-sidebar';
 import { MainContentArea } from '@/components/layout/main-content-area';
 import { Toaster } from "@/components/ui/toaster";
-import { Geist, Geist_Mono } from 'next/font/google';
 import { LanguageProvider } from '@/context/language-context';
 import { ThemeProvider } from '@/context/theme-context';
 import { AuthProvider, useAuth } from '@/context/auth-context';
@@ -14,15 +13,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-});
 
 function AppContent({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth(); 
@@ -111,7 +101,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning className="h-full">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased h-full`}>
+      <body className="antialiased h-full">
         <AuthProvider>
           <ThemeProvider>
             <LanguageProvider>
