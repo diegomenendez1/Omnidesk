@@ -13,7 +13,7 @@ import {
   type User as FirebaseUser 
 } from 'firebase/auth';
 import type { TranslationKey } from '@/lib/translations'; 
-import { doc, getDoc, serverTimestamp, setDoc, collection, getDocs } from 'firebase/firestore';
+import { doc, getDoc, serverTimestamp, setDoc, collection, getDocs, Timestamp } from 'firebase/firestore';
 import type { User as AppUserType } from '@/types'; // Renamed to avoid conflict
 import { getUserDataAction } from '@/app/admin/users/actions'; // Import server action
 
@@ -101,12 +101,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             }
         }
         
+        // Función para convertir Timestamps de Firebase a objetos Date serializables
+        const convertTimestamps = (obj: any): any => {
+          if (obj === null || obj === undefined) return obj;
+          if (obj instanceof Timestamp) {
+            return obj.toDate().toISOString();
+          }
+          if (Array.isArray(obj)) {
+            return obj.map(convertTimestamps);
+          }
+          if (typeof obj === 'object') {
+            const result: any = {};
+            for (const key in obj) {
+              result[key] = convertTimestamps(obj[key]);
+            }
+            return result;
+          }
+          return obj;
+        };
+
         const appUser: AppUserType = {
           uid: firebaseUser.uid,
           email: firebaseUser.email,
           name: firestoreUserData.name || firebaseUser.displayName || firebaseUser.email, // Prioritize Firestore name
           role: roleToSet,
-          createdAt: firestoreUserData.createdAt,
+          ...(firestoreUserData.createdAt && { 
+            createdAt: convertTimestamps(firestoreUserData.createdAt) 
+          }),
           createdBy: firestoreUserData.createdBy,
         };
         console.log('AuthContext: User object set in context:', appUser);
